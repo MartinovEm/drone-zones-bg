@@ -1,0 +1,28 @@
+name: Update zones from uas.caa.bg
+on:
+  schedule:
+    - cron: "17 5 * * 1,2"   # Monday & Tuesday 05:17 UTC (Tuesday retries if Monday failed)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch latest CAA data and rebuild
+        run: python tools/build.py --fetch
+      - name: Commit if changed
+        run: |
+          git config user.name "zones-updater"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "no changes" || {
+            git commit -m "Update zones from uas.caa.bg ($(date -u +%F))"
+            git push
+          }

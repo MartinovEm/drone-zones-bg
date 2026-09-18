@@ -1,0 +1,6 @@
+# GitHub Actions workflow files carry shell scripts that run on Linux runners.
+# CRLF endings would append a stray carriage return to every command and break
+# them. Force LF for these files so it can never regress, whatever the local
+# checkout's core.autocrlf setting is.
+.github/workflows/*.yml  text eol=lf
+.github/workflows/*.yaml text eol=lf
