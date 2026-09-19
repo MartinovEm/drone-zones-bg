@@ -64,7 +64,7 @@ jobs:
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "relay /zones did not answer 200 (relay down or no cache)"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); assert d.get("type")=="FeatureCollection","not a FeatureCollection"; n=len(d.get("features",[])); print(n,"zones"); assert n>=100,"suspiciously few zones - feed may have broken"'
-          age=$(grep -i '^x-zones-age-ms:' "$hdr" | tr -dc '0-9-')
+          age=$(grep -i '^x-zones-age-ms:' "$hdr" | head -1 | sed -E 's/^[^:]*:[[:space:]]*//' | tr -dc '0-9-')
           echo "cache age (ms): ${age:-unknown}"
           { [ -n "$age" ] && [ "$age" -ge 0 ] 2>/dev/null; } || { echo "relay has no fresh copy"; exit 1; }
           [ "$age" -le 93600000 ] || { echo "relay's copy is stale (>26 h) - the upstream source may be down"; exit 1; }
