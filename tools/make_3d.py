@@ -527,7 +527,7 @@ function wxLoadZones(){
     (function apply(){ var s = map.getSource('zones');
       if (!s){ map.once('styledata', apply); return; }
       s.setData(Z); wxZoneCounts(); })();
-  }).catch(function(){});
+  }).catch(function(){ setTimeout(wxLoadZones, 20000); }); // core content: keep retrying (own-origin file) so a transient blip doesn't leave the map zone-less until F5
 }
 wxLoadZones();
 applyLang(LANG);

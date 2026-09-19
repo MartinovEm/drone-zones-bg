@@ -869,7 +869,7 @@ function wxLoadZones(){
     (function apply(){ var s = map.getSource('zones');
       if (!s){ map.once('styledata', apply); return; }
       s.setData(Z); wxZoneCounts(); })();
-  }).catch(function(){});
+  }).catch(function(){ setTimeout(wxLoadZones, 20000); }); // core content: keep retrying (own-origin file) so a transient blip doesn't leave the map zone-less until F5
 }
 wxLoadZones();
 applyLang(LANG);
@@ -1547,7 +1547,8 @@ window.wxCloudBuild = function(cb){
   ['msg_fes:clm', 'mtg_fd:ir105_hrfi&styles=mtg_fd_ir105_hrfi_grayscale'].forEach(function(q, i){
     var im = new Image(); im.crossOrigin = 'anonymous';
     im.onload = function(){ if (++done === 2) build(); };
-    im.src = base + q; imgs[i] = im; }); // on error nothing shows; the caller retries in 10 min
+    im.onerror = function(){ clearTimeout(window._cldRt); window._cldRt = setTimeout(function(){ if (cldOn && cldMode() === 'sat') cldSatShow(); }, 15000); }; // failed tile: retry in 15 s instead of waiting for the 10-min timer
+    im.src = base + q; imgs[i] = im; });
   function build(){
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
@@ -1609,6 +1610,19 @@ window.wxCloudBuild = function(cb){
 // models still miss small local showers (seen live 2026-09-08: real radar rain
 // over Thrace, all three models at 0.0) — hence the "model" caveat in the UI.
 window.wxFcState = {data: null, at: 0, hour: 0, on: false}; // hour 0 = now; slider goes forward
+// true while ANY forecast-grid consumer is on (rain-model, snow, or clouds in
+// model mode). The grid fetch's self-retry uses this so a failed fetch keeps
+// retrying for snow/clouds too - not only rain-model - and stops once every
+// grid layer is off. Each layer's own draw callback still guards on its state,
+// so a retry never draws a layer that was turned off meanwhile.
+function wxGridWanted(){
+  var S = window.wxFcState;
+  if (S && S.on) return true;              // rain (model mode)
+  if (window.wxSnowOn) return true;        // snow
+  var cb = document.getElementById('wxcld');
+  if (cb && cb.classList.contains('on') && S && S.hour > 0) return true; // clouds, slider ahead
+  return false;
+}
 window.wxFcFetch = function(cb){
   var S = window.wxFcState;
   if (S.data && Date.now() - S.at < 1800000){ cb(); return; } // model refresh: 30 min is plenty
@@ -1622,7 +1636,7 @@ window.wxFcFetch = function(cb){
     }catch(e){} // wxfcdata4: cache holds rain (v) + snow (s) + clouds (c); only reuse if all present
   }
   function retry(){ // self-retry with doubling delay (12 s .. 5 min) — the grid is heavy, be polite
-    clearTimeout(S.rt); S.rt = setTimeout(function(){ if (S.on) window.wxFcFetch(cb); }, S.rms || 12000);
+    clearTimeout(S.rt); S.rt = setTimeout(function(){ if (wxGridWanted()) window.wxFcFetch(cb); }, S.rms || 12000);
     S.rms = Math.min((S.rms || 12000) * 2, 300000); }
   // covers the WHOLE widest zoom-out (17-33.5 E / 35.5-49.5 N) so rain never cuts
   // inside the frame. Coarser step than wind (0.75°/0.7°) because this asks THREE
@@ -2350,7 +2364,7 @@ function rvLoad(){
     .then(function(d){ if (!rvOn) return;
       rvFrames = ((d.radar && d.radar.past) || []).slice(-7);
       if (rvFrames.length) whenReady(function(){ rvBuild(d.host); }); })
-    .catch(function(){}); }
+    .catch(function(){ if (rvOn){ clearTimeout(window._rvRt); window._rvRt = setTimeout(function(){ if (rvOn) rvLoad(); }, 15000); } }); } // failed list fetch: retry in 15 s (the 5-min refresh also covers it)
 function rvStart(){ if (rvOn) return; rvOn = true; rvLoad();
   rvTick = setInterval(function(){ if (rvIds.length){ rvIdx = (rvIdx + 1) % rvIds.length; rvShow(); } }, 800);
   rvRefresh = setInterval(rvLoad, 300000); }
@@ -2633,7 +2647,9 @@ function airEnsure(cb){
     if (!map.getSource('wxair')) map.addSource('wxair', {type:'geojson', data:gj, generateId:true,
       attribution:'Airspace &copy; <a href="https://www.openaip.net/" target="_blank" rel="noopener">openAIP</a> (CC BY-NC 4.0)'});
     cb();
-  }).catch(function(){ wxBtnIdle('cbAirC'); wxBtnIdle('cbAirS'); }); // relay/source down: draw nothing rather than something stale
+  }).catch(function(){ wxBtnIdle('cbAirC'); wxBtnIdle('cbAirS'); // relay/source down: draw nothing rather than something stale...
+    clearTimeout(window._airRt); window._airRt = setTimeout(function(){ // ...then re-attempt the FETCH (never draws stale); stops once toggled off
+      if (window.wxAirCOn) window.wxSetAirC(true); if (window.wxAirSOn) window.wxSetAirS(true); }, 15000); });
 }
 function airDropSourceMaybe(){ if (!map.getLayer('air-ctrl') && !map.getLayer('air-spec') && map.getSource('wxair')) map.removeSource('wxair'); } // each group's labels are removed with its outline
 // Each airspace group carries its OWN name labels, added/removed WITH its outline (no
@@ -2757,7 +2773,8 @@ function notEnsure(cb){
 }
 // while ON: refetch every 10 min so the picture (and its stamp) stays current
 function notRefresh(){
-  if (!window.wxNotamOn || !map.getSource('wxnotam')) return;
+  if (!window.wxNotamOn) return;
+  if (!map.getSource('wxnotam')){ window.wxSetNotam(true); return; } // failed first load left no source: re-attempt the add on this tick
   notFetch(function(gj, pts){
     if (map.getSource('wxnotam')) map.getSource('wxnotam').setData(gj);
     if (map.getSource('wxnotam-pts')) map.getSource('wxnotam-pts').setData(pts);
@@ -2868,7 +2885,8 @@ function windSize(){ if (!windCanvas) return; var el = map.getContainer(), dpr =
   windCanvas.style.width = el.clientWidth + 'px'; windCanvas.style.height = el.clientHeight + 'px';
   windCanvas._dpr = dpr; windCanvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); } // crisp + same size on Retina/phone
 window.wxSetWind = function(on){ windOn = on; window.wxWindState.on = on;
-  if (on){ wxBtnBusy('wxwind', '__never__'); // no map source (canvas) -> cleared in the fetch callback below / timeout
+  if (on){ var _wb = document.getElementById('wxwind'); if (_wb) _wb.classList.add('loading'); // honest cue: pulse until the grid lands (the fetch cb below clears it) or a 30 s safety cap
+    clearTimeout(window._windCue); window._windCue = setTimeout(function(){ wxBtnIdle('wxwind'); }, 30000);
     if (!windCanvas){ windCanvas = document.createElement('canvas'); windCanvas.className = 'wxwindcv';
       windCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:5'; // over the GL map; thin/soft so zones read through
       map.getContainer().appendChild(windCanvas); }
@@ -2878,8 +2896,14 @@ window.wxSetWind = function(on){ windOn = on; window.wxWindState.on = on;
     windMoveEnd = function(){ if (windEngine) windEngine.setMoving(false); }; // stopped: full flowing trails return
     map.on('movestart', windMove); map.on('zoomstart', windMove);
     map.on('moveend', windMoveEnd); map.on('zoomend', windMoveEnd);
-    window.wxWindFetch(function(){ if (!windOn) return; if (windEngine) windEngine.stop();
-      windEngine = window.wxWindEngine({canvas: windCanvas, project: windProject, unproject: windUnproject, bounds: windBounds, darkBg: windDark, afterDraw: (typeof windMask !== 'undefined' ? windMask : null)}); wxBtnIdle('wxwind'); });
+    // Start the particle loop NOW, independent of the network. The engine reads
+    // wxWindState live each frame, so it draws nothing until the grid lands and
+    // then fills in by itself. Gating creation on the fetch left the loop
+    // unstarted whenever the fetch was slow/failed/stale-path (pulse cleared on
+    // timeout, no particles) until an F5 read the cached grid synchronously.
+    if (windEngine) windEngine.stop();
+    windEngine = window.wxWindEngine({canvas: windCanvas, project: windProject, unproject: windUnproject, bounds: windBounds, darkBg: windDark, afterDraw: (typeof windMask !== 'undefined' ? windMask : null)});
+    window.wxWindFetch(function(){ if (windOn) wxBtnIdle('wxwind'); }); // grid in -> stop the pulse (engine already running)
   } else { wxBtnIdle('wxwind');
     if (windEngine){ windEngine.stop(); windEngine = null; }
     if (windResize){ map.off('resize', windResize); window.removeEventListener('resize', windResize); windResize = null; }
