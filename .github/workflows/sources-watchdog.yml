@@ -51,20 +51,24 @@ jobs:
             exit 1
           fi
 
-      - name: CAA zones WFS (the weekly zone-data source, uas.caa.bg)
+      - name: Zone data via relay (/zones -> CAA WFS, the weekly zone source)
         if: ${{ !cancelled() }}
         run: |
-          # The CAA migrated to uas.caa.bg (2026). The weekly auto-update GETs this anonymous
-          # GeoServer WFS layer. Alarm if unreachable / not 200 / not a FeatureCollection with
-          # a sane number of zones (the set is ~879; a near-empty answer means the feed broke).
-          # Same headers tools/build.py sends, so the watchdog mirrors the real fetch path.
-          ua="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-          url="https://uas.caa.bg/geoserver/caa-uas/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=caa-uas:VGeoCAAZonesPublic&outputFormat=application/json&srsName=EPSG:4326"
-          code=$(curl -sS -m 60 -o body.json -w '%{http_code}' -A "$ua" -H "Accept: application/json" "$url") || code=000
+          # The weekly auto-update fetches the zones through the relay's /zones (a cached copy
+          # of the CAA WFS). Mirror that path here. Alarm if the relay is unreachable / not 200
+          # / not a sane FeatureCollection, OR if its cached copy is stale (could not refresh
+          # for >26 h -> the upstream source may be down). Same host/origin build.py uses.
+          hdr=$(mktemp)
+          url="https://full-narwhal-4777.martinovem.deno.net/zones"
+          code=$(curl -sS -m 60 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "$url") || code=000
           echo "HTTP $code"
-          [ "$code" = "200" ] || { echo "CAA WFS did not answer 200 (down/moved/blocked)"; exit 1; }
+          [ "$code" = "200" ] || { echo "relay /zones did not answer 200 (relay down or no cache)"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); assert d.get("type")=="FeatureCollection","not a FeatureCollection"; n=len(d.get("features",[])); print(n,"zones"); assert n>=100,"suspiciously few zones - feed may have broken"'
-          echo "CAA zones WFS ok"
+          age=$(grep -i '^x-zones-age-ms:' "$hdr" | tr -dc '0-9-')
+          echo "cache age (ms): ${age:-unknown}"
+          { [ -n "$age" ] && [ "$age" -ge 0 ] 2>/dev/null; } || { echo "relay has no fresh copy"; exit 1; }
+          [ "$age" -le 93600000 ] || { echo "relay's copy is stale (>26 h) - the upstream source may be down"; exit 1; }
+          echo "Zone data via relay ok"
 
       - name: Open-Meteo (weather + rain/snow/wind/cloud models)
         if: ${{ !cancelled() }}

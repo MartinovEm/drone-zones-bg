@@ -4,15 +4,16 @@ Usage: python tools/build.py [--fetch]   (run from the repo root)"""
 import glob, io, os, re, subprocess, sys, urllib.request, zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WFS_URL = ("https://uas.caa.bg/geoserver/caa-uas/wfs?service=WFS&version=2.0.0"
-           "&request=GetFeature&typeNames=caa-uas:VGeoCAAZonesPublic"
-           "&outputFormat=application/json&srsName=EPSG:4326")
-# The CAA moved the drone-zone data to uas.caa.bg in 2026; the old caa.bg page is gone.
-# The site's "Download JSON" button is client-side - the real public source is this
-# anonymous GeoServer WFS layer (plain GET, no key/headers). fetch() adapts its flat
-# GeoServer GeoJSON back into the ED-269 shape make_3d.py / make_kml.py already parse.
+# Zones are fetched through the project relay's /zones, which serves a cached copy of
+# the CAA WFS (the same raw GeoServer GeoJSON). The data ORIGIN is still the CAA; the
+# relay is only a caching transport. Override ZONES_URL to fetch from a source directly.
+WFS_URL = os.environ.get("ZONES_URL",
+    "https://full-narwhal-4777.martinovem.deno.net/zones")
+# fetch() adapts the flat GeoServer GeoJSON back into the ED-269 shape make_3d.py /
+# make_kml.py already parse. The site's "Download JSON" button is client-side.
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-HDRS = {"User-Agent": UA, "Accept": "application/json"}
+# Origin header the relay expects from the site; harmless on a direct ZONES_URL source.
+HDRS = {"User-Agent": UA, "Accept": "application/json", "Origin": "https://martinovem.github.io"}
 
 def _adapt(nf):
     """One GeoServer WFS feature -> one ED-269 feature (the shape make_3d/make_kml parse)."""
