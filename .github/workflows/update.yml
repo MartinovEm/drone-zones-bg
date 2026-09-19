@@ -1,7 +1,7 @@
 name: Update zones from uas.caa.bg
 on:
   schedule:
-    - cron: "17 5 * * 1,2"   # Monday & Tuesday 05:17 UTC (Tuesday retries if Monday failed)
+    - cron: "17 5 * * *"   # daily 05:17 UTC; build.py commits only when the data actually changed, so no churn
   workflow_dispatch:
 
 permissions:
