@@ -763,20 +763,30 @@ window.addEventListener('resize', function(){ clearTimeout(window._wxfit); windo
 // This template now generates BOTH index.html (the main page, 2D by default) and
 // 3d.html (kept for old links); the old Leaflet index.html is being retired.
 var wxMode = ''; // applied on load from the saved 'mode' (default 2D)
+var wxLoaded = false; // set once the FIRST style load fires; gate switches on THIS,
+map.on('load', function(){ wxLoaded = true; }); // not isStyleLoaded (which flaps false while tiles stream -> a switch could wait for 'idle' that never comes on a slow link)
 window.wxSetMode = function(m){
-  if (m === wxMode || !map.isStyleLoaded()) { if (m !== wxMode){ map.once('idle', function(){ window.wxSetMode(m); }); map.triggerRepaint(); } return; }
+  if (m === wxMode) return;
+  if (!wxLoaded){ map.once('load', function(){ window.wxSetMode(m); }); return; } // defer ONLY until the first load, never on later tile streaming
   wxMode = m; var d2 = (m === '2d');
   try{ ST.set('mode', m); }catch(e){} // remember the mode so a refresh restores it
-  // The basemap (which tiles show) is owned by the ⧉ selector (wxApplyBasemap), NOT by
-  // the mode. The mode only toggles the 3rd dimension: terrain + tilt + our 3D buildings.
-  // So the chosen basemap (and its light/dark styling via .wx2d/wxDark) stays across 2D<->3D.
-  var bOn = !document.getElementById('cbB').classList.contains('off');
-  map.setLayoutProperty('buildings', 'visibility', (!d2 && bOn) ? 'visible' : 'none');
-  map.setTerrain(d2 ? null : {source: 'dem', exaggeration: 1.15});
-  map.setMaxPitch(d2 ? 0 : 80);
-  if (d2 && map.getPitch() > 0) map.easeTo({pitch: 0, bearing: 0, duration: 300});
+  // Instant feedback FIRST (button + tilt cap are cheap), so the click paints right
+  // away and feels responsive even while 3D tiles are still streaming on a slow link.
   var s2 = document.getElementById('to2d'), s3 = document.getElementById('to3d');
   s2.classList.toggle('on', d2); s3.classList.toggle('on', !d2);
+  map.setMaxPitch(d2 ? 0 : 80);
+  if (d2 && map.getPitch() > 0) map.easeTo({pitch: 0, bearing: 0, duration: 300});
+  // The heavy part (terrain DEM + our 3D buildings) OFF the click's critical path.
+  // Going to 2D removes terrain -> that also STOPS the 3D tile loading. The stale-check
+  // makes rapid taps apply only the last mode. The basemap (which tiles show) is owned
+  // by the selector (wxApplyBasemap), NOT the mode - so it stays across 2D<->3D.
+  var apply = function(){
+    if (wxMode !== m) return;
+    var bOn = !document.getElementById('cbB').classList.contains('off');
+    map.setLayoutProperty('buildings', 'visibility', (!d2 && bOn) ? 'visible' : 'none');
+    map.setTerrain(d2 ? null : {source: 'dem', exaggeration: 1.15});
+  };
+  (window.requestAnimationFrame || function(f){ setTimeout(f, 0); })(apply);
 };
 document.getElementById('to2d').onclick = function(e){ e.preventDefault(); window.wxSetMode('2d'); };
 document.getElementById('to3d').onclick = function(e){ e.preventDefault(); window.wxSetMode('3d'); };
