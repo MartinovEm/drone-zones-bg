@@ -253,7 +253,7 @@ function popupHTML(p){ var t = T[LANG];
   return h; }
 
 // --- overlapping-zone chooser ---
-var curPopup = null, curList = [], curRender = null;
+var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
 function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
 function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LANG].zonesHere + '</div>';
@@ -274,17 +274,38 @@ function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getEl
   el._zwired = true;
   el.addEventListener('click', function(ev){
     var t = ev.target, back = t.closest ? t.closest('.zback') : null;
-    if (back){ ev.stopPropagation(); curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); if (window.wxAirSelect) window.wxAirSelect(null); return; }
+    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); if (window.wxAirSelect) window.wxAirSelect(null); return; }
     var pick = t.closest ? t.closest('.zpick') : null;
-    if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); if (window.wxAirSelect) window.wxAirSelect(curList[i]._air ? curList[i]._aid : null); }
+    if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); if (window.wxAirSelect) window.wxAirSelect(curList[i]._air ? curList[i]._aid : null); }
   });
 }
 function showPopup(html, lngLat){ if (curPopup) curPopup.remove(); curPopup = new maplibregl.Popup({maxWidth:'340px'}).setLngLat(lngLat).setHTML(html).addTo(map); wirePopup(); curPopup.on('close', function(){ if (window.wxAirSelect) window.wxAirSelect(null); }); }
 function setPopupContent(html){ if (curPopup){ curPopup.setHTML(html); wirePopup(); } }
-function openZones(list, lngLat){ if (!list.length) return; curList = list;
+function openZones(list, lngLat){ if (!list.length) return; curList = list; curPick = null;
   curRender = (list.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   showPopup(curRender(), lngLat);
   if (window.wxAirSelect) window.wxAirSelect((list.length === 1 && list[0]._air) ? list[0]._aid : null); }
+// is a popup item's layer still on the map? (zones: category visibility; NOTAM/airspace
+// layers are removed when switched off; airspace remembers which label layer it came from)
+function featShown(p){
+  if (p._nt) return !!map.getLayer('notam-pin');
+  if (p._air) return !!(p._al && map.getLayer(p._al));
+  var id = 'f-' + p.r; return !!map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'; }
+// A layer was switched OFF: drop its items from the open popup. Nothing left -> close it;
+// the open detail still visible -> keep it; otherwise the remaining list (or its single item).
+window.wxPopupPrune = function(){
+  if (!curPopup || !curPopup.isOpen || !curPopup.isOpen()) return;
+  var keep = curList.filter(featShown);
+  if (keep.length === curList.length) return;
+  if (!keep.length){ curPopup.remove(); curPopup = null; curList = []; curPick = null; return; }
+  curList = keep;
+  if (!(curPick && keep.indexOf(curPick) >= 0)) curPick = null;
+  if (keep.length === 1) curPick = null;
+  var shown = curPick || (keep.length === 1 ? keep[0] : null);
+  curRender = curPick ? function(){ return detailHTML(curPick, true); }
+    : (keep.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
+  setPopupContent(curRender());
+  if (window.wxAirSelect) window.wxAirSelect(shown && shown._air ? shown._aid : null); };
 // retranslate an open zone popup on a BG/EN switch
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ if (curPopup && curPopup.isOpen && curPopup.isOpen() && curRender) setPopupContent(curRender()); });
 
@@ -629,7 +650,7 @@ map.on('load', function(){
     var al = ['air-ctrl-labels','air-spec-labels'].filter(function(id){ return map.getLayer(id); });
     if (al.length){ var as = {};
       map.queryRenderedFeatures(box, {layers: al}).forEach(function(f){ var aid = f.id;
-        if (aid != null && !as[aid]){ as[aid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._air = true; p._aid = aid; list.push(p); } }); }
+        if (aid != null && !as[aid]){ as[aid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._air = true; p._aid = aid; p._al = f.layer && f.layer.id; list.push(p); } }); }
     if (!list.length) return;
     // tapping the SAME feature(s) the open popup already shows dismisses it (so a tap on the
     // same big zone just above the popup clears it instead of reopening a popup)
@@ -643,7 +664,7 @@ map.on('load', function(){
     if (!ST.get(k, true)){ el.classList.remove('on'); zvis(r, false); }
     el.onclick = function(){
     var on = el.classList.toggle('on'); ST.set(k, on);
-    zvis(r, on); }; }
+    zvis(r, on); if (!on && window.wxPopupPrune) window.wxPopupPrune(); }; }
   chip('cbP','PROHIBITED','fP'); chip('cbA','REQ_AUTHORISATION','fA'); chip('cbC','CONDITIONAL','fC');
   var eb = document.getElementById('cbB');
   if (!ST.get('bld', true)) eb.classList.remove('on'); // visibility is gated by the mode (2D hides buildings)

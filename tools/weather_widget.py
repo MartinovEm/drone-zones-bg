@@ -1666,7 +1666,8 @@ window.wxSetAirC = function(on){ window.wxAirCOn = on;
     if (!map.getLayer('air-ctrl-labels')) map.addLayer({id:'air-ctrl-labels', type:'symbol', source:'wxair',
       filter:['in',['get','t'],['literal',AIR_CTRL_T]], layout:AIR_LBL_LAYOUT,
       paint:{'text-color':'#2b6cb0','text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor()); }); }
-  else { wxBtnIdle('cbAirC'); ['air-ctrl','air-ctrl-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe(); }
+  else { wxBtnIdle('cbAirC'); ['air-ctrl','air-ctrl-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
+    if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
 };
 window.wxSetAirS = function(on){ window.wxAirSOn = on;
   if (on){ wxBtnBusy('cbAirS', 'wxair'); airEnsure(function(){ if (!window.wxAirSOn) return;
@@ -1677,7 +1678,8 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
     if (!map.getLayer('air-spec-labels')) map.addLayer({id:'air-spec-labels', type:'symbol', source:'wxair',
       filter:['!',['in',['get','t'],['literal',AIR_CTRL_T]]], layout:AIR_LBL_LAYOUT,
       paint:{'text-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor()); }); }
-  else { wxBtnIdle('cbAirS'); ['air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe(); }
+  else { wxBtnIdle('cbAirS'); ['air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
+    if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
 };
 (function(){
   // The airspace NAME feeds the SHARED overlapping-feature chooser (make_3d.py:
@@ -1844,6 +1846,7 @@ window.wxSetNotam = function(on){ window.wxNotamOn = on;
   else { wxBtnIdle('cbNotam'); ['notam-fill','notam-hatch','notam-line','notam-line-r','notam-pin'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
     if (map.getSource('wxnotam')) map.removeSource('wxnotam');
     if (map.getSource('wxnotam-pts')) map.removeSource('wxnotam-pts');
+    if (window.wxPopupPrune) window.wxPopupPrune(); // its NOTAMs leave an open popup too
     notFreshPaint(); } // hides the stamp + banner
 };
 // NOTAM colour / label / detail helpers, exposed for the UNIFIED click chooser in
@@ -1994,6 +1997,7 @@ function plnLoad(){
 window.wxSetPlanes = function(on){ plnOn = on;
   if (on){ wxBtnBusy('plnbtn', 'wxpln'); plnLoad(); plnTimer = setInterval(plnLoad, 7000); } // solid the moment the planes source appears on the map
   else { clearInterval(plnTimer); wxBtnIdle('plnbtn');
+    if (plnPopup){ plnPopup.remove(); plnPopup = null; plnPopupId = null; } // layer off -> its aircraft popup goes too
     if (map.getLayer('wxpln-layer')) map.removeLayer('wxpln-layer');
     if (map.getSource('wxpln')) map.removeSource('wxpln'); }
 };
@@ -2071,6 +2075,7 @@ function ognLoad(){
 window.wxSetOgn = function(on){ ognOn = on;
   if (on){ wxBtnBusy('ognbtn', 'wxogn'); ognLoad(); ognTimer = setInterval(ognLoad, 10000); }
   else { clearInterval(ognTimer); wxBtnIdle('ognbtn');
+    if (ognPopup){ ognPopup.remove(); ognPopup = null; ognPopupId = null; } // layer off -> its popup goes too
     if (map.getLayer('wxogn-layer')) map.removeLayer('wxogn-layer');
     if (map.getSource('wxogn')) map.removeSource('wxogn'); }
 };
