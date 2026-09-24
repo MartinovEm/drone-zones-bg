@@ -294,6 +294,11 @@ SHELL_CSS = r"""
 :root[data-theme="dark"] .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip{border-top-color:#20242a}
 :root[data-theme="dark"] .maplibregl-popup-anchor-left .maplibregl-popup-tip{border-right-color:#20242a}
 :root[data-theme="dark"] .maplibregl-popup-anchor-right .maplibregl-popup-tip{border-left-color:#20242a}
+/* a thin frame + a clearer shadow on every info popup, so two popups that overlap (an
+   aircraft over a NOTAM or a zone) keep visible edges: grey line in light theme, a light
+   one in dark theme. Always on - aircraft popups move, so an overlap-only frame would flicker. */
+.maplibregl-popup-content{border:1px solid rgba(0,0,0,.22);box-shadow:0 2px 10px rgba(0,0,0,.3)}
+:root[data-theme="dark"] .maplibregl-popup-content{border-color:rgba(255,255,255,.35);box-shadow:0 2px 14px rgba(0,0,0,.65)}
 /* attribution control (bottom-right): default is a light box with black text,
    which is unreadable in dark theme -> dark box, light text, light ⓘ icon */
 :root[data-theme="dark"] .maplibregl-ctrl-attrib,
