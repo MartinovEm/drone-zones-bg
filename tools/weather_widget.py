@@ -1453,7 +1453,8 @@ window.wxSetSnow = function(on){ window.wxSnowOn = on;
 // 2-10%, red > 10% of aircraft in the cell reporting degraded GPS accuracy -
 // measured at AIRCRAFT altitudes - jamming seen at 10 km often does not reach
 // 120 m, which the legend says. Drawn below the zones; refreshed every 5 min
-// while on (the collector writes a new picture every 5 min).
+// while on (the relay snapshots the aircraft every 2 min and serves a new
+// picture at most every 5 min).
 var GJL = 'wxgj-layer', GJO = 'wxgj-line', gjTimer = null;
 
 // The GPS layer shows either the LIVE rolling window (window.wxGjWin = 12|24 h)
