@@ -78,6 +78,11 @@ html,body{height:100%;margin:0}
  font:14px/1.2 system-ui,'Segoe UI',Roboto,sans-serif;color:var(--fg)}
 #rightui{position:absolute;top:10px;right:10px;z-index:1100;display:flex;flex-direction:column;
  align-items:flex-end;gap:8px;font:14px/1.2 system-ui,'Segoe UI',Roboto,sans-serif;color:var(--fg)}
+/* both columns are invisible boxes as wide as their widest control (the weather chip /
+   the 2D-3D switch): their EMPTY area lets taps through to the map (zones, aircraft,
+   panning) - only the controls themselves take a tap */
+#leftui,#rightui{pointer-events:none}
+#leftui>*,#rightui>*{pointer-events:auto}
 .pill{display:inline-flex;align-items:center;gap:8px;background:var(--glass-bg);
  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--border);
  border-radius:999px;box-shadow:var(--shadow);padding:0 12px;height:38px;box-sizing:border-box;
