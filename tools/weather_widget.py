@@ -1000,12 +1000,28 @@ window.wxPlnKinds = {
     '<path d="M-7.5,-9.5 L7.5,5.5 M7.5,-9.5 L-7.5,5.5" stroke="#33425b" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
     '<circle cx="0" cy="-2" r="1.4" fill="#33425b"/></g>'}
 };
+// Business jets by ICAO type designator. Some broadcast a wrong emitter category (a
+// Citation 650 seen saying A1 "light" -> drawn as a small prop), so the TYPE decides
+// before the category. A hand-written list of biz-jet designators, like the turboprop
+// one below - no aircraft-type database is copied. Each code was checked (2026-09-24)
+// against at least two independent designator lists; airliner-based corporate jets
+// (ACJ, BBJ, Lineage, Challenger 850 = CRJ2...) share airliner codes and stay out.
+var WX_BJT = {};
+('C500 C501 C510 C525 C25A C25B C25C C25M C550 C551 C55B C560 C56X C650 C680 C68A C700 C750 ' +  // Cessna Citation
+ 'LJ23 LJ24 LJ25 LJ28 LJ31 LJ35 LJ40 LJ45 LJ55 LJ60 LJ70 LJ75 ' +                                 // Learjet
+ 'CL30 CL35 CL60 GLEX GL5T GL7T ' +                                                               // Bombardier Challenger / Global
+ 'FA10 FA20 FA50 FA6X FA7X FA8X F900 F2TH ' +                                                     // Dassault Falcon
+ 'ASTR G150 GALX G250 G280 GLF2 GLF3 GLF4 GLF5 GLF6 GA3C GA4C GA5C GA6C GA7C GA8C WW23 WW24 JCOM ' + // Gulfstream / IAI
+ 'H25A H25B H25C HA4T BE40 BE4W PRM1 ' +                                                          // Hawker / Beechjet / Nextant / Premier
+ 'E50P E55P E545 E550 E35L HDJT PC24 SF50 EA50 SJ30 MU30 SBR1 SBR2 L29A L29B HF20 S601')          // Embraer, HondaJet, PC-24, Vision Jet, Eclipse, others
+  .split(' ').forEach(function(c){ WX_BJT[c] = 1; });
 window.wxPlnKind = function(a){
   if (a.category === 'A7' || /helicopter/i.test(a.desc || '')) return 'hel';
   // twin turboprops carry wing props, not a nose one: match the common type codes
   // (ATR, Dash 8, Saab, Fokker 50, Do328, Jetstream, Brasilia, Beech 1900, Metro)
   if (/^(AT4|AT7|DH8|SF3|SB2|F50|D32|JS3|JS4|E12|B19|SW[34])/.test((a.t || '').toUpperCase()) ||
       /ATR[- ]?\d/i.test(a.desc || '')) return 'tpr';
+  if (WX_BJT[(a.t || '').toUpperCase()]) return 'bjt'; // known biz-jet type beats a wrong category
   if (a.category === 'A2') return 'bjt'; // mid-weight jets (biz jets, ERJ/CRJ) carry rear pods
   if (a.category === 'A1') return 'prp'; // light singles
   if (a.category === 'A5') return 'hvy';
