@@ -695,11 +695,17 @@ window.wxSnowDraw = function(){ // selected hour's SNOW as a VIOLET ramp; regist
   var hi = window.wxFcIdx();
   var mxv = 0, p, pv;
   for (p = 0; p < S.data.s.length; p++){ pv = S.data.s[p][hi]; if (pv && pv > mxv) mxv = pv; }
+  // the mountain points' snowfall at the same hour (matched by time; none if not fetched)
+  var MT = window.WX_MTN || [], mk = S.mtn ? S.mtn.t.indexOf(S.data.t[hi]) : -1, mv = [];
+  for (p = 0; p < MT.length; p++){ pv = mk < 0 ? 0 : (S.mtn.s[p] ? S.mtn.s[p][mk] || 0 : 0); mv.push(pv); if (pv > mxv) mxv = pv; }
   S.lastSnow = mxv; // wxFcLabel uses this to say "no snow (model)" on a dry hour
   var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  var ctx = cv.getContext('2d'), out = ctx.createImageData(W, H), od = out.data;
+  var ctx = cv.getContext('2d'), out = ctx.createImageData(W, H), od = out.data, vals = new Float32Array(W * H);
   // snowfall cm/h -> VIOLET ramp (light -> heavy); deliberately distinct from the rain palette
   var TH = [0.1, 0.5, 1, 2, 4], CO = [[217,199,240],[183,154,230],[144,96,216],[106,47,184],[74,26,138]];
+  function paint(ix, v){
+    var k = 0; while (k < TH.length - 1 && v >= TH[k + 1]) k++;
+    var i4 = ix * 4; od[i4] = CO[k][0]; od[i4 + 1] = CO[k][1]; od[i4 + 2] = CO[k][2]; od[i4 + 3] = 180; }
   function val(r, c){ r = r < 0 ? 0 : (r > NLA - 1 ? NLA - 1 : r); c = c < 0 ? 0 : (c > NLO - 1 ? NLO - 1 : c);
     var v = S.data.s[r * NLO + c][hi]; return v == null ? 0 : v; }
   for (var py = 0; py < H; py++){
@@ -711,11 +717,24 @@ window.wxSnowDraw = function(){ // selected hour's SNOW as a VIOLET ramp; regist
       var fc = (lon - LW) / 0.75, c0 = Math.floor(fc), tc = fc - c0;
       var v = (val(r0, c0) * (1 - tr) + val(r0 + 1, c0) * tr) * (1 - tc) +
               (val(r0, c0 + 1) * (1 - tr) + val(r0 + 1, c0 + 1) * tr) * tc;
+      vals[py * W + px] = v;
       if (v < TH[0]) continue; // no snow stays transparent
-      var k = 0; while (k < TH.length - 1 && v >= TH[k + 1]) k++;
-      var i4 = (py * W + px) * 4;
-      od[i4] = CO[k][0]; od[i4 + 1] = CO[k][1]; od[i4 + 2] = CO[k][2]; od[i4 + 3] = 180;
+      paint(py * W + px, v);
     }
+  }
+  // each mountain point = a soft patch of MTN_KM radius: full value out to half the radius,
+  // fading to 0 at the edge; it only ever RAISES what the grid shows there
+  var MTN_KM = 12, ppm = W / (x2 - x1);
+  for (p = 0; p < MT.length; p++){
+    if (!(mv[p] >= TH[0])) continue;
+    var cx = (mx(MT[p][1]) - x1) * ppm, cy = (y2 - my(MT[p][0])) * ppm;
+    var rp = MTN_KM * 1000 / Math.cos(MT[p][0] * Math.PI / 180) * ppm;
+    for (var yy = Math.max(0, Math.floor(cy - rp)); yy <= Math.min(H - 1, Math.ceil(cy + rp)); yy++)
+      for (var xx = Math.max(0, Math.floor(cx - rp)); xx <= Math.min(W - 1, Math.ceil(cx + rp)); xx++){
+        var d = Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy) / rp; if (d >= 1) continue;
+        var vb = mv[p] * (d <= 0.5 ? 1 : (1 - d) * 2), ix = yy * W + xx;
+        if (vb >= TH[0] && vb > vals[ix]){ vals[ix] = vb; paint(ix, vb); }
+      }
   }
   ctx.putImageData(out, 0, 0);
   window._wxCvReg = window._wxCvReg || {};
@@ -1420,8 +1439,41 @@ window.wxSetRain = function(on){ rainOn = on;
   else { wxBtnIdle('wxrad'); if (lg) lg.hidden = true; rvStop(); fcStop(); }
   if (window.wxSyncFcBar) window.wxSyncFcBar(); // the slider bar is shared with wind + snow
 };
-// ---- forecast SNOW (Open-Meteo model; shares the rain grid -> no extra request) ----
+// ---- forecast SNOW (Open-Meteo model; shares the rain grid + a small mountain request) ----
 var SNL = 'wxsnow-layer', snowTimer = null;
+// Mountain points: the grid samples every ~55-80 km and lands in valleys, so snow on the
+// ridges fell BETWEEN its points (28.09: Musala 3 cm in 3 days vs 0 cm and rain at the
+// nearest grid point, 784 m). 30 ridge / ski-area points, their heights checked on
+// Open-Meteo's 90 m terrain model (owner 29.09); snowfall only, fetched only while the
+// snow layer is on - Open-Meteo counts EVERY location, so this adds 30 per refresh.
+var WX_MTN = window.WX_MTN = [
+  [42.1797,23.5853],[42.1789,23.4064],[42.2360,23.5840],[42.2034,23.3219],[42.1806,23.7462], // Rila: Musala, Malyovitsa, Borovets, Seven Lakes, Belmeken
+  [41.7672,23.3994],[41.7883,23.4383],[41.7714,23.4929],[41.6708,23.4892],[41.5105,23.6497], // Pirin: Vihren, Bansko (below Todorka), above Dobrinishte, Kamenitsa, Orelyak
+  [42.5636,23.2786],[42.5840,23.2930],                                                        // Vitosha: Cherni vrah, Aleko
+  [43.3967,22.6739],[43.1739,23.0536],[42.8328,23.6710],[42.7547,24.3953],[42.7833,24.6167],
+  [42.7169,24.9175],[42.7063,25.1527],[42.7358,25.3936],[42.7847,25.9674],                   // Stara planina: Midzhur, Kom, Murgash, Vezhen, Beklemeto, Botev, above Uzana, Buzludzha, Chumerna
+  [41.6394,24.6775],[41.6031,24.5733],[41.8167,24.5498],[41.7250,24.6850],[41.8597,24.0209], // Rhodopes: Pamporovo, Golyam Perelik, Golyam Persenk, Chepelare, Syutkya
+  [42.1600,22.5150],[41.3350,22.9925],[41.3801,23.6209],[42.6140,24.5155]                    // Osogovo (Ruen), Belasitsa, Slavyanka, Sredna gora (Bogdan)
+];
+window.wxMtnFetch = function(cb){ // S.mtn = {at, t, s: [point][hour] cm/h}; cached like the grid, never blocks the grid
+  var S = window.wxFcState;
+  if (S.mtn && Date.now() - S.mtn.at < 1800000){ cb(); return; }
+  try{ var c = JSON.parse(localStorage.getItem('wxmtn1'));
+    if (c && c.t && c.s && Date.now() - c.at < 1800000){ S.mtn = c; cb(); return; }
+  }catch(e){}
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WX_MTN.map(function(q){ return q[0]; }).join(',') +
+        '&longitude=' + WX_MTN.map(function(q){ return q[1]; }).join(',') +
+        '&hourly=snowfall&forecast_hours=72&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!Array.isArray(d) || d.length !== WX_MTN.length){ cb(); return; } // rate-limited: the grid alone
+      S.mtn = {at: Date.now(), t: d[0].hourly.time, s: d.map(function(x){ // MAX across the models, like fcMax
+        var h = x.hourly, ks = Object.keys(h).filter(function(k){ return k.indexOf('snowfall') === 0; });
+        return h.time.map(function(_, i){ var m = 0; ks.forEach(function(k){ if (h[k][i] > m) m = h[k][i]; }); return m; }); })};
+      try{ localStorage.setItem('wxmtn1', JSON.stringify(S.mtn)); }catch(e){}
+      cb();
+    }).catch(function(){ cb(); });
+};
 window.wxSnowApply = function(){
   if (!window.wxSnowOn) return;
   var r = window.wxSnowDraw(); if (!r) return; // also registers 'snow' for the tile cutter
@@ -1437,7 +1489,7 @@ window.wxSetSnow = function(on){ window.wxSnowOn = on;
   if (on){
     wxBtnBusy('wxsnow', 'wxsnow');
     if (lg) lg.hidden = false;
-    var go = function(){ window.wxFcFetch(function(){ window.wxSnowApply(); }); };
+    var go = function(){ window.wxFcFetch(function(){ window.wxMtnFetch(function(){ window.wxSnowApply(); }); }); };
     go(); snowTimer = setInterval(go, 1800000); // fresh model data every 30 min
   } else {
     clearInterval(snowTimer); wxBtnIdle('wxsnow');
