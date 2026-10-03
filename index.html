@@ -2638,10 +2638,10 @@ function gjFetch(){
       if (!wasDay){ var _gb2 = document.getElementById('wxgj'); if (_gb2) _gb2.classList.remove('loading'); } // hard failure (not a day-fallback retry) -> stop the pulse
       // a day the relay can't give (e.g. the auto default right after midnight,
       // before the new day is computed) must not leave the layer/calendar empty:
-      // re-request without a day. Auto keeps tracking (no ST write, so the live
-      // response then snaps to the newest ready day); an explicit gone day is
-      // remembered as live.
-      if (wasDay){ window.wxGjDay = ''; if (!window.wxGjAuto) ST.set('gjDay', ''); window.wxGjSyncLabel(); gjFetch(); gjResetTimer(); }
+      // re-request without a day. No ST write: auto keeps tracking (the live
+      // response then snaps to the newest ready day), and a picked day was for
+      // this visit only anyway.
+      if (wasDay){ window.wxGjDay = ''; window.wxGjSyncLabel(); gjFetch(); gjResetTimer(); }
       else { var cc = document.getElementById('wxgjcal'); if (cc && !cc.hidden) gjBuildCal(); }
     });
 }
@@ -2654,7 +2654,7 @@ function gjApply(day, win){
   window.wxGjDay = day || '';
   window.wxGjAuto = false; // any explicit choice (a day, or Live via win) stops auto-tracking
   if (win) window.wxGjWin = win;
-  ST.set('gjDay', window.wxGjDay); ST.set('gjWin', window.wxGjWin);
+  ST.set('gjDay', window.wxGjDay ? null : ''); ST.set('gjWin', window.wxGjWin); // Live is remembered; a past day is not (null = auto newest day next visit)
   window.wxGjSyncLabel();
   gjBuildCal();
   gjFetch(); gjResetTimer();
@@ -3196,7 +3196,7 @@ window.wxSetOgn = function(on){ ognOn = on;
   var sl = document.getElementById('wxfcsl'); if (sl) sl.value = window.wxFcState.hour;
   // wind height (set before the layer turns on so the chip + engine use it)
   var wh = ST.get('windh', 10); if (window.wxWindState) window.wxWindState.h = wh;
-  window.wxGjWin = (ST.get('gjWin', 12) === 24) ? 24 : 12; var _gjSaved = ST.get('gjDay', null); if (_gjSaved !== null){ window.wxGjDay = _gjSaved || ''; window.wxGjAuto = false; } // an explicit saved choice (incl. '' = live) turns OFF auto; null = never chosen -> auto newest day
+  window.wxGjWin = (ST.get('gjWin', 12) === 24) ? 24 : 12; var _gjSaved = ST.get('gjDay', null); if (_gjSaved === ''){ window.wxGjDay = ''; window.wxGjAuto = false; } // only an explicit LIVE choice survives a reload; a picked past day is for this visit only (owner 04.10: a reload opens the newest ready day) - an old saved date is ignored -> auto
   document.querySelectorAll('#wxwindh .wxhseg button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-h') === wh); });
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
