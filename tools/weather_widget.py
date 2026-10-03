@@ -582,16 +582,23 @@ function wxGridWanted(){
   if (cb && cb.classList.contains('on') && S && S.hour > 0) return true; // clouds, slider ahead
   return false;
 }
+// Open-Meteo forecast data changes only per model run - ICON-EU every 3 h, GFS and
+// ECMWF IFS 0.25 every 6 h (their docs, checked 04.10) - so model data is re-fetched
+// every 3 h, not every 30 min: Open-Meteo counts EVERY location of a request against
+// the visitor's own limits (10,000/day), and the grids are 483 + 546 points. Both
+// grids still load together at once (owner: the wind must never wait); if Open-Meteo
+// refuses one (600/min), its own retry fetches it again.
+window.WX_MODEL_TTL = 10800000;
 window.wxFcFetch = function(cb){
   var S = window.wxFcState;
-  if (S.data && Date.now() - S.at < 1800000){ cb(); return; } // model refresh: 30 min is plenty
+  if (S.data && Date.now() - S.at < window.WX_MODEL_TTL){ cb(); return; } // model refresh: every 3 h (see above)
   if (!S.data){
     // the grid request is HEAVY in Open-Meteo's rate accounting (294 points x 3
     // models count as hundreds of calls), so a fresh page — e.g. right after a
     // 2D<->3D switch with 🌦 restored on — reuses the previous page's grid from
     // localStorage instead of refetching; a burst of switches stays within limits
     try{ var c = JSON.parse(localStorage.getItem('wxfcdata4'));
-      if (c && c.data && c.data.s && c.data.c && Date.now() - c.at < 1800000){ S.data = c.data; S.at = c.at; cb(); return; }
+      if (c && c.data && c.data.s && c.data.c && Date.now() - c.at < window.WX_MODEL_TTL){ S.data = c.data; S.at = c.at; cb(); return; }
     }catch(e){} // wxfcdata4: cache holds rain (v) + snow (s) + clouds (c); only reuse if all present
   }
   function retry(){ // self-retry with doubling delay (12 s .. 5 min) — the grid is heavy, be polite
@@ -604,7 +611,7 @@ window.wxFcFetch = function(cb){
   for (la = 35.5; la <= 49.501; la += 0.7)
     for (lo = 17.0; lo <= 33.501; lo += 0.75){ lats.push(la.toFixed(2)); lons.push(lo.toFixed(2)); }
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
-        '&hourly=precipitation,snowfall,cloud_cover&forecast_hours=72&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
+        '&hourly=precipitation,snowfall,cloud_cover&forecast_hours=76&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!Array.isArray(d) || !d.length){ retry(); return; } // rate-limited (429): error JSON, not the array
@@ -815,10 +822,10 @@ window.wxCloudFcDraw = function(){
 window.wxWindState = {data: null, at: 0, h: 10, on: false, rt: null};
 window.wxWindFetch = function(cb){
   var S = window.wxWindState;
-  if (S.data && Date.now() - S.at < 1800000){ cb(); return; }
+  if (S.data && Date.now() - S.at < window.WX_MODEL_TTL){ cb(); return; }
   if (!S.data){
     try{ var c = JSON.parse(localStorage.getItem('wxwinddata4'));
-      if (c && Date.now() - c.at < 1800000 && c.data && c.data.u10 && c.data.u10.length === WXW_NLO * WXW_NLA){
+      if (c && Date.now() - c.at < window.WX_MODEL_TTL && c.data && c.data.u10 && c.data.u10.length === WXW_NLO * WXW_NLA){
         S.data = c.data; S.at = c.at; cb(); return; } // only reuse a cache that matches the current grid shape
     }catch(e){}
   }
@@ -832,7 +839,7 @@ window.wxWindFetch = function(cb){
     for (lo = 17.0; lo <= 33.501; lo += 0.66){ lats.push(la.toFixed(2)); lons.push(lo.toFixed(2)); }
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
         '&hourly=wind_speed_10m,wind_direction_10m,wind_speed_120m,wind_direction_120m' +
-        '&forecast_hours=72&wind_speed_unit=ms&timezone=UTC')
+        '&forecast_hours=76&wind_speed_unit=ms&timezone=UTC')
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!Array.isArray(d) || !d.length){ retry(); return; }
@@ -1428,7 +1435,7 @@ window.wxRainApply = function(){ // toggle + every slider move: pick radar (0) o
     if (rvOn){ rainBefore = (rvIds.length && map.getLayer(rvIds[rvIds.length - 1])) ? wxAboveOf(rvIds[rvIds.length - 1]) : rainBefore; rvStop(); } // leaving radar: keep the slot
     window.wxFcState.on = true;
     if (!fcTimer){ // entering model: one fetch now + a 30-min refresh
-      fcTimer = setInterval(function(){ if (rainOn && rainMode() === 'model') window.wxFcFetch(function(){ window.wxFcApply(); }); }, 1800000);
+      fcTimer = setInterval(function(){ if (rainOn && rainMode() === 'model') window.wxFcFetch(function(){ window.wxFcApply(); }); }, window.WX_MODEL_TTL);
       window.wxFcFetch(function(){ window.wxFcApply(); });
     } else { window.wxFcApply(); } // already model, slider moved: just redraw the selected hour
   }
@@ -1457,13 +1464,13 @@ var WX_MTN = window.WX_MTN = [
 ];
 window.wxMtnFetch = function(cb){ // S.mtn = {at, t, s: [point][hour] cm/h}; cached like the grid, never blocks the grid
   var S = window.wxFcState;
-  if (S.mtn && Date.now() - S.mtn.at < 1800000){ cb(); return; }
+  if (S.mtn && Date.now() - S.mtn.at < window.WX_MODEL_TTL){ cb(); return; }
   try{ var c = JSON.parse(localStorage.getItem('wxmtn1'));
-    if (c && c.t && c.s && Date.now() - c.at < 1800000){ S.mtn = c; cb(); return; }
+    if (c && c.t && c.s && Date.now() - c.at < window.WX_MODEL_TTL){ S.mtn = c; cb(); return; }
   }catch(e){}
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + WX_MTN.map(function(q){ return q[0]; }).join(',') +
         '&longitude=' + WX_MTN.map(function(q){ return q[1]; }).join(',') +
-        '&hourly=snowfall&forecast_hours=72&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
+        '&hourly=snowfall&forecast_hours=76&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!Array.isArray(d) || d.length !== WX_MTN.length){ cb(); return; } // rate-limited: the grid alone
@@ -1490,7 +1497,7 @@ window.wxSetSnow = function(on){ window.wxSnowOn = on;
     wxBtnBusy('wxsnow', 'wxsnow');
     if (lg) lg.hidden = false;
     var go = function(){ window.wxFcFetch(function(){ window.wxMtnFetch(function(){ window.wxSnowApply(); }); }); };
-    go(); snowTimer = setInterval(go, 1800000); // fresh model data every 30 min
+    go(); snowTimer = setInterval(go, window.WX_MODEL_TTL); // fresh model data every 3 h (model runs, see wxFcFetch)
   } else {
     clearInterval(snowTimer); wxBtnIdle('wxsnow');
     if (lg) lg.hidden = true;
