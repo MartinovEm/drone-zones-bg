@@ -1,7 +1,7 @@
 name: Update zones from uas.caa.bg
 on:
   schedule:
-    - cron: "17 5 * * *"   # daily 05:17 UTC; build.py commits only when the data actually changed, so no churn
+    - cron: "17 5,11,17,23 * * *"   # every 6 h (05:17, 11:17, 17:17, 23:17 UTC; owner 04.10 - the CAA changed zones 25.09, 30.09, 01.10); build.py commits only when the data actually changed, so no churn
   workflow_dispatch:
 
 permissions:
