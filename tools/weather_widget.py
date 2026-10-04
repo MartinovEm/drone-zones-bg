@@ -1825,6 +1825,21 @@ function notPinsReady(){ if (window._ntPinsDone) return; window._ntPinsDone = tr
 // the relay's X-Notam-Age-Ms header (= time since the newest successful FAA
 // poll behind the picture, KV-restored or live). Shared by the first ON and the
 // 10-minute auto-refresh, so the freshness stamp below never lies.
+// Sofia FIR boundary for FIR-wide NOTAMs (fir:1, no outline of their own; owner 04.10):
+// the land legs follow the state border the map already has (BGOUT: land + Danube),
+// the Black Sea leg = the 8 points of the Bulgarian AIP ENR 2.1-1 (AIRAC AMDT 01/26,
+// 22 JAN 26: 4344N 02837E ... 4159N 02802E), each end joined to the nearest border
+// vertex so the dashed line has no gap at the coast.
+var WX_FIR_SEA = [[28.6167,43.7333],[29.0,43.6667],[29.0333,43.7333],[30.5333,43.6833],[30.75,42.8],[29.0,42.1167],[28.3167,41.9833],[28.0333,41.9833]];
+function wxFirLines(){
+  var B = (typeof BGOUT !== 'undefined' && BGOUT) ? BGOUT : {features: []}, lines = [], all = [];
+  (B.features || []).forEach(function(f){ var g = f.geometry; if (!g) return;
+    (g.type === 'LineString' ? [g.coordinates] : g.type === 'MultiLineString' ? g.coordinates : []).forEach(function(ln){ lines.push(ln); all = all.concat(ln); }); });
+  function near(q){ var best = null, bd = 1e9; all.forEach(function(c){ var d = Math.hypot((c[0] - q[0]) * Math.cos(q[1] * Math.PI / 180), c[1] - q[1]); if (d < bd){ bd = d; best = c; } }); return bd < 0.1 ? best : null; }
+  var sea = WX_FIR_SEA.slice(), a = near(sea[0]), z = near(sea[sea.length - 1]);
+  if (a) sea.unshift(a); if (z) sea.push(z);
+  return lines.concat([sea]);
+}
 function notFetch(ok){
   fetch(window.wxNotamUrl, {cache: 'no-store'}).then(function(r){ if (!r.ok) throw 0;
     var age = parseInt(r.headers.get('X-Notam-Age-Ms') || '0', 10) || 0;
@@ -1833,17 +1848,24 @@ function notFetch(ok){
     var gj = d.gj, ntNow = Date.now();
     // flag UPCOMING (not-yet-active) NOTAMs so they draw muted (fainter, same colour) - fut=1
     (gj.features||[]).forEach(function(f){ f.properties.fut = (f.properties.f && Date.parse(f.properties.f) > ntNow) ? 1 : 0; });
-    // a second, point source for the centre pins (built from each feature's cx/cy)
+    // a second, point source for the centre pins (built from each feature's cx/cy);
+    // FIR-wide pins usually share one Q centre, so each next one steps 0.25° east
+    var fk = 0, firs = (gj.features||[]).filter(function(f){ return f.properties.fir === 1; });
     var pts = {type:'FeatureCollection', features:(gj.features||[]).map(function(f){
-      return {type:'Feature', properties:f.properties, geometry:{type:'Point', coordinates:[f.properties.cx, f.properties.cy]}}; })};
+      var dx = f.properties.fir === 1 ? 0.25 * fk++ : 0;
+      return {type:'Feature', properties:f.properties, geometry:{type:'Point', coordinates:[f.properties.cx + dx, f.properties.cy]}}; })};
+    // the FIR boundary only while a FIR-wide NOTAM exists; its colour = theirs when they agree
+    var fl = firs.length && firs.every(function(f){ return f.properties.l === firs[0].properties.l; }) ? firs[0].properties.l : '';
+    var fir = {type:'FeatureCollection', features: firs.length ? [{type:'Feature', properties:{l: fl}, geometry:{type:'MultiLineString', coordinates: wxFirLines()}}] : []};
     window._ntDataAt = Date.now() - d.age; // moment the picture was truly fresh
-    ok(gj, pts);
+    ok(gj, pts, fir);
     notFreshPaint();
   }).catch(function(){ wxBtnIdle('cbNotam'); notFreshPaint(); }); // fetch failed: whatever is drawn keeps AGEING honestly on the stamp/banner
 }
 function notEnsure(cb){
   if (map.getSource('wxnotam')){ cb(); return; }
-  notFetch(function(gj, pts){
+  notFetch(function(gj, pts, fir){
+    if (!map.getSource('wxnotam-fir')) map.addSource('wxnotam-fir', {type:'geojson', data:fir});
     if (!map.getSource('wxnotam')) map.addSource('wxnotam', {type:'geojson', data:gj,
       attribution:'NOTAM &copy; <a href="https://www.faa.gov/" target="_blank" rel="noopener">FAA</a> NMS'});
     if (!map.getSource('wxnotam-pts')) map.addSource('wxnotam-pts', {type:'geojson', data:pts});
@@ -1854,7 +1876,8 @@ function notEnsure(cb){
 function notRefresh(){
   if (!window.wxNotamOn) return;
   if (!map.getSource('wxnotam')){ window.wxSetNotam(true); return; } // failed first load left no source: re-attempt the add on this tick
-  notFetch(function(gj, pts){
+  notFetch(function(gj, pts, fir){
+    if (map.getSource('wxnotam-fir')) map.getSource('wxnotam-fir').setData(fir);
     if (map.getSource('wxnotam')) map.getSource('wxnotam').setData(gj);
     if (map.getSource('wxnotam-pts')) map.getSource('wxnotam-pts').setData(pts);
   });
@@ -1915,11 +1938,19 @@ window.wxSetNotam = function(on){ window.wxNotamOn = on;
       filter:['!=',['get','l'],'R'], paint:{'line-color':NT_COL, 'line-width':1.4, 'line-opacity':['case',['==',['get','fut'],1],0.35,0.9], 'line-dasharray':[2,1.5]}});
     if (!map.getLayer('notam-line-r')) map.addLayer({id:'notam-line-r', type:'line', source:'wxnotam',
       filter:['==',['get','l'],'R'], paint:{'line-color':'#d0202a', 'line-width':1.6, 'line-opacity':['case',['==',['get','fut'],1],0.4,0.95]}});
+    // FIR-wide NOTAMs: the whole Sofia FIR as a wide translucent band + a dashed line on top,
+    // no fill (their pins carry the detail). The band keeps it clearly apart from the plain
+    // state border it runs along on land (owner 04.10: must be clearly visible there).
+    if (!map.getLayer('notam-fir-band')) map.addLayer({id:'notam-fir-band', type:'line', source:'wxnotam-fir',
+      layout:{'line-join':'round', 'line-cap':'round'}, paint:{'line-color':NT_COL, 'line-width':11, 'line-opacity':0.45, 'line-blur':1}});
+    if (!map.getLayer('notam-fir')) map.addLayer({id:'notam-fir', type:'line', source:'wxnotam-fir',
+      paint:{'line-color':NT_COL, 'line-width':3.5, 'line-opacity':1, 'line-dasharray':[3,2]}});
     if (!map.getLayer('notam-pin')) map.addLayer({id:'notam-pin', type:'symbol', source:'wxnotam-pts',
       layout:{'icon-image':['match',['get','l'],'P','ntpin-P','D','ntpin-D','M','ntpin-M','R','ntpin-R','O','ntpin-O','ntpin-excl'],
         'icon-anchor':'bottom', 'icon-size':1, 'icon-allow-overlap':true, 'icon-ignore-placement':true},
       paint:{'icon-opacity':['case',['==',['get','fut'],1],0.5,1]}}); }); }
-  else { wxBtnIdle('cbNotam'); ['notam-fill','notam-hatch','notam-line','notam-line-r','notam-pin'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+  else { wxBtnIdle('cbNotam'); ['notam-fill','notam-hatch','notam-line','notam-line-r','notam-fir-band','notam-fir','notam-pin'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wxnotam-fir')) map.removeSource('wxnotam-fir');
     if (map.getSource('wxnotam')) map.removeSource('wxnotam');
     if (map.getSource('wxnotam-pts')) map.removeSource('wxnotam-pts');
     if (window.wxPopupPrune) window.wxPopupPrune(); // its NOTAMs leave an open popup too
@@ -1943,6 +1974,7 @@ window.wxNotamDetail = function(p){ var L = (window.LANG || 'bg');
     : fut ? ((L === 'en' ? 'Upcoming · active from ' : 'Предстоящ · активен от ') + '<b>' + esc(wxNtFmt(p.f)) + '</b>' + (p.t ? (' ' + (L === 'en' ? 'to ' : 'до ') + esc(wxNtFmt(p.t))) : ''))
     : ((L === 'en' ? 'Active · until ' : 'Активен · до ') + '<b>' + esc(wxNtFmt(p.t)) + '</b>');
   return '<b>' + esc(wxNotamName(p)) + '</b><br><small>' + esc(p.q || '') + ' · ' + when + '</small>' +
+    (p.fir === 1 ? ('<br><small><b>' + (L === 'en' ? 'Applies to the whole Sofia FIR (Bulgaria and its Black Sea area)' : 'Важи за целия FIR София (България и морската му част)') + '</b></small>') : '') +
     (p.txt ? ('<br>' + esc(p.txt)) : '') +
     // source line = ONLY what this layer actually uses (FAA); the official
     // B-FLIP pointer lives once, in the page disclaimer (owner, 16.09). The
