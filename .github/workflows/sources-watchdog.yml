@@ -1,6 +1,8 @@
 # Watchdog for every live source the map depends on. Every 6 hours it makes ONE
 # lightweight request per source (no polling, no loops), the same way the map or the
-# build reaches each one. If a source is unreachable, errors, blocks us (403/429), or
+# build reaches each one. A request that fails is retried up to twice, 15 s apart
+# (--retry 2 --retry-delay 15 --retry-all-errors; owner 04.10, after a one-off TLS
+# certificate blip at Deno's edge mailed a false alarm), so only a real outage alarms. If a source is unreachable, errors, blocks us (403/429), or
 # has changed shape so our code would break, that step fails -> the whole run goes red
 # -> GitHub e-mails the repository owner about the failed run automatically.
 #
@@ -27,7 +29,7 @@ jobs:
           set -e
           url="https://full-narwhal-4777.martinovem.deno.net/"
           hdr=$(mktemp)
-          body=$(curl -sS -m 30 -D "$hdr" -H "Origin: https://martinovem.github.io" "$url" -w '\n%{http_code}')
+          body=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -D "$hdr" -H "Origin: https://martinovem.github.io" "$url" -w '\n%{http_code}')
           code=$(printf '%s' "$body" | tail -n 1)
           json=$(printf '%s' "$body" | sed '$d')
           echo "HTTP $code"
@@ -60,7 +62,7 @@ jobs:
           # for >26 h -> the upstream source may be down). Same host/origin build.py uses.
           hdr=$(mktemp)
           url="https://full-narwhal-4777.martinovem.deno.net/zones"
-          code=$(curl -sS -m 60 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "$url") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 60 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "$url") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "relay /zones did not answer 200 (relay down or no cache)"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); assert d.get("type")=="FeatureCollection","not a FeatureCollection"; n=len(d.get("features",[])); print(n,"zones"); assert n>=100,"suspiciously few zones - feed may have broken"'
@@ -76,7 +78,7 @@ jobs:
           # ONE tiny single-point query (not the heavy grid the map builds) asking for the
           # fields we depend on, including wind at 120 m (the legal ceiling).
           url="https://api.open-meteo.com/v1/forecast?latitude=42.7&longitude=23.3&hourly=wind_speed_120m,cloud_cover,snowfall,precipitation&wind_speed_unit=ms&forecast_days=1"
-          code=$(curl -sS -m 30 -o body.json -w '%{http_code}' "$url") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -o body.json -w '%{http_code}' "$url") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "Open-Meteo did not answer 200"; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); v=d["hourly"]["wind_speed_120m"]; assert isinstance(v, list) and v, "wind_speed_120m missing or empty"; print("hourly fields present:", len(v), "hours")'
@@ -87,7 +89,7 @@ jobs:
           # Tiny 2x2 GetMap of the cloud-mask layer the map uses; a renamed/removed layer
           # returns an XML ServiceException (not an image), which we detect by content-type.
           url="https://view.eumetsat.int/geoserver/ows?service=WMS&version=1.1.1&request=GetMap&srs=EPSG:3857&bbox=2500000,5200000,2600000,5300000&width=2&height=2&format=image/png&transparent=true&layers=msg_fes:clm"
-          ct=$(curl -sS -m 45 -o body.bin -w '%{content_type}' "$url") || ct=none
+          ct=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 45 -o body.bin -w '%{content_type}' "$url") || ct=none
           echo "content-type: $ct"
           printf '%s' "$ct" | grep -qi 'image' \
             || { echo "EUMETSAT did not return an image (layer renamed/removed or service down):"; head -c 400 body.bin; exit 1; }
@@ -96,7 +98,7 @@ jobs:
       - name: RainViewer (rain-radar frames)
         if: ${{ !cancelled() }}
         run: |
-          code=$(curl -sS -m 30 -o body.json -w '%{http_code}' "https://api.rainviewer.com/public/weather-maps.json") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -o body.json -w '%{http_code}' "https://api.rainviewer.com/public/weather-maps.json") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "RainViewer index did not answer 200"; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); f=d.get("radar",{}).get("past",[]); assert f, "no radar.past frames"; print(len(f), "radar frame(s); host", d.get("host"))'
@@ -104,7 +106,7 @@ jobs:
       - name: Photon (place search + reverse geocode)
         if: ${{ !cancelled() }}
         run: |
-          code=$(curl -sS -m 30 -o body.json -w '%{http_code}' "https://photon.komoot.io/api/?q=Sofia&limit=1") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -o body.json -w '%{http_code}' "https://photon.komoot.io/api/?q=Sofia&limit=1") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "Photon did not answer 200"; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); assert d.get("type")=="FeatureCollection" and isinstance(d.get("features"),list) and d["features"], "no search results"; print("search returned", len(d["features"]), "feature(s)")'
@@ -114,7 +116,7 @@ jobs:
         run: |
           # Must be reachable and valid XML. Zero gliders is legitimate at quiet hours or
           # in winter, so we do NOT alarm on an empty list — only on unreachable/bad format.
-          code=$(curl -sS -m 30 -o body.xml -w '%{http_code}' "https://live.glidernet.org/lxml.php?a=0&b=49&c=36&d=33.5&e=17") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -o body.xml -w '%{http_code}' "https://live.glidernet.org/lxml.php?a=0&b=49&c=36&d=33.5&e=17") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "OGN did not answer 200"; exit 1; }
           grep -qi '<marker' body.xml || head -c 40 body.xml | grep -qi '<?xml' \
@@ -129,7 +131,7 @@ jobs:
           # collector is not writing the CURRENT UTC hour (X-Gpsown-Cur: 0 =
           # the cron or KV is broken - the served picture would silently age).
           hdr=$(mktemp)
-          code=$(curl -sS -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/gpsown") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/gpsown") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "gpsown relay did not answer 200; X-Relay-Err follows:"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c "import json; d=json.load(open('body.json')); assert d.get('type')=='FeatureCollection','not a FeatureCollection'; n=len(d.get('features',[])); print(n,'cells, mode',d.get('mode')); assert n>0,'no cells'"
@@ -143,7 +145,7 @@ jobs:
           # Valid GeoJSON with airspace polygons. Alarm on unreachable / error / empty /
           # bad format (a source or relay problem); a normal day has ~189 features.
           hdr=$(mktemp)
-          code=$(curl -sS -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/airspace") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/airspace") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "airspace relay did not answer 200; X-Relay-Err follows:"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c "import json; d=json.load(open('body.json')); assert d.get('type')=='FeatureCollection','not a FeatureCollection'; n=len(d.get('features',[])); print(n,'airspace features'); assert n>0,'no airspace features'"
@@ -158,7 +160,7 @@ jobs:
           # poll). > 90 min = FAA or the poller has been down for a while.
           # A 502 "no notam creds" means the relay's Deno env vars aren't set.
           hdr=$(mktemp)
-          code=$(curl -sS -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/notam") || code=000
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/notam") || code=000
           echo "HTTP $code"
           [ "$code" = "200" ] || { echo "notam relay did not answer 200; X-Relay-Err follows:"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c "import json; d=json.load(open('body.json')); assert d.get('type')=='FeatureCollection','not a FeatureCollection'; print(len(d.get('features',[])),'notam features')"
