@@ -1712,8 +1712,14 @@ window.wxSetGj = function(on){ window.wxGjOn = on;
 // Outlines ONLY (no fill), same weight as our zone outlines, BELOW the zones. Two
 // independent menu toggles (controlled / special-use). Click shows name/type/limits,
 // but a click on one of OUR zones wins (this pops only when no zone is under it).
+// A zone the CAA ALSO publishes, under the same name, in its public layer of BULATSA zones
+// (/actzones, see the activated-zones block) takes the CAA's contour + heights while the
+// CAA lists it as active (owner 11.10: same name -> the official, current source; e.g. LBR1
+// cut at the border, LBR7 2.5 km). Not published, not started yet, or CAA data older than
+// 3 h / unavailable -> the OpenAIP shape stays (airGvaData).
 window.wxAirUrl = 'https://full-narwhal-4777.martinovem.deno.net/airspace';
 var AIR_CTRL_T = [4,5,6,7,13,14,25,26,36]; // controlled types (rest = special-use)
+var AIR_CTRL_F = ['in',['get','t'],['literal',AIR_CTRL_T]], AIR_SPEC_F = ['!', AIR_CTRL_F];
 var AIR_TL = {1:{bg:'Ограничена',en:'Restricted'},2:{bg:'Опасна',en:'Danger'},3:{bg:'Забранена',en:'Prohibited'},
   4:{bg:'CTR — контролна зона',en:'CTR'},5:{bg:'TMZ',en:'TMZ'},6:{bg:'RMZ',en:'RMZ'},7:{bg:'TMA',en:'TMA'},
   8:{bg:'Военна (TRA)',en:'Military (TRA)'},9:{bg:'Военна (TSA)',en:'Military (TSA)'},13:{bg:'ATZ',en:'ATZ'},
@@ -1721,47 +1727,85 @@ var AIR_TL = {1:{bg:'Ограничена',en:'Restricted'},2:{bg:'Опасна'
 function airEnsure(cb){
   if (map.getSource('wxair')){ cb(); return; }
   fetch(window.wxAirUrl).then(function(r){ if (!r.ok) throw 0; return r.json(); }).then(function(gj){
-    if (!map.getSource('wxair')) map.addSource('wxair', {type:'geojson', data:gj, generateId:true,
-      attribution:'Airspace &copy; <a href="https://www.openaip.net/" target="_blank" rel="noopener">openAIP</a> (CC BY-NC 4.0)'});
+    window._airRaw = gj;
+    if (!map.getSource('wxair')){ var d = airGvaData(); window._airGvaSig = d.sig;
+      map.addSource('wxair', {type:'geojson', data:d.fc, generateId:true,
+        attribution:'Airspace &copy; <a href="https://www.openaip.net/" target="_blank" rel="noopener">openAIP</a> (CC BY-NC 4.0); BULATSA zone contours: <a href="https://uas.caa.bg/" target="_blank" rel="noopener">CAA uas.caa.bg</a>'}); }
     cb();
   }).catch(function(){ wxBtnIdle('cbAirC'); wxBtnIdle('cbAirS'); // relay/source down: draw nothing rather than something stale...
     clearTimeout(window._airRt); window._airRt = setTimeout(function(){ // ...then re-attempt the FETCH (never draws stale); stops once toggled off
       if (window.wxAirCOn) window.wxSetAirC(true); if (window.wxAirSOn) window.wxSetAirS(true); }, 15000); });
 }
-function airDropSourceMaybe(){ if (!map.getLayer('air-ctrl') && !map.getLayer('air-spec') && map.getSource('wxair')) map.removeSource('wxair'); } // each group's labels are removed with its outline
+function airDropSourceMaybe(){ if (!map.getLayer('air-ctrl') && !map.getLayer('air-spec') && map.getSource('wxair')){ map.removeSource('wxair'); window._airGvaSig = null; } } // each group's labels are removed with its outline
+// The OpenAIP picture with the CAA's contour + heights in place of the same-name zones the
+// CAA lists as ACTIVE right now (the activated layer's own test: window started, not ended);
+// names compared case-insensitively ("CHAIKA MATZ" = "Chaika MATZ"). sig = the swapped part.
+function airGvaData(){
+  var raw = window._airRaw || {type:'FeatureCollection', features:[]}, by = {}, now = Date.now(), sw = [];
+  if (window._actDataAt && now - window._actDataAt <= ACT_DROP_MIN * 60000) (window._actRaw || []).forEach(function(f){
+    var p = (f && f.properties) || {}, s = Date.parse(p.s), e = Date.parse(p.e);
+    if (f && f.geometry && p.n && !(e <= now) && !(s > now)) by[String(p.n).toUpperCase()] = f; });
+  var fc = {type:'FeatureCollection', features:(raw.features || []).map(function(f){
+    var g = by[String((f.properties || {}).n || '').toUpperCase()]; if (!g) return f;
+    var q = g.properties || {}, p = {}, k; for (k in f.properties) p[k] = f.properties[k];
+    p.lo = q.lo || p.lo; p.up = q.up || p.up; p.gva = 1;
+    var o = {type:'Feature', geometry:g.geometry, properties:p}; sw.push(o); return o; })};
+  return {fc:fc, sig:JSON.stringify(sw)};
+}
+// re-apply on the live source when the CAA data or a window edge changes the swap
+function airGvaApply(){
+  var src = map.getSource('wxair'); if (!src || !window._airRaw) return;
+  var d = airGvaData(); if (d.sig === window._airGvaSig) return;
+  window._airGvaSig = d.sig; src.setData(d.fc);
+}
+// the CAA data the swap needs - shared with the activated layer, fetched at most every 10 min
+function airGvaNeed(){
+  if (window._actRaw && Date.now() - (window._actFetchAt || 0) < 600000){ airGvaApply(); return; }
+  actFetch(airGvaApply);
+}
+// while an airspace group is on: window edges every minute (+ the 10-min refetch, done by the
+// activated layer's own timer when that layer is on)
+function airGvaTick(on){
+  if (on && !window._airGvaT) window._airGvaT = setInterval(function(){ if (window.wxActOn) airGvaApply(); else airGvaNeed(); }, 60000);
+  if (!on && window._airGvaT){ clearInterval(window._airGvaT); window._airGvaT = null; }
+}
 // Each airspace group carries its OWN name labels, added/removed WITH its outline (no
 // separate "labels" toggle). MapLibre's collision detection thins overlapping labels out
 // by zoom on its own, so it never becomes a wall of text. Text coloured like the outline.
 var AIR_LBL_LAYOUT = {'text-field':['get','n'], 'text-size':11, 'text-font':['Noto Sans Regular'], 'text-max-width':9};
 var AIR_LW = ['case', ['boolean', ['feature-state', 'sel'], false], 3.8, 1.3]; // clicked airspace outline thickens ~3x (feature-state 'sel')
-// label filter of a group, minus the zones ACTIVATED right now (window._actSup, filled by the
-// activated-zones layer while it is on): their label - and so their popup entry, reachable only
-// via the label - gives way to the activated zone's own label + heights; back when it ends
+// filter of a group (outlines AND labels), minus the zones the activated-zones layer draws as
+// ACTIVE right now (window._actSup, filled while that layer is on): each such zone is drawn
+// once, by that layer, and its label - so its popup entry, reachable only via the label -
+// gives way to the activated zone's own label + heights; back when it ends / the layer is off
 window.wxAirLblFilter = function(ctrl){
-  var base = ctrl ? ['in',['get','t'],['literal',AIR_CTRL_T]] : ['!',['in',['get','t'],['literal',AIR_CTRL_T]]];
-  var sup = window._actSup || [];
-  return sup.length ? ['all', base, ['!', ['in', ['get','n'], ['literal', sup]]]] : base; };
+  var base = ctrl ? AIR_CTRL_F : AIR_SPEC_F, sup = (window._actSup || []).map(function(n){ return String(n).toUpperCase(); });
+  return sup.length ? ['all', base, ['!', ['in', ['upcase', ['to-string', ['get','n']]], ['literal', sup]]]] : base; };
 window.wxSetAirC = function(on){ window.wxAirCOn = on;
   if (on){ wxBtnBusy('cbAirC', 'wxair'); airEnsure(function(){ if (!window.wxAirCOn) return;
     if (!map.getLayer('air-ctrl')) map.addLayer({id:'air-ctrl', type:'line', source:'wxair',
-      filter:['in',['get','t'],['literal',AIR_CTRL_T]],
+      filter:window.wxAirLblFilter(true),
       paint:{'line-color':'#2b6cb0','line-width':AIR_LW,'line-opacity':0.9}}, wxZoneAnchor()); // faint: context, not a dominant border
     if (!map.getLayer('air-ctrl-labels')) map.addLayer({id:'air-ctrl-labels', type:'symbol', source:'wxair',
       filter:window.wxAirLblFilter(true), layout:AIR_LBL_LAYOUT,
-      paint:{'text-color':'#2b6cb0','text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor()); }); }
+      paint:{'text-color':'#2b6cb0','text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor());
+    airGvaNeed(); airGvaTick(true); }); }
   else { wxBtnIdle('cbAirC'); ['air-ctrl','air-ctrl-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
+    airGvaTick(!!window.wxAirSOn);
     if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
 };
 window.wxSetAirS = function(on){ window.wxAirSOn = on;
   if (on){ wxBtnBusy('cbAirS', 'wxair'); airEnsure(function(){ if (!window.wxAirSOn) return;
     if (!map.getLayer('air-spec')) map.addLayer({id:'air-spec', type:'line', source:'wxair',
-      filter:['!',['in',['get','t'],['literal',AIR_CTRL_T]]],
+      filter:window.wxAirLblFilter(false),
       // red for Prohibited(3)/Restricted(1)/Danger(2); magenta for military TRA/TSA(8/9)
       paint:{'line-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'line-width':AIR_LW,'line-opacity':0.9}}, wxZoneAnchor());
     if (!map.getLayer('air-spec-labels')) map.addLayer({id:'air-spec-labels', type:'symbol', source:'wxair',
       filter:window.wxAirLblFilter(false), layout:AIR_LBL_LAYOUT,
-      paint:{'text-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor()); }); }
+      paint:{'text-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor());
+    airGvaNeed(); airGvaTick(true); }); }
   else { wxBtnIdle('cbAirS'); ['air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
+    airGvaTick(!!window.wxAirCOn);
     if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
 };
 (function(){
@@ -1773,7 +1817,9 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
   window.wxAirSub = function(p){ var L = (window.LANG || 'bg'); return (AIR_TL[p.t] && AIR_TL[p.t][L]) || ('#' + p.t); };
   window.wxAirDetail = function(p){ var L = (window.LANG || 'bg');
     return '<b>' + esc(p.n) + '</b><br>' + window.wxAirSub(p) + '<br>' + esc(p.lo) + ' – ' + esc(p.up) +
-      (p.nx ? ('<br><small>' + (L === 'en' ? 'by NOTAM' : 'по NOTAM') + '</small>') : ''); };
+      (p.nx ? ('<br><small>' + (L === 'en' ? 'by NOTAM' : 'по NOTAM') + '</small>') : '') +
+      // the CAA's contour + heights swapped in (airGvaData)
+      (+p.gva === 1 ? ('<br><small>' + (L === 'en' ? 'Contour and heights: CAA (uas.caa.bg)' : 'Контур и височини: ГД ГВА (uas.caa.bg)') + '</small>') : ''); };
   // thicken the CLICKED airspace outline (feature-state 'sel' -> AIR_LW); one at a time
   window._airSel = null;
   window.wxAirSelect = function(aid){
@@ -1796,8 +1842,9 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
 // TRA/TSA): a normal-weight solid edge (dashed = upcoming), a band along the inside of
 // the edge, a ~20% fill and a label "<name> / АКТИВНА до <end>" (no end given: just
 // "АКТИВНА"). Thickness stays the CLICK highlight, as for the airspace outlines. While a
-// zone is active, its OpenAIP label (and so its popup entry) is hidden: one zone, one
-// set of heights; it returns when the activation ends.
+// zone is active, its OpenAIP outline + label (and so its popup entry) are hidden: one
+// zone, drawn once, one set of heights; they return when the activation ends. The same
+// data also gives the airspace layer its CAA contours (airGvaData, above).
 // Honest freshness: data older than 60 min raises a banner; older than 3 h draws nothing
 // and says so - an empty map must never read as "nothing is active".
 window.wxActUrl = 'https://full-narwhal-4777.martinovem.deno.net/actzones';
@@ -1841,10 +1888,10 @@ function actBuild(){
   });
   return {gj:{type:'FeatureCollection', features:out}, sup:sup, next:next};
 }
-// hide/restore the OpenAIP labels of the zones active right now (see wxAirLblFilter)
+// hide/restore the OpenAIP outlines + labels of the zones active right now (see wxAirLblFilter)
 function actSup(list){ var key = list.slice().sort().join('|'); if (key === window._actSupKey) return;
   window._actSupKey = key; window._actSup = list.slice();
-  ['air-ctrl-labels','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.setFilter(id, window.wxAirLblFilter(id === 'air-ctrl-labels')); }); }
+  ['air-ctrl','air-ctrl-labels','air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.setFilter(id, window.wxAirLblFilter(id.indexOf('air-ctrl') === 0)); }); }
 // redraw the picture (data, suppression, stamp/banner); called on every fetch, every
 // minute, and exactly when the next window starts or ends
 function actPaint(){
@@ -1855,6 +1902,7 @@ function actPaint(){
   clearTimeout(window._actEdge);
   if (window.wxActOn && b.next - Date.now() < 61000) window._actEdge = setTimeout(actPaint, Math.max(500, b.next - Date.now() + 500));
   actFreshPaint();
+  airGvaApply(); // the airspace layer's CAA contours follow the same data + window edges
 }
 function actFreshPaint(){
   var el = document.getElementById('wxactfresh'), bn = document.getElementById('wxactstale');
@@ -1874,6 +1922,7 @@ function actFreshPaint(){
 }
 // ONE fetch of /actzones; the picture's true age comes from the relay's X-Act-Age-Ms
 function actFetch(ok){
+  window._actFetchAt = Date.now(); // when WE last asked (the airspace swap refetches by this, not by the data's age)
   fetch(window.wxActUrl, {cache: 'no-store'}).then(function(r){ if (!r.ok) throw 0;
     var age = parseInt(r.headers.get('X-Act-Age-Ms') || '0', 10) || 0;
     return r.json().then(function(gj){ return {gj: gj, age: age}; });
