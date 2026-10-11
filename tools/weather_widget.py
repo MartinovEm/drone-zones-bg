@@ -911,6 +911,19 @@ window.wxWindEngine = function(cfg){
   var LIGHTBG = {uW: 1.8, uA: 0.55, oA: 0}, DARKBG = {uW: 2.4, uA: 0.35, oW: 1.1, oA: 0.85};
   function pal(){ return (typeof cfg.darkBg === 'function' ? cfg.darkBg() : cfg.darkBg) ? DARKBG : LIGHTBG; }
   function dims(){ var d = cv._dpr || 1; return {w: cv.width / d, h: cv.height / d}; } // CSS px (ctx is DPR-scaled)
+  // One wind step on the map. (ax,ay)/(bx,by) = screen px per degree east/north at the
+  // point (the local Jacobian). The flow direction is the wind's OWN geographic direction
+  // as the map shows it there (u east, v north, projected), so it turns with a rotated
+  // map and follows a 3D tilt (owner 11.10: it used to stay fixed to the screen);
+  // the speed stays constant on screen per m/s. Returns the geographic step + the
+  // screen unit direction (the short dashes drawn while the map moves), or null.
+  function windStep(s, lat, ax, ay, bx, by, k){
+    var gx = s.u / Math.max(0.2, Math.cos(lat * Math.PI / 180)), gy = s.v; // m/s -> degrees east : north
+    var sx = ax * gx + bx * gy, sy = ay * gx + by * gy, sl = Math.sqrt(sx * sx + sy * sy), det = ax * by - bx * ay;
+    if (!sl || Math.abs(det) < 1e-4) return null;
+    var spd = Math.sqrt(s.u * s.u + s.v * s.v) * C.SPEED * k, vx = sx / sl * spd, vy = sy / sl * spd;
+    return {dlon: (by * vx - bx * vy) / det, dlat: (-ay * vx + ax * vy) / det, ux: sx / sl, uy: sy / sl};
+  }
   function strokeSegs(segs, P){ var k; ctx.lineCap = 'round';
     ctx.beginPath(); for (k = 0; k < segs.length; k++){ ctx.moveTo(segs[k][0], segs[k][1]); ctx.lineTo(segs[k][2], segs[k][3]); }
     ctx.lineWidth = P.uW; ctx.strokeStyle = 'rgba(45,55,75,' + P.uA + ')'; ctx.stroke();
@@ -924,24 +937,25 @@ window.wxWindEngine = function(cfg){
     // (that is why it raced while dragging and on high-refresh phones)
     var sc = (now && lastT) ? Math.min(3, (now - lastT) / C.FRAME_MS) : 1;
     lastT = now || 0;
-    var D = dims(), w = D.w, h = D.h, b = cfg.bounds(), segs = [], i, p, s, pt, ptE, ptN, dx, dy, mm, P = pal();
+    var D = dims(), w = D.w, h = D.h, b = cfg.bounds(), segs = [], i, p, s, st, pt, ptE, ptN, dx, dy, P = pal();
     if (moving){
       // panning/zooming: keep the flow going AND reproject every frame so the dashes
-      // ride with the map (no smear, no freeze). Centre px/deg is enough during a drag.
+      // ride with the map (no smear, no freeze). The centre's east/north vectors are
+      // enough during a drag.
       ctx.clearRect(0, 0, w, h);
       var mcx = (b.w + b.e) / 2, mcy = (b.s + b.n) / 2, mc = cfg.project(mcx, mcy),
           meE = cfg.project(mcx + 0.1, mcy), meN = cfg.project(mcx, mcy + 0.1);
-      var mppdLon = (mc && meE ? Math.abs(meE.x - mc.x) / 0.1 : 0) || 1,
-          mppdLat = (mc && meN ? Math.abs(meN.y - mc.y) / 0.1 : 0) || 1;
+      var jE = (mc && meE) ? [(meE.x - mc.x) / 0.1, (meE.y - mc.y) / 0.1] : [1, 0],
+          jN = (mc && meN) ? [(meN.x - mc.x) / 0.1, (meN.y - mc.y) / 0.1] : [0, -1];
       for (i = 0; i < parts.length; i++){ p = parts[i];
         if (p.lon < b.w || p.lon > b.e || p.lat < b.s || p.lat > b.n){ reseed(p); }
         pt = cfg.project(p.lon, p.lat);
         if (!pt || pt.x < -20 || pt.y < -20 || pt.x > w + 20 || pt.y > h + 20) continue;
         s = window.wxWindSample(p.lon, p.lat); if (!s) continue;
-        mm = Math.sqrt(s.u * s.u + s.v * s.v) || 1;
-        segs.push([pt.x, pt.y, pt.x + (s.u / mm) * 9, pt.y - (s.v / mm) * 9]);
-        p.lon += Math.max(-0.05, Math.min(0.05, s.u * C.SPEED * sc / mppdLon));
-        p.lat += Math.max(-0.05, Math.min(0.05, s.v * C.SPEED * sc / mppdLat));
+        st = windStep(s, p.lat, jE[0], jE[1], jN[0], jN[1], sc); if (!st) continue;
+        segs.push([pt.x, pt.y, pt.x + st.ux * 9, pt.y + st.uy * 9]);
+        p.lon += Math.max(-0.05, Math.min(0.05, st.dlon));
+        p.lat += Math.max(-0.05, Math.min(0.05, st.dlat));
       }
       strokeSegs(segs, P); if (cfg.afterDraw) cfg.afterDraw(ctx); return;
     }
@@ -964,14 +978,9 @@ window.wxWindEngine = function(cfg){
       // streamlines under 3D tilt/rotation (they plunged on one side of the screen)
       ptE = cfg.project(p.lon + 0.02, p.lat); ptN = cfg.project(p.lon, p.lat + 0.02);
       if (ptE && ptN){
-        var ax = (ptE.x - pt.x) / 0.02, ay = (ptE.y - pt.y) / 0.02,
-            bx = (ptN.x - pt.x) / 0.02, by = (ptN.y - pt.y) / 0.02, det = ax * by - bx * ay;
-        if (Math.abs(det) > 1e-4){
-          var vx = s.u * C.SPEED * sc, vy = -s.v * C.SPEED * sc; // desired screen velocity (y down)
-          // cap the per-frame step so a near-horizon degenerate scale can't make it "fly"
-          p.lon += Math.max(-0.05, Math.min(0.05, (by * vx - bx * vy) / det));
-          p.lat += Math.max(-0.05, Math.min(0.05, (-ay * vx + ax * vy) / det));
-        }
+        st = windStep(s, p.lat, (ptE.x - pt.x) / 0.02, (ptE.y - pt.y) / 0.02, (ptN.x - pt.x) / 0.02, (ptN.y - pt.y) / 0.02, sc);
+        // cap the per-frame step so a near-horizon degenerate scale can't make it "fly"
+        if (st){ p.lon += Math.max(-0.05, Math.min(0.05, st.dlon)); p.lat += Math.max(-0.05, Math.min(0.05, st.dlat)); }
       }
     }
     strokeSegs(segs, P);
