@@ -2176,13 +2176,14 @@ window.wxSetNotam = function(on){ window.wxNotamOn = on;
       filter:['!=',['get','l'],'R'], paint:{'line-color':NT_COL, 'line-width':1.4, 'line-opacity':['case',['==',['get','fut'],1],0.35,0.9], 'line-dasharray':[2,1.5]}});
     if (!map.getLayer('notam-line-r')) map.addLayer({id:'notam-line-r', type:'line', source:'wxnotam',
       filter:['==',['get','l'],'R'], paint:{'line-color':'#d0202a', 'line-width':1.6, 'line-opacity':['case',['==',['get','fut'],1],0.4,0.95]}});
-    // FIR-wide NOTAMs: the whole Sofia FIR as a wide translucent band + a dashed line on top,
-    // no fill (their pins carry the detail). The band keeps it clearly apart from the plain
-    // state border it runs along on land (owner 04.10: must be clearly visible there).
+    // FIR-wide NOTAMs: the whole Sofia FIR as a translucent band + a dashed line on top,
+    // no fill (their pins carry the detail). The band keeps it apart from the plain state
+    // border it runs along on land (owner 04.10: clearly visible there; 11.10: thinner -
+    // 11 px read as a highlighter once the GNSS NOTAM drew it yellow).
     if (!map.getLayer('notam-fir-band')) map.addLayer({id:'notam-fir-band', type:'line', source:'wxnotam-fir',
-      layout:{'line-join':'round', 'line-cap':'round'}, paint:{'line-color':NT_COL, 'line-width':11, 'line-opacity':0.45, 'line-blur':1}});
+      layout:{'line-join':'round', 'line-cap':'round'}, paint:{'line-color':NT_COL, 'line-width':5, 'line-opacity':0.3, 'line-blur':1}});
     if (!map.getLayer('notam-fir')) map.addLayer({id:'notam-fir', type:'line', source:'wxnotam-fir',
-      paint:{'line-color':NT_COL, 'line-width':3.5, 'line-opacity':1, 'line-dasharray':[3,2]}});
+      paint:{'line-color':NT_COL, 'line-width':2.5, 'line-opacity':1, 'line-dasharray':[3,2]}});
     if (!map.getLayer('notam-pin')) map.addLayer({id:'notam-pin', type:'symbol', source:'wxnotam-pts',
       layout:{'icon-image':['match',['get','l'],'P','ntpin-P','D','ntpin-D','M','ntpin-M','R','ntpin-R','O','ntpin-O','G','ntpin-G','ntpin-excl'],
         'icon-anchor':'bottom', 'icon-size':1, 'icon-allow-overlap':true, 'icon-ignore-placement':true},
