@@ -212,10 +212,13 @@ function wxNowHourIdx(){ // hourly index for the current hour (hourly + current 
   for (var i = 0; i < ts.length; i++){ if (ts[i].slice(0, 13) >= nowH) return i; }
   return 0;
 }
+// the chip's short form: the name up to its first comma ("София, София-град" -> "София"); the
+// coordinates shown where there is no place name stay whole ("42.82, 20.35": both numbers)
+function wxShortName(nm){ return /^-?\d+(\.\d+)?, -?\d+(\.\d+)?$/.test(nm) ? nm : nm.split(',')[0]; }
 function wxChipHTML(){
   var t = WXT[wxLang()];
   if (!wxData || !wxData.current || wxErr){ // no usable current weather -> show just the place name
-    var nm0 = (wxNames[wxCellOf(map.getCenter()) + '|' + wxLang()] || '').split(',')[0];
+    var nm0 = wxShortName(wxNames[wxCellOf(map.getCenter()) + '|' + wxLang()] || '');
     wxChip.innerHTML = nm0 ? '<span class="wxnm">' + wxEsc(nm0) + '</span>' : '…';
     wxChip.title = t.title; return; }
   var c = wxData.current;
@@ -230,7 +233,7 @@ function wxChipHTML(){
       hsfx = (wh === 120 ? ' (120m)' : '') + (whr > 0 ? ' +' + whr + (wxLang() === 'en' ? 'h' : 'ч') : ''); }
   }
   var nm = wxNames[wxCellOf(map.getCenter()) + '|' + wxLang()] || '';
-  nm = nm.split(',')[0]; // short form in the chip; the panel shows the full name
+  nm = wxShortName(nm); // short form in the chip; the panel shows the full name
   wxChip.innerHTML = (nm ? '<span class="wxnm">' + wxEsc(nm) + '</span> ' : '') +
     wxIco(c.weather_code, c.is_day) + ' ' + Math.round(c.temperature_2m) + '° · ' +
     wxV(ws) + ' ' + t.ms + hsfx + wxArrow(wd);
