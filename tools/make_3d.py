@@ -200,7 +200,7 @@ var T = {
      clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
-     secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
+     secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntG:'GNSS смущения',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
  en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',bld:'Buildings',
@@ -209,7 +209,7 @@ var T = {
      clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
-     secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
+     secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntG:'GNSS interference',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
      disc:'Unofficial visualization. Before flying, check the official source and <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, active zones).',
      tP:'PROHIBITED',tA:'AUTHORISATION REQUIRED',tC:'CONDITIONAL'}
 };

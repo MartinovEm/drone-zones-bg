@@ -2021,18 +2021,22 @@ window.wxActSelect = function(key){
 window.wxNotamUrl = 'https://full-narwhal-4777.martinovem.deno.net/notam';
 // letter -> colour, aligned with B-FLIP (R red, W/warnings orange, M magenta) and
 // managed so the only orange (! = warnings) is a deeper orange than the amber
-// "req-authorisation" zones, which it must not be confused with.
-var NT_COL = ['match', ['get','l'], 'P','#d0202a', 'R','#d0202a', 'D','#d0202a', 'M','#d81fbf', 'O','#00897b', '!','#ef6c00', '#d0202a'];
+// "req-authorisation" zones, which it must not be confused with. G = GNSS interference
+// (owner 11.10): yellow as B-FLIP draws it, with a DARK letter on its pin (white on yellow
+// does not read).
+var NT_COL = ['match', ['get','l'], 'P','#d0202a', 'R','#d0202a', 'D','#d0202a', 'M','#d81fbf', 'O','#00897b', '!','#ef6c00', 'G','#f9b800', '#d0202a'];
 var NT_TL = {prohibited:{bg:'Забранена зона (NOTAM)',en:'Prohibited (NOTAM)'},
   danger:{bg:'Опасна зона (NOTAM)',en:'Danger (NOTAM)'},
   military:{bg:'Военна / сегрегирана (NOTAM)',en:'Military / segregated (NOTAM)'},
   restricted:{bg:'Ограничена зона (NOTAM)',en:'Restricted (NOTAM)'},
   obstacle:{bg:'Препятствие (NOTAM)',en:'Obstacle (NOTAM)'},
-  warning:{bg:'Предупреждение (NOTAM)',en:'Warning (NOTAM)'}};
+  warning:{bg:'Предупреждение (NOTAM)',en:'Warning (NOTAM)'},
+  gnss:{bg:'GNSS смущения (NOTAM)',en:'GNSS interference (NOTAM)'}};
 // Classic teardrop pin markers with the letter baked in, coloured by category and
 // added once as map images. icon-anchor 'bottom' puts the tip on the NOTAM centre.
-var NT_PINCOL = {P:'#d0202a', R:'#d0202a', D:'#d0202a', M:'#d81fbf', O:'#00897b', '!':'#ef6c00'};
-function wxNotamPin(color, letter){
+var NT_PINCOL = {P:'#d0202a', R:'#d0202a', D:'#d0202a', M:'#d81fbf', O:'#00897b', '!':'#ef6c00', G:'#f9b800'};
+var NT_PININK = {G:'#2b2100'}; // letter colour where white would not read (default white)
+function wxNotamPin(color, letter, ink){
   var pr = 2, W = 26, H = 36, r = 10, cx = W/2, cy = r + 2, tip = H - 1.5;
   var cv = document.createElement('canvas'); cv.width = W*pr; cv.height = H*pr;
   var ctx = cv.getContext('2d'); ctx.scale(pr, pr);
@@ -2040,7 +2044,7 @@ function wxNotamPin(color, letter){
     ctx.moveTo(cx - rr*0.72, cy + rr*0.7); ctx.lineTo(cx, ty); ctx.lineTo(cx + rr*0.72, cy + rr*0.7); ctx.closePath(); }
   path(r + 1.3, tip + 1); ctx.fillStyle = '#fff'; ctx.fill();   // white halo / outline
   path(r, tip); ctx.fillStyle = color; ctx.fill();               // coloured pin body
-  ctx.fillStyle = '#fff'; ctx.font = 'bold ' + (r+2) + 'px sans-serif';
+  ctx.fillStyle = ink || '#fff'; ctx.font = 'bold ' + (r+2) + 'px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(letter, cx, cy + 0.5);
   return {width: W*pr, height: H*pr, data: ctx.getImageData(0, 0, W*pr, H*pr).data};
 }
@@ -2053,7 +2057,7 @@ function wxNotamHatch(color){
 }
 function notPinsReady(){ if (window._ntPinsDone) return; window._ntPinsDone = true;
   Object.keys(NT_PINCOL).forEach(function(k){ var id = 'ntpin-' + (k === '!' ? 'excl' : k);
-    if (!map.hasImage(id)) map.addImage(id, wxNotamPin(NT_PINCOL[k], k), {pixelRatio: 2}); });
+    if (!map.hasImage(id)) map.addImage(id, wxNotamPin(NT_PINCOL[k], k, NT_PININK[k]), {pixelRatio: 2}); });
   if (!map.hasImage('nthatch')) map.addImage('nthatch', wxNotamHatch('#d0202a'), {pixelRatio: 2}); }
 // ONE fetch of /notam -> normalised sources data + the picture's true age from
 // the relay's X-Notam-Age-Ms header (= time since the newest successful FAA
@@ -2180,7 +2184,7 @@ window.wxSetNotam = function(on){ window.wxNotamOn = on;
     if (!map.getLayer('notam-fir')) map.addLayer({id:'notam-fir', type:'line', source:'wxnotam-fir',
       paint:{'line-color':NT_COL, 'line-width':3.5, 'line-opacity':1, 'line-dasharray':[3,2]}});
     if (!map.getLayer('notam-pin')) map.addLayer({id:'notam-pin', type:'symbol', source:'wxnotam-pts',
-      layout:{'icon-image':['match',['get','l'],'P','ntpin-P','D','ntpin-D','M','ntpin-M','R','ntpin-R','O','ntpin-O','ntpin-excl'],
+      layout:{'icon-image':['match',['get','l'],'P','ntpin-P','D','ntpin-D','M','ntpin-M','R','ntpin-R','O','ntpin-O','G','ntpin-G','ntpin-excl'],
         'icon-anchor':'bottom', 'icon-size':1, 'icon-allow-overlap':true, 'icon-ignore-placement':true},
       paint:{'icon-opacity':['case',['==',['get','fut'],1],0.5,1]}}); }); }
   else { wxBtnIdle('cbNotam'); ['notam-fill','notam-hatch','notam-line','notam-line-r','notam-fir-band','notam-fir','notam-pin'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });

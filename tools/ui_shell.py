@@ -438,7 +438,7 @@ AIRSPACE_SECTION = (
   '</div>')
 
 
-# NOTAM section: one toggle + a colour/letter key (P/R/D/M/!). Own section because
+# NOTAM section: one toggle + a colour/letter key (P/D/R/M/O/!/G). Own section because
 # NOTAM is dynamic ("active now"), unlike the static airspace/zones. Default OFF.
 NOTAM_SECTION = (
   '<div class="psec"><div class="psh" data-i18n="secNotam">NOTAM (временни)</div>'
@@ -452,6 +452,7 @@ NOTAM_SECTION = (
   '<span class="ntk" style="background:#d81fbf">M</span><span data-i18n="ntM">военна</span>'
   '<span class="ntk" style="background:#00897b">O</span><span data-i18n="ntO">препятствие</span>'
   '<span class="ntk" style="background:#ef6c00">!</span><span data-i18n="ntW">предупреждение</span>'
+  '<span class="ntk" style="background:#f9b800;color:#2b2100">G</span><span data-i18n="ntG">GNSS смущения</span>'
   '</div>'
   '<div class="flnote" data-i18n="ntUpc">приглушените са предстоящи (все още неактивни)</div>'
   '<div class="flnote" data-i18n="ntSrc">Международна серия (FAA)</div>'
