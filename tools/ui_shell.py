@@ -423,12 +423,18 @@ BUILDINGS_CHIP = '<span class="chip on" id="cbB"><span class="dot" style="backgr
 AIRSPACE_SECTION = (
   '<div class="psec"><div class="psh" data-i18n="secAir">Въздушно пространство</div>'
   '<div class="prow">'
+  # activated zones (BULATSA via the CAA's public layer): the special-use zones active
+  # right now / about to be, with their time window + the heights of THIS activation
+  '<span class="chip" id="cbAct"><span class="dot" style="background:#d0202a"></span><span data-i18n="actShow">Активирани зони</span></span>'
   '<span class="chip" id="cbAirC"><span class="dot" style="background:#2b6cb0"></span><span data-i18n="airCtrl">Контролирано</span></span>'
   '<span class="chip" id="cbAirS"><span class="dot" style="background:#d0202a"></span><span data-i18n="airSpec">Специални зони</span></span>'
   '</div>'
   '<div class="airnote"><span class="airsw" style="background:#d0202a"></span><span data-i18n="airLegRPD">забранени / ограничени / опасни</span>'
   '<span class="airsw" style="background:#d81fbf;margin-left:6px"></span><span data-i18n="airMil">военни</span></div>'
   '<div class="flnote" data-i18n="airFL180">Показва се само до FL180 (18 000 ft)</div>'
+  '<div class="flnote" data-i18n="actNote">Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА</div>'
+  # freshness stamp of the activated zones, filled by JS while that layer is ON
+  '<div class="flnote" id="wxactfresh" style="display:none"></div>'
   '</div>')
 
 

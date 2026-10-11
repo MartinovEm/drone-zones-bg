@@ -199,6 +199,7 @@ var T = {
      ddate:'синхронизация от __CHANGED__',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',
      clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
+     actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
      secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
@@ -207,6 +208,7 @@ var T = {
      ddate:'synced from __CHANGED__',src:'Zones source: Bulgarian CAA',here:'You are here',
      clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
+     actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
      secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
      disc:'Unofficial visualization. Before flying, check the official source and <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, active zones).',
      tP:'PROHIBITED',tA:'AUTHORISATION REQUIRED',tC:'CONDITIONAL'}
@@ -255,18 +257,24 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+// thicken the outline of the ONE item a popup shows (airspace or activated zone); none = null
+function selShown(p){
+  if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
+  if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null); }
 function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LANG].zonesHere + '</div>';
   list.forEach(function(p, i){ var dot, inner;
     if (p._nt){ dot = window.wxNotamColor(p.l);
       inner = '<b>' + esc(window.wxNotamName(p)) + '</b> <span class="ptype">NOTAM · ' + esc(window.wxNotamSub(p)) + '</span>'; }
+    else if (p._act){ dot = window.wxActColor(p);
+      inner = '<b>' + esc(window.wxActName(p)) + '</b> <span class="ptype">' + esc(window.wxActSub(p)) + '</span>'; }
     else if (p._air){ dot = window.wxAirColor(p);
       inner = '<b>' + esc(window.wxAirName(p)) + '</b> <span class="ptype">' + esc(window.wxAirSub(p)) + '</span>'; }
     else { dot = COL[p.r];
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -274,21 +282,22 @@ function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getEl
   el._zwired = true;
   el.addEventListener('click', function(ev){
     var t = ev.target, back = t.closest ? t.closest('.zback') : null;
-    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); if (window.wxAirSelect) window.wxAirSelect(null); return; }
+    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); selShown(null); return; }
     var pick = t.closest ? t.closest('.zpick') : null;
-    if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); if (window.wxAirSelect) window.wxAirSelect(curList[i]._air ? curList[i]._aid : null); }
+    if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); selShown(curList[i]); }
   });
 }
-function showPopup(html, lngLat){ if (curPopup) curPopup.remove(); curPopup = new maplibregl.Popup({maxWidth:'340px'}).setLngLat(lngLat).setHTML(html).addTo(map); wirePopup(); curPopup.on('close', function(){ if (window.wxAirSelect) window.wxAirSelect(null); }); }
+function showPopup(html, lngLat){ if (curPopup) curPopup.remove(); curPopup = new maplibregl.Popup({maxWidth:'340px'}).setLngLat(lngLat).setHTML(html).addTo(map); wirePopup(); curPopup.on('close', function(){ selShown(null); }); }
 function setPopupContent(html){ if (curPopup){ curPopup.setHTML(html); wirePopup(); } }
 function openZones(list, lngLat){ if (!list.length) return; curList = list; curPick = null;
   curRender = (list.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   showPopup(curRender(), lngLat);
-  if (window.wxAirSelect) window.wxAirSelect((list.length === 1 && list[0]._air) ? list[0]._aid : null); }
+  selShown(list.length === 1 ? list[0] : null); }
 // is a popup item's layer still on the map? (zones: category visibility; NOTAM/airspace
 // layers are removed when switched off; airspace remembers which label layer it came from)
 function featShown(p){
   if (p._nt) return !!map.getLayer('notam-pin');
+  if (p._act) return !!map.getLayer('act-fill');
   if (p._air) return !!(p._al && map.getLayer(p._al));
   var id = 'f-' + p.r; return !!map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'; }
 // A layer was switched OFF: drop its items from the open popup. Nothing left -> close it;
@@ -305,7 +314,7 @@ window.wxPopupPrune = function(){
   curRender = curPick ? function(){ return detailHTML(curPick, true); }
     : (keep.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   setPopupContent(curRender());
-  if (window.wxAirSelect) window.wxAirSelect(shown && shown._air ? shown._aid : null); };
+  selShown(shown); };
 // retranslate an open zone popup on a BG/EN switch
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ if (curPopup && curPopup.isOpen && curPopup.isOpen() && curRender) setPopupContent(curRender()); });
 
@@ -646,6 +655,11 @@ map.on('load', function(){
     if (nl.length){ var ns = {};
       map.queryRenderedFeatures(box, {layers: nl}).forEach(function(f){ var id = f.properties.id;
         if (!ns[id]){ ns[id] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._nt = true; list.push(p); } }); }
+    // activated zones (when that layer is on) - anywhere inside the zone, or its label
+    var xl = ['act-fill','act-label'].filter(function(id){ return map.getLayer(id); });
+    if (xl.length){ var xs = {};
+      map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
+        if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
     // airspace joins LAST (order: drone-zones > NOTAM > airspace); reachable ONLY via its NAME label (owner's choice)
     var al = ['air-ctrl-labels','air-spec-labels'].filter(function(id){ return map.getLayer(id); });
     if (al.length){ var as = {};

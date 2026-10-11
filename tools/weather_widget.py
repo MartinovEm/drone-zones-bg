@@ -425,7 +425,7 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('gj', on);
   if (window.wxSetGj) window.wxSetGj(on); };
 // airspace + NOTAM toggles are CHIPS in the drawer (not on-map buttons)
-['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbNotam:notam:wxSetNotam'].forEach(function(s){
+['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam'].forEach(function(s){
   var a = s.split(':'), el = document.getElementById(a[0]); if (!el) return;
   el.onclick = function(e){ e.stopPropagation(); var on = el.classList.toggle('on');
     try{ ST.set(a[1], on); }catch(_){} if (window[a[2]]) window[a[2]](on); };
@@ -1206,7 +1206,7 @@ WX_RESTORE_JS = r"""
   document.querySelectorAll('#wxwindh .wxhseg button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-h') === wh); });
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
-   ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['notam','cbNotam','wxSetNotam'],
+   ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['notam','cbNotam','wxSetNotam'],
    ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){
     if (!ST.get(s[0], false)) return;
@@ -1734,13 +1734,20 @@ function airDropSourceMaybe(){ if (!map.getLayer('air-ctrl') && !map.getLayer('a
 // by zoom on its own, so it never becomes a wall of text. Text coloured like the outline.
 var AIR_LBL_LAYOUT = {'text-field':['get','n'], 'text-size':11, 'text-font':['Noto Sans Regular'], 'text-max-width':9};
 var AIR_LW = ['case', ['boolean', ['feature-state', 'sel'], false], 3.8, 1.3]; // clicked airspace outline thickens ~3x (feature-state 'sel')
+// label filter of a group, minus the zones ACTIVATED right now (window._actSup, filled by the
+// activated-zones layer while it is on): their label - and so their popup entry, reachable only
+// via the label - gives way to the activated zone's own label + heights; back when it ends
+window.wxAirLblFilter = function(ctrl){
+  var base = ctrl ? ['in',['get','t'],['literal',AIR_CTRL_T]] : ['!',['in',['get','t'],['literal',AIR_CTRL_T]]];
+  var sup = window._actSup || [];
+  return sup.length ? ['all', base, ['!', ['in', ['get','n'], ['literal', sup]]]] : base; };
 window.wxSetAirC = function(on){ window.wxAirCOn = on;
   if (on){ wxBtnBusy('cbAirC', 'wxair'); airEnsure(function(){ if (!window.wxAirCOn) return;
     if (!map.getLayer('air-ctrl')) map.addLayer({id:'air-ctrl', type:'line', source:'wxair',
       filter:['in',['get','t'],['literal',AIR_CTRL_T]],
       paint:{'line-color':'#2b6cb0','line-width':AIR_LW,'line-opacity':0.9}}, wxZoneAnchor()); // faint: context, not a dominant border
     if (!map.getLayer('air-ctrl-labels')) map.addLayer({id:'air-ctrl-labels', type:'symbol', source:'wxair',
-      filter:['in',['get','t'],['literal',AIR_CTRL_T]], layout:AIR_LBL_LAYOUT,
+      filter:window.wxAirLblFilter(true), layout:AIR_LBL_LAYOUT,
       paint:{'text-color':'#2b6cb0','text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor()); }); }
   else { wxBtnIdle('cbAirC'); ['air-ctrl','air-ctrl-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
     if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
@@ -1752,7 +1759,7 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
       // red for Prohibited(3)/Restricted(1)/Danger(2); magenta for military TRA/TSA(8/9)
       paint:{'line-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'line-width':AIR_LW,'line-opacity':0.9}}, wxZoneAnchor());
     if (!map.getLayer('air-spec-labels')) map.addLayer({id:'air-spec-labels', type:'symbol', source:'wxair',
-      filter:['!',['in',['get','t'],['literal',AIR_CTRL_T]]], layout:AIR_LBL_LAYOUT,
+      filter:window.wxAirLblFilter(false), layout:AIR_LBL_LAYOUT,
       paint:{'text-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor()); }); }
   else { wxBtnIdle('cbAirS'); ['air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
     if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
@@ -1779,6 +1786,181 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
     map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; });
   });
 })();
+// ---- Activated zones (/actzones relay over the CAA's public layer of BULATSA zones):
+// EVERY zone the CAA publishes there is drawn - if the CAA (a copy of B-FLIP's
+// "Activated SUA") lists it, it IS active; no thresholds of our own (owner 11.10). Only
+// the data changes the picture: deleted ones never arrive (the relay drops them), a zone
+// vanishes at its own end time, and one whose window has not started yet is "upcoming".
+// Each has its time window (the permanent ones run to 2036) and the heights of THIS
+// activation. Drawn ABOVE the zones in the special-use colours (red P/R/D, magenta
+// TRA/TSA): a normal-weight solid edge (dashed = upcoming), a band along the inside of
+// the edge, a ~20% fill and a label "<name> / АКТИВНА до <end>" (no end given: just
+// "АКТИВНА"). Thickness stays the CLICK highlight, as for the airspace outlines. While a
+// zone is active, its OpenAIP label (and so its popup entry) is hidden: one zone, one
+// set of heights; it returns when the activation ends.
+// Honest freshness: data older than 60 min raises a banner; older than 3 h draws nothing
+// and says so - an empty map must never read as "nothing is active".
+window.wxActUrl = 'https://full-narwhal-4777.martinovem.deno.net/actzones';
+var ACT_STALE_MIN = 60, ACT_DROP_MIN = 180;
+var ACT_COL = ['case', ['==', ['get','mil'], 1], '#d81fbf', '#d0202a'];
+var ACT_SEL = ['boolean', ['feature-state', 'sel'], false];
+window._actRaw = null; window._actDataAt = 0; window._actFail = false; window._actSup = []; window._actSupKey = ''; window._actSig = '';
+// kind from the ICAO designator (the CAA layer types them all "Зона от РВД"); codes = AIR_TL's
+function actEn(){ return (window.LANG || 'bg') === 'en'; } // page language (as the NOTAM layer reads it)
+function actKind(n){ n = String(n || '').toUpperCase();
+  return /TRA/.test(n) ? 8 : /TSA/.test(n) ? 9 : /^LBD/.test(n) ? 2 : /^LBR/.test(n) ? 1 : /^LBP/.test(n) ? 3 : /MATZ/.test(n) ? 14 : 0; }
+function actKindName(p, en){ var k = +p.k; return (AIR_TL[k] && AIR_TL[k][en ? 'en' : 'bg']) || p.zt || (en ? 'BULATSA zone' : 'Зона от РВД'); }
+// times in BULGARIAN time (the airspace's own), whatever the visitor's device zone
+var ACT_TZ = (function(){ try { return new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/Sofia', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}); } catch(e){ return null; } })();
+function actParts(t){ var d = new Date(t), o = {}, p = function(n){ return (n < 10 ? '0' : '') + n; };
+  if (ACT_TZ) ACT_TZ.formatToParts(d).forEach(function(x){ o[x.type] = x.value; });
+  else o = {day:p(d.getDate()), month:p(d.getMonth()+1), year:String(d.getFullYear()), hour:p(d.getHours()), minute:p(d.getMinutes())};
+  return {d: o.day + '.' + o.month, y: o.year, hm: (o.hour === '24' ? '00' : o.hour) + ':' + o.minute, k: o.year + o.month + o.day}; }
+// today: time only; another day: + the date; another year (the permanent zones' 2036): + the year
+function actWhen(t){ var a = actParts(t), n = actParts(Date.now());
+  return a.k === n.k ? a.hm : (actDay(a, n) + ' ' + a.hm); }
+function actWhenFull(t){ var a = actParts(t); return actDay(a, actParts(Date.now())) + ' ' + a.hm; }
+function actDay(a, n){ return a.y === n.y ? a.d : (a.d + '.' + a.y); }
+function actHm(t){ var d = new Date(t), p = function(n){ return (n < 10 ? '0' : '') + n; }; return p(d.getHours()) + ':' + p(d.getMinutes()); }
+function actLabel(n, fut, s, e){ var en = actEn();
+  return n + '\n' + (fut ? (en ? 'UPCOMING from ' : 'ПРЕДСТОИ от ') + actWhen(s) : actUntil(e, en)); }
+// "АКТИВНА до <end>", or just "АКТИВНА" when the CAA gave no end
+function actUntil(e, en){ return isNaN(e) ? (en ? 'ACTIVE' : 'АКТИВНА') : (en ? 'ACTIVE until ' : 'АКТИВНА до ') + actWhen(e); }
+// the drawable picture NOW: every zone whose window has not ended, while the data is < 3 h old
+function actBuild(){
+  var now = Date.now(), out = [], sup = [], next = Infinity;
+  var fresh = !!(window._actDataAt && now - window._actDataAt <= ACT_DROP_MIN * 60000);
+  if (fresh) (window._actRaw || []).forEach(function(f){
+    var p = (f && f.properties) || {}, s = Date.parse(p.s), e = Date.parse(p.e);
+    if (!f || !f.geometry || e <= now) return; // nothing to draw / its window has ended (no end given = NaN: stays)
+    var n = p.n || p.idf || '?', fut = s > now ? 1 : 0, k = actKind(n), edge = fut ? s : e;
+    if (edge < next) next = edge;
+    out.push({type:'Feature', geometry:f.geometry, properties:{key:n + '|' + (p.s || ''), n:n, zt:p.zt, lo:p.lo, up:p.up, s:p.s, e:p.e, rm:p.rm, src:p.src,
+      k:k, mil:(k === 8 || k === 9) ? 1 : 0, fut:fut, lbl:actLabel(n, fut, s, e)}});
+    if (!fut) sup.push(n);
+  });
+  return {gj:{type:'FeatureCollection', features:out}, sup:sup, next:next};
+}
+// hide/restore the OpenAIP labels of the zones active right now (see wxAirLblFilter)
+function actSup(list){ var key = list.slice().sort().join('|'); if (key === window._actSupKey) return;
+  window._actSupKey = key; window._actSup = list.slice();
+  ['air-ctrl-labels','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.setFilter(id, window.wxAirLblFilter(id === 'air-ctrl-labels')); }); }
+// redraw the picture (data, suppression, stamp/banner); called on every fetch, every
+// minute, and exactly when the next window starts or ends
+function actPaint(){
+  var b = actBuild(), src = map.getSource('wxact');
+  if (src){ var sig = window._actDataAt + '|' + (window.LANG || 'bg') + '|' + JSON.stringify(b.gj.features.map(function(f){ return f.properties; }));
+    if (sig !== window._actSig){ window._actSig = sig; src.setData(b.gj); } }
+  actSup(window.wxActOn && src ? b.sup : []);
+  clearTimeout(window._actEdge);
+  if (window.wxActOn && b.next - Date.now() < 61000) window._actEdge = setTimeout(actPaint, Math.max(500, b.next - Date.now() + 500));
+  actFreshPaint();
+}
+function actFreshPaint(){
+  var el = document.getElementById('wxactfresh'), bn = document.getElementById('wxactstale');
+  var en = actEn(), at = window._actDataAt, on = !!window.wxActOn, age = at ? Date.now() - at : 0, msg = '';
+  if (el){ if (on && at){ el.style.display = ''; el.textContent = (en ? 'Activated zones: data as of ' : 'Активирани зони: данни към ') + actHm(at); } else el.style.display = 'none'; }
+  if (on && at && age > ACT_DROP_MIN * 60000) msg = en ? '⚠ No current data on activated zones (last: ' + actHm(at) + ') – none are shown'
+                                                       : '⚠ Няма актуални данни за активираните зони (последни: ' + actHm(at) + ') – не се показват';
+  else if (on && at && age > ACT_STALE_MIN * 60000) msg = en ? '⚠ Activated-zone data is ' + Math.round(age / 60000) + ' min old – may be incomplete'
+                                                            : '⚠ Данните за активираните зони са от преди ' + Math.round(age / 60000) + ' мин – може да не са пълни';
+  else if (on && !at && window._actFail) msg = en ? '⚠ No data on activated zones right now' : '⚠ В момента няма данни за активираните зони';
+  if (msg && !bn){ bn = document.createElement('div'); bn.id = 'wxactstale';
+    bn.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:84px;z-index:7;' +
+      'background:#b71c1c;color:#fff;font:12px/1.4 sans-serif;padding:6px 12px;border-radius:8px;' +
+      'box-shadow:0 1px 6px rgba(0,0,0,.35);pointer-events:none;max-width:86vw;text-align:center';
+    map.getContainer().appendChild(bn); }
+  if (bn){ if (msg){ bn.textContent = msg; bn.style.display = ''; } else bn.style.display = 'none'; }
+}
+// ONE fetch of /actzones; the picture's true age comes from the relay's X-Act-Age-Ms
+function actFetch(ok){
+  fetch(window.wxActUrl, {cache: 'no-store'}).then(function(r){ if (!r.ok) throw 0;
+    var age = parseInt(r.headers.get('X-Act-Age-Ms') || '0', 10) || 0;
+    return r.json().then(function(gj){ return {gj: gj, age: age}; });
+  }).then(function(d){
+    window._actRaw = (d.gj && d.gj.features) || []; window._actDataAt = Date.now() - d.age; window._actFail = false;
+    ok();
+  }).catch(function(){ window._actFail = true; wxBtnIdle('cbAct'); actPaint(); }); // whatever is drawn keeps AGEING honestly
+}
+function actEnsure(cb){
+  if (map.getSource('wxact')){ cb(); return; }
+  actFetch(function(){
+    if (!map.getSource('wxact')) map.addSource('wxact', {type:'geojson', data:{type:'FeatureCollection', features:[]}, promoteId:'key',
+      attribution:'Activated zones: BULATSA via <a href="https://uas.caa.bg/" target="_blank" rel="noopener">CAA uas.caa.bg</a>'});
+    cb();
+  });
+}
+function actRefresh(){
+  if (!window.wxActOn) return;
+  if (!map.getSource('wxact')){ window.wxSetAct(true); return; } // a failed first load left no source: re-attempt on this tick
+  actFetch(actPaint);
+}
+window.wxSetAct = function(on){ window.wxActOn = on;
+  // minute timer: expiry/upcoming + stamp/banner every minute, a refetch every 10th
+  if (on && !window._actTick){ window._actTickN = 0;
+    window._actTick = setInterval(function(){ window._actTickN++; if (window._actTickN % 10 === 0) actRefresh(); else actPaint(); }, 60000); }
+  if (!on && window._actTick){ clearInterval(window._actTick); window._actTick = null; }
+  if (on){ wxBtnBusy('cbAct', 'wxact'); actEnsure(function(){ if (!window.wxActOn) return;
+    // no beforeId = top of the stack = ABOVE the zones, like the NOTAM layer
+    if (!map.getLayer('act-fill')) map.addLayer({id:'act-fill', type:'fill', source:'wxact',
+      paint:{'fill-color':ACT_COL, 'fill-opacity':['case',['==',['get','fut'],1],0.06,0.2]}});
+    // the band along the INSIDE of the edge (positive offset = inset on polygons)
+    if (!map.getLayer('act-band')) map.addLayer({id:'act-band', type:'line', source:'wxact', layout:{'line-join':'round'},
+      paint:{'line-color':ACT_COL, 'line-width':7, 'line-offset':3.5, 'line-blur':0.5, 'line-opacity':['case',['==',['get','fut'],1],0.15,0.4]}});
+    if (!map.getLayer('act-line')) map.addLayer({id:'act-line', type:'line', source:'wxact', filter:['==',['get','fut'],0],
+      paint:{'line-color':ACT_COL, 'line-width':['case',ACT_SEL,4.4,2], 'line-opacity':1}});
+    if (!map.getLayer('act-line-fut')) map.addLayer({id:'act-line-fut', type:'line', source:'wxact', filter:['==',['get','fut'],1],
+      paint:{'line-color':ACT_COL, 'line-width':['case',ACT_SEL,3.6,1.6], 'line-opacity':0.75, 'line-dasharray':[3,2]}});
+    if (!map.getLayer('act-label')) map.addLayer({id:'act-label', type:'symbol', source:'wxact',
+      layout:{'text-field':['get','lbl'], 'text-size':11.5, 'text-font':['Noto Sans Regular'], 'text-max-width':20},
+      paint:{'text-color':ACT_COL, 'text-halo-color':'rgba(255,255,255,0.92)', 'text-halo-width':1.6}});
+    window._actSig = ''; actPaint(); }); }
+  else { wxBtnIdle('cbAct'); clearTimeout(window._actEdge);
+    ['act-fill','act-band','act-line','act-line-fut','act-label'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wxact')) map.removeSource('wxact');
+    window._actSel = null; actSup([]); // OpenAIP labels back
+    if (window.wxPopupPrune) window.wxPopupPrune(); // its zones leave an open popup too
+    actFreshPaint(); } // hides the stamp + banner
+};
+// helpers for the SHARED click chooser in make_3d (same list as zones / NOTAM / airspace)
+window.wxActColor = function(p){ return +p.mil === 1 ? '#d81fbf' : '#d0202a'; };
+window.wxActName = function(p){ return p.n || ''; };
+window.wxActSub = function(p){ var en = actEn();
+  return actKindName(p, en) + ' · ' + (+p.fut === 1 ? (en ? 'upcoming from ' : 'предстои от ') + actWhen(Date.parse(p.s))
+                                                   : actUntil(Date.parse(p.e), en)); };
+window.wxActDetail = function(p){ var en = actEn(), s = Date.parse(p.s), e = Date.parse(p.e);
+  // UTC, with the year when it is not this year (the permanent zones run to 2036)
+  var z = function(t){ var d = new Date(t), q = function(n){ return (n < 10 ? '0' : '') + n; };
+    return q(d.getUTCDate()) + '.' + q(d.getUTCMonth() + 1) + (d.getUTCFullYear() !== new Date().getUTCFullYear() ? '.' + d.getUTCFullYear() : '') +
+      ' ' + q(d.getUTCHours()) + ':' + q(d.getUTCMinutes()) + 'Z'; };
+  var none = en ? 'not given' : 'не е посочен';
+  var per = (isNaN(s) && isNaN(e)) ? (en ? 'not given by the CAA' : 'не е посочен от ГВА')
+    : '<b>' + (isNaN(s) ? none : actWhenFull(s)) + ' – ' + (isNaN(e) ? none : actWhenFull(e)) + '</b> ' +
+      '<small>(' + (en ? 'Bulgarian time; ' : 'българско време; ') + (isNaN(s) ? '…' : z(s)) + ' – ' + (isNaN(e) ? '…' : z(e)) + ')</small>';
+  var hts = (p.lo && p.up) ? (esc(p.lo) + ' – ' + esc(p.up)) : (en ? 'no data' : 'няма данни');
+  return '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(actKindName(p, en)) + '</span><br>' +
+    (+p.fut === 1 ? (en ? 'Upcoming activation' : 'Предстоящо активиране') : '<b>' + (en ? 'ACTIVATED now' : 'АКТИВИРАНА сега') + '</b>') +
+    '<br>' + (en ? 'Window: ' : 'Период: ') + per +
+    '<br>' + (en ? 'Heights of this activation: ' : 'Височини при това активиране: ') + '<b>' + hts + '</b>' +
+    // the CAA's own texts, verbatim (only when present)
+    (p.rm ? ('<br>' + (en ? 'CAA remark: ' : 'Бележка (ГВА): ') + esc(p.rm)) : '') +
+    (p.src ? ('<br><small>' + (en ? 'CAA source field: ' : 'Източник (ГВА): ') + esc(p.src) + '</small>') : '') +
+    (p.zt ? ('<br><small>' + (en ? 'CAA type: ' : 'Тип по ГВА: ') + esc(p.zt) + '</small>') : '') +
+    '<br><small>' + (en ? 'Data: BULATSA via the ' : 'Данни: БУЛАТСА чрез ') +
+    '<a href="https://uas.caa.bg/" target="_blank" rel="noopener">' + (en ? 'CAA (uas.caa.bg)' : 'ГД ГВА (uas.caa.bg)') + '</a>' +
+    (window._actDataAt ? (' · ' + (en ? 'as of ' : 'към ') + actHm(window._actDataAt)) : '') + '</small>'; };
+// thicken the CLICKED activated zone's edge (feature-state 'sel'); one at a time
+window._actSel = null;
+window.wxActSelect = function(key){
+  if (window._actSel != null && map.getSource('wxact')) map.setFeatureState({source:'wxact', id:window._actSel}, {sel:false});
+  window._actSel = null;
+  if (key != null && map.getSource('wxact')){ window._actSel = key; map.setFeatureState({source:'wxact', id:key}, {sel:true}); } };
+// a BG/EN switch re-labels the zones on the map
+(window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ window._actSig = ''; if (window.wxActOn) actPaint(); });
+['act-fill','act-label'].forEach(function(id){
+  map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; });
+});
 // ---- NOTAM layer (/notam relay over the FAA NMS-API): temporary drone-relevant
 // restrictions drawn ABOVE the zones. A lettered pin (P/R/D/M/!) at the centre + a
 // dashed, lightly-filled (20%) circle/polygon coloured by category. Click shows the
