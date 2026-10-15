@@ -95,6 +95,22 @@ jobs:
             || { echo "EUMETSAT did not return an image (layer renamed/removed or service down):"; head -c 400 body.bin; exit 1; }
           echo "cloud-mask layer renders"
 
+      - name: EUMETSAT lightning (MTG Lightning Imager)
+        if: ${{ !cancelled() }}
+        run: |
+          # The lightning shown with the clouds reads the newest 5-min step from the layer's own small
+          # capabilities (the time dimension's default). Alarm when the layer is gone or its newest
+          # step is 90 min old or more (normally ~10-15 min behind real time).
+          url="https://view.eumetsat.int/geoserver/mtg_fd/li_afa/ows?service=WMS&version=1.3.0&request=GetCapabilities"
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 45 -o caps.xml -w '%{http_code}' "$url") || code=000
+          echo "HTTP $code"
+          [ "$code" = "200" ] || { echo "EUMETSAT lightning capabilities did not answer 200"; exit 1; }
+          end=$(grep -o 'name="time"[^>]*default="[^"]*"' caps.xml | sed 's/.*default="\([^"]*\)".*/\1/' | head -1)
+          [ -n "$end" ] || { echo "no time dimension with a default (layer renamed/removed?):"; head -c 400 caps.xml; exit 1; }
+          age=$(( ( $(date -u +%s) - $(date -u -d "$end" +%s) ) / 60 ))
+          echo "newest lightning step $end - $age min old"
+          [ "$age" -lt 90 ] || { echo "lightning data is $age min old"; exit 1; }
+
       - name: RainViewer (rain-radar frames)
         if: ${{ !cancelled() }}
         run: |

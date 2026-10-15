@@ -384,6 +384,13 @@ html,body{height:100%;margin:0}
 #wxfcnote{width:0;min-width:100%;color:#888;font-size:10px}
 #wxrvnote{width:0;min-width:100%;color:#888;font-size:10px}
 #wxrvnote[hidden]{display:none}
+/* lightning (☁ at "now") / model thunderstorms (☁ ahead) note under the slider */
+#wxltg{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
+ box-shadow:0 1px 6px rgba(0,0,0,.18);font-size:11px;color:#333;line-height:1.4;width:fit-content;max-width:calc(100vw - 20px)}
+#wxltg[hidden]{display:none}
+#wxltg .wxltgbad{color:#c62828;font-weight:600}
+.wxstk{display:inline-block;width:16px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.25);vertical-align:-2px;margin:0 3px 0 6px;background-color:#f2efe9}
+:root[data-theme="dark"] #wxltg{background:var(--glass-strong);color:var(--fg)}
 #wxwindh{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#333}
 #wxwindh[hidden]{display:none}
 .wxhlbl{color:#555}
@@ -444,6 +451,7 @@ html,body{height:100%;margin:0}
  #wxframe{font-size:10px;padding:2px 5px}
  #wxlegend{font-size:10px;gap:6px;padding:4px 7px}
  #wxfcbar{font-size:10px;padding:4px 7px}
+ #wxltg{font-size:10px;padding:4px 7px}
  #wxpanel{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;
   font-size:11px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
   border-radius:14px 14px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.3)}
@@ -470,7 +478,7 @@ html,body{height:100%;margin:0}
  <div id="wxpanel" hidden>
   <div class="wxhead"><span class="wxplace" id="wxplace"></span><button class="wxclose" id="wxclose" aria-label="close">✕</button></div>
   <div class="wxlayers">
-   <button class="wxlbtn" id="wxcld" aria-label="clouds">☁</button>
+   <button class="wxlbtn" id="wxcld" aria-label="clouds and lightning"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 16.5h-.5a4 4 0 0 1-.4-7.98A6 6 0 0 1 17.6 8.1 4.2 4.2 0 0 1 18 16.5h-1"/><path d="M12.6 12.5 10.4 16.6h3.4l-2.2 4.4"/></svg></button>
    <button class="wxlbtn" id="wxrad" aria-label="rain">🌧</button>
    <button class="wxlbtn" id="wxwind" aria-label="wind"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg></button>
    <button class="wxlbtn" id="wxsnow" aria-label="snow">❄️</button>
@@ -494,6 +502,7 @@ html,body{height:100%;margin:0}
    <span class="wxlg"><i style="background:#6a2fb8"></i><span data-wxl="snStr"></span></span>
    <span class="wxlg"><i style="background:#4a1a8a"></i><span data-wxl="snHvy"></span></span>
   </div>
+  <div id="wxltg" hidden></div>
   <div id="wxbody"></div>
   <div class="wxfoot"><span id="wxfootlbl"></span> <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></div>
  </div>
@@ -1258,10 +1267,15 @@ var WXT = {
      dew:'оросяване',low:'ниски обл.',vis:'видимост км',cape:'⛈ CAPE',frz:'0°C на (м)',
      dewNote:'Оросяване: колкото по-близо е до температурата, толкова по-вероятни са мъгла и конденз.',
      capeNote:'⛈ CAPE (енергия за гръмотевични бури, J/kg): под 1000 слаба · 1000–2500 умерена · 2500–4000 силна · над 4000 екстремна.',
-     frzNote:'0°C на (м): височината над морето, на която въздухът е 0°C',frzHere:'теренът тук е ≈ {h} м',
+     frzNote:'0°C на (м): височината над морското равнище, на която въздухът е 0°C',frzHere:'теренът тук е ≈ {h} м',
      hh:'час',t:'°C',w10:'вятър 10 м',w80:'вятър 80 м',w120:'вятър 120 м',ms:'м/с',foot:'Прогноза:',nodata:'Няма данни за тук',wxLimitDay:'Изчерпан дневен лимит на метео заявките — нулира се в {t}',wxLimit:'Изчерпан лимит на метео заявките (временно)',wxDown:'Метео услугата временно е недостъпна',
      days:['нд','пн','вт','ср','чт','пт','сб'],title:'Метео прогноза (центъра на картата)',
-     bCld:'Облаци — сателит сега, модел напред (плъзгач)',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
+     bCld:'Облаци и мълнии — сателит сега (мълнии: последните 30 мин), модел напред (облаци и бури)',
+     ltgNow:'⚡ Мълнии (сателит EUMETSAT): последните 30 мин, до {t}; по-бледите ⚡ са по-стари.',
+     ltgOld:'⚡ Мълнии: няма нови данни след {t}.',ltgErr:'⚡ Мълнии: данните временно не се зареждат.',
+     cldAt:'Облаци: сателитна снимка от {t}.',
+     stormHd:'⛈ Възможни бури по прогнозата',
+     stormNone:'⛈ Без бури по прогнозата за този час',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
      bWind:'Вятър — частиците текат по вятъра (модел Open-Meteo)',height:'Височина',bSnow:'Прогноза за сняг +72 ч (модел Open-Meteo, в см)',
      bOgn:'Нисък трафик — планери/парапланери/лека авиация (OGN/FLARM; само където има приемник)',
      fcNote:'моделът може да пропуска локални валежи',
@@ -1276,7 +1290,12 @@ var WXT = {
      frzNote:'0°C at (m): the height above sea level where the air is 0°C',frzHere:'the ground here is ≈ {h} m',
      hh:'hour',t:'°C',w10:'wind 10 m',w80:'wind 80 m',w120:'wind 120 m',ms:'m/s',foot:'Forecast:',nodata:'No data for this spot',wxLimitDay:'Weather request limit reached — resets at {t}',wxLimit:'Weather request limit reached (temporary)',wxDown:'Weather service temporarily unavailable',
      days:['Su','Mo','Tu','We','Th','Fr','Sa'],title:'Weather forecast (map center)',
-     bCld:'Clouds — satellite now, model ahead (slider)',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
+     bCld:'Clouds and lightning — satellite now (lightning: last 30 min), model ahead (clouds and thunderstorms)',
+     ltgNow:'⚡ Lightning (EUMETSAT satellite): last 30 min, up to {t}; fainter ⚡ = older.',
+     ltgOld:'⚡ Lightning: no new data after {t}.',ltgErr:'⚡ Lightning: data temporarily unavailable.',
+     cldAt:'Clouds: satellite image of {t}.',
+     stormHd:'⛈ Possible thunderstorms in the forecast',
+     stormNone:'⛈ No thunderstorms in the forecast for this hour',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
      bWind:'Wind — particles flow with the wind (Open-Meteo model)',height:'Height',bSnow:'Snow forecast +72 h (Open-Meteo model, in cm)',
      bOgn:'Low-level traffic — gliders/paragliders/light aircraft (OGN/FLARM; only where a receiver hears them)',
      fcNote:'the model can miss local showers',
@@ -1586,6 +1605,28 @@ function wxRetryLater(){ // failed fetch: forget the cell so the retry truly ref
   wxCell = ''; clearTimeout(wxRetry); wxRetry = setTimeout(wxFetch, wxRetryMs);
   wxRetryMs = Math.min(wxRetryMs * 2, 60000);
 }
+// the line under the slider while ☁ is on: at "now" the lightning window (last 30 min, up to the
+// newest EUMETSAT step, local time) or a stale/failed notice; ahead the model-thunderstorm key
+window.wxLtgNote = function(){
+  var el = document.getElementById('wxltg'); if (!el) return;
+  var cb = document.getElementById('wxcld');
+  if (!cb || !cb.classList.contains('on')){ el.hidden = true; return; }
+  var t = WXT[wxLang()], S = window.wxFcState, L = window.wxLiState || {}, h = '';
+  function hm(ms){ var d = new Date(ms); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  // the same hatching as the map layer (wxStormDraw)
+  var SW = '<i class="wxstk" style="background:repeating-linear-gradient(135deg,rgba(25,25,30,.8) 0 2px,rgba(255,255,255,.55) 2px 3px,rgba(25,25,30,.1) 3px 7px,rgba(255,255,255,.55) 7px 8px)"></i>';
+  if (!(S && S.hour > 0)){
+    // "до HH:MM" = the newest step, or - while the lightning follows the radar loop - that frame's window
+    if (L.end) h = (Date.now() - L.end > 2700000) ? '<span class="wxltgbad">' + t.ltgOld.replace('{t}', hm(L.end)) + '</span>' : t.ltgNow.replace('{t}', hm(window.wxLiRef || L.end));
+    else if (L.err) h = '<span class="wxltgbad">' + t.ltgErr + '</span>';
+    // the satellite clouds are ONE picture (not 30 min): its own time, ~15-40 min behind (owner 15.10)
+    if (window.wxCldTime) h += (h ? ' ' : '') + t.cldAt.replace('{t}', hm(window.wxCldTime));
+  } else if (S.lastStorm != null){
+    h = S.lastStorm < 0.5 ? t.stormNone : t.stormHd + SW;
+  }
+  el.innerHTML = h; el.hidden = !h;
+};
+(window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ window.wxLtgNote(); });
 window.closeWxPanel = function(){ wxOpen = false; wxPanel.hidden = true; };
 wxChip.onclick = function(e){ e.stopPropagation(); wxOpen = !wxOpen; wxPanel.hidden = !wxOpen;
   if (wxOpen){ if (window.closePanel) window.closePanel(); if (window.collapseLoupe) window.collapseLoupe(); if (window.closeBmPanel) window.closeBmPanel(); wxRender(); } };
@@ -1694,6 +1735,16 @@ window.wxCloudBuild = function(cb){
     '&srs=EPSG:3857&bbox=' + x1 + ',' + y1 + ',' + x2 + ',' + y2 + '&width=' + W + '&height=' + H +
     '&format=image/png&transparent=true&_=' + Math.floor(Date.now() / 600000) + '&layers=';
   var imgs = [], done = 0;
+  // the picture's time for the note under the slider: the newest step of each layer (from their own
+  // small capabilities, ~7 KB each, CORS *), the older of the two
+  var cts = [], cn = 0;
+  ['msg_fes/clm', 'mtg_fd/ir105_hrfi'].forEach(function(l){
+    fetch('https://view.eumetsat.int/geoserver/' + l + '/ows?service=WMS&version=1.3.0&request=GetCapabilities&_=' + Math.floor(Date.now() / 600000))
+      .then(function(r){ return r.text(); })
+      .then(function(x){ var m = x.match(/<Dimension[^>]*name="time"[^>]*default="([^"]+)"/), t = m ? Date.parse(m[1]) : NaN; if (t > 0) cts.push(t); })
+      .catch(function(){})
+      .then(function(){ if (++cn === 2){ window.wxCldTime = cts.length ? Math.min.apply(0, cts) : 0; if (window.wxLtgNote) window.wxLtgNote(); } });
+  });
   ['msg_fes:clm', 'mtg_fd:ir105_hrfi&styles=mtg_fd_ir105_hrfi_grayscale'].forEach(function(q, i){
     var im = new Image(); im.crossOrigin = 'anonymous';
     im.onload = function(){ if (++done === 2) build(); };
@@ -1750,6 +1801,75 @@ window.wxCloudBuild = function(cb){
   }
 };
 
+// ---- lightning: EUMETSAT MTG Lightning Imager (LI Accumulated Flash Area), shown with the ☁ at "now" ----
+// Drawn as ⚡ SYMBOLS, not colour fields (owner 15.10: coloured spots looked like the rain radar's
+// yellow/red/pink). The WMS gives one image per 5-minute step (a TIME range returns only its FIRST
+// step - tested 15.10); each step is read ONCE into the 8x8-px cells of a grid where the satellite
+// saw flashes (cell centroid + strength from EUMETSAT's pale-yellow (few) -> red (many) ramp), and a
+// 30-minute window becomes a point list: per cell the newest age (0-25 min) + the strongest step.
+// The newest step comes from the layer's own small capabilities document (~7 KB, CORS *, `default` =
+// latest; ~10-15 min behind real time). Without the rain radar there is ONE window (the last 30 min);
+// while the radar loops, one window per radar frame (the 30 min up to that frame, no later than the
+// newest step) so the bolts move with the rain (owner 15.10). EUMETSAT Data Policy: LI derived
+// products are "Core" data, free under CC BY 4.0 (Art. 4 + 5.1). Covers the wide data box like the
+// other live layers. frames = the radar frame times (ms) or null -> S.fc[] (one FeatureCollection
+// per window) + S.refs[] (each window's end).
+window.wxLiState = {end: 0, cells: {}, err: false, any: false, refs: [], fc: []};
+window.wxLiBuild = function(frames, cb){
+  var S = window.wxLiState, LW = 14.5, LE = 37, LS = 35.5, LN = 49.5, W = 880, C = 8, STEP = 300000, N = 6, MAXW = 7;
+  function mx(lon){ return lon * 20037508.343 / 180; }
+  function my(lat){ return 6378137 * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+  var x1 = mx(LW), x2 = mx(LE), y1 = my(LS), y2 = my(LN), H = Math.round(W * (y2 - y1) / (x2 - x1)), NX = Math.ceil(W / C);
+  var EUM = 'https://view.eumetsat.int/geoserver/', cv = null;
+  function lonOf(px){ return LW + px / W * (LE - LW); }
+  function latOf(py){ var ym = y2 - py / H * (y2 - y1); return (2 * Math.atan(Math.exp(ym / 6378137)) - Math.PI / 2) * 180 / Math.PI; }
+  function analyse(im){ // one step -> {cell: [centroid x, centroid y, strength 0..1]}
+    if (!cv){ cv = document.createElement('canvas'); cv.width = W; cv.height = H; }
+    var ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, H); ctx.drawImage(im, 0, 0, W, H);
+    var p = ctx.getImageData(0, 0, W, H).data, acc = {}, out = {}, x, y, i, k, f, a;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++){ i = (y * W + x) * 4; if (!p[i + 3]) continue;
+      f = (249 - p[i + 1]) / 221; f = f < 0 ? 0 : (f > 1 ? 1 : f); // EUMETSAT ramp: green 249 (few) .. 28 (many)
+      k = ((y / C) | 0) * NX + ((x / C) | 0); a = acc[k] || (acc[k] = [0, 0, 0, 0]);
+      a[0] += x; a[1] += y; a[2]++; if (f > a[3]) a[3] = f; }
+    for (k in acc){ a = acc[k]; out[k] = [a[0] / a[2], a[1] / a[2], a[3]]; }
+    return out;
+  }
+  function windowFc(ref){ // the bolts of the 30 min up to ref
+    var best = {}, k, j, c, b;
+    for (j = 0; j < N; j++){ c = S.cells[ref - j * STEP]; if (!c) continue; // newest step first: it sets the cell's age + place
+      for (k in c){ b = best[k]; if (!b) best[k] = [c[k][0], c[k][1], c[k][2], j * 5]; else if (c[k][2] > b[2]) b[2] = c[k][2]; } }
+    var feats = [];
+    for (k in best){ b = best[k];
+      feats.push({type: 'Feature', geometry: {type: 'Point', coordinates: [Math.round(lonOf(b[0] + 0.5) * 1000) / 1000, Math.round(latOf(b[1] + 0.5) * 1000) / 1000]},
+        properties: {a: b[3], f: Math.round(b[2] * 100) / 100}}); }
+    if (feats.length) S.any = true;
+    return {type: 'FeatureCollection', features: feats};
+  }
+  function finish(refs){ S.any = false; S.fc = refs.map(windowFc); S.refs = refs; cb(true); }
+  fetch(EUM + 'mtg_fd/li_afa/ows?service=WMS&version=1.3.0&request=GetCapabilities&_=' + Math.floor(Date.now() / STEP))
+    .then(function(r){ return r.text(); })
+    .then(function(x){
+      var m = x.match(/<Dimension[^>]*name="time"[^>]*default="([^"]+)"/) || x.match(/<Dimension[^>]*name="time"[^>]*>[^<]*\/([^\/<]+)\/PT5M<\/Dimension>/);
+      var end = m ? Date.parse(m[1]) : NaN;
+      if (!(end > 0)) throw new Error('no time dimension');
+      S.end = end; S.err = false;
+      var refs = frames ? frames.slice(0, MAXW).map(function(t){ return Math.min(Math.floor(t / STEP) * STEP, end); }) : [end];
+      var want = {}, k, t;
+      refs.forEach(function(r){ for (k = 0; k < N; k++) want[r - k * STEP] = 1; });
+      for (t in S.cells){ if (!want[t]) delete S.cells[t]; } // steps no window needs any more
+      var todo = Object.keys(want).map(Number).filter(function(t){ return !S.cells[t]; }), left = todo.length;
+      if (!left){ finish(refs); return; }
+      todo.forEach(function(t){
+        var im = new Image(); im.crossOrigin = 'anonymous';
+        im.onload = function(){ try{ S.cells[t] = analyse(im); }catch(e){} if (--left === 0) finish(refs); };
+        im.onerror = function(){ if (--left === 0) finish(refs); }; // a missing step only leaves a gap
+        im.src = EUM + 'ows?service=WMS&version=1.1.1&request=GetMap&layers=mtg_fd:li_afa&styles=&srs=EPSG:3857&bbox=' +
+          x1 + ',' + y1 + ',' + x2 + ',' + y2 + '&width=' + W + '&height=' + H +
+          '&format=image/png&transparent=true&time=' + new Date(t).toISOString();
+      });
+    }).catch(function(){ S.err = true; cb(false); });
+};
+
 // ---- shared forecast-rain engine (Open-Meteo models over a 294-point grid) ----
 // The radar shows only the PAST hour (free RainViewer), so the 🌦 button draws
 // MODEL precipitation +1..+12 h ahead instead: one Open-Meteo request for a
@@ -1788,9 +1908,9 @@ window.wxFcFetch = function(cb){
     // models count as hundreds of calls), so a fresh page — e.g. right after a
     // 2D<->3D switch with 🌦 restored on — reuses the previous page's grid from
     // localStorage instead of refetching; a burst of switches stays within limits
-    try{ var c = JSON.parse(localStorage.getItem('wxfcdata4'));
-      if (c && c.data && c.data.s && c.data.c && Date.now() - c.at < window.WX_MODEL_TTL){ S.data = c.data; S.at = c.at; cb(); return; }
-    }catch(e){} // wxfcdata4: cache holds rain (v) + snow (s) + clouds (c); only reuse if all present
+    try{ var c = JSON.parse(localStorage.getItem('wxfcdata5'));
+      if (c && c.data && c.data.s && c.data.c && c.data.w && Date.now() - c.at < window.WX_MODEL_TTL){ S.data = c.data; S.at = c.at; cb(); return; }
+    }catch(e){} // wxfcdata5: cache holds rain (v) + snow (s) + clouds (c) + thunderstorms (w); only reuse if all present
   }
   function retry(){ // self-retry with doubling delay (12 s .. 5 min) — the grid is heavy, be polite
     clearTimeout(S.rt); S.rt = setTimeout(function(){ if (wxGridWanted()) window.wxFcFetch(cb); }, S.rms || 12000);
@@ -1802,7 +1922,7 @@ window.wxFcFetch = function(cb){
   for (la = 35.5; la <= 49.501; la += 0.7)
     for (lo = 17.0; lo <= 33.501; lo += 0.75){ lats.push(la.toFixed(2)); lons.push(lo.toFixed(2)); }
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
-        '&hourly=precipitation,snowfall,cloud_cover&forecast_hours=76&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
+        '&hourly=precipitation,snowfall,cloud_cover,weather_code&forecast_hours=76&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (!Array.isArray(d) || !d.length){ retry(); return; } // rate-limited (429): error JSON, not the array
@@ -1817,12 +1937,23 @@ window.wxFcFetch = function(cb){
           out[i] = m; }
         return out;
       }
+      // thunderstorms: per hour, HOW MANY of the models give a thunderstorm weather code (95-99);
+      // the ☁ layer ahead hatches where at least one does (worst case, owner 15.10) - same request
+      function fcCount(h, prefix, min){
+        var ks = Object.keys(h).filter(function(k){ return k.indexOf(prefix) === 0; });
+        var n = h.time.length, out = new Array(n), i, k, vv, m;
+        for (i = 0; i < n; i++){ m = 0;
+          for (k = 0; k < ks.length; k++){ vv = h[ks[k]][i]; if (vv != null && vv >= min) m++; }
+          out[i] = m; }
+        return out;
+      }
       S.data = {t: d[0].hourly.time,
         v: d.map(function(x){ return fcMax(x.hourly, 'precipitation'); }),
         s: d.map(function(x){ return fcMax(x.hourly, 'snowfall'); }),
-        c: d.map(function(x){ return fcMax(x.hourly, 'cloud_cover'); })};
+        c: d.map(function(x){ return fcMax(x.hourly, 'cloud_cover'); }),
+        w: d.map(function(x){ return fcCount(x.hourly, 'weather_code', 95); })};
       S.at = Date.now(); S.rms = 12000;
-      try{ localStorage.setItem('wxfcdata4', JSON.stringify({at: S.at, data: S.data})); }catch(e){}
+      try{ localStorage.setItem('wxfcdata5', JSON.stringify({at: S.at, data: S.data})); }catch(e){}
       cb();
     }).catch(retry);
 };
@@ -1881,6 +2012,52 @@ window.wxFcDraw = function(){ // renders the selected hour; returns {cv, b} and 
   ctx.putImageData(out, 0, 0);
   window._wxCvReg = window._wxCvReg || {};
   window._wxCvReg.fc = {cv: cv, m: {x1: x1, x2: x2, y1: y1, y2: y2}};
+  return {cv: cv, b: {w: LW, e: LE, s: LS, n: LN}};
+};
+// ---- thunderstorms ahead (☁ with the slider ahead) ----
+// Where at least one of the three models (ICON-EU, GFS, ECMWF, the same grid request as
+// rain/snow/clouds) gives a thunderstorm weather code (95-99) at the selected hour - the worst
+// case, like rain and clouds (owner 15.10) - drawn as HATCHING (purple shades looked like the
+// snow): dark 45° stripes with a light edge, so they read on light and dark basemaps. Model
+// thunderstorms are diagnosed from instability - an area and an hour of risk, not lightning
+// positions. Twice the rain canvas width keeps the stripes fine at country zoom. Registers
+// 'storm' for the 3D tile cutter.
+window.wxStormDraw = function(){
+  var S = window.wxFcState;
+  if (!S.data || !S.data.w) return null;
+  var LW = 17.0, LE = 33.5, LS = 35.5, LN = 49.5, NLO = 23, NLA = 21, W = 1120;
+  function mx(lon){ return lon * 20037508.343 / 180; }
+  function my(lat){ return 6378137 * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+  var x1 = mx(LW), x2 = mx(LE), y1 = my(LS), y2 = my(LN), H = Math.round(W * (y2 - y1) / (x2 - x1));
+  var hi = window.wxFcIdx(), mxv = 0, p, pv;
+  for (p = 0; p < S.data.w.length; p++){ pv = S.data.w[p][hi]; if (pv > mxv) mxv = pv; }
+  S.lastStorm = mxv; // the note under the slider says "no thunderstorms" on a quiet hour
+  var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d'), out = ctx.createImageData(W, H), od = out.data;
+  var P = 8; // stripe period (px)
+  function val(r, c){ r = r < 0 ? 0 : (r > NLA - 1 ? NLA - 1 : r); c = c < 0 ? 0 : (c > NLO - 1 ? NLO - 1 : c);
+    return S.data.w[r * NLO + c][hi] || 0; }
+  if (mxv > 0){
+    for (var py = 0; py < H; py++){
+      var ym = y2 - (py + 0.5) / H * (y2 - y1);
+      var lat = (2 * Math.atan(Math.exp(ym / 6378137)) - Math.PI / 2) * 180 / Math.PI;
+      var fr = (lat - LS) / 0.7, r0 = Math.floor(fr), tr = fr - r0;
+      for (var px = 0; px < W; px++){
+        var lon = LW + (px + 0.5) / W * (LE - LW);
+        var fc = (lon - LW) / 0.75, c0 = Math.floor(fc), tc = fc - c0;
+        var v = (val(r0, c0) * (1 - tr) + val(r0 + 1, c0) * tr) * (1 - tc) +
+                (val(r0, c0 + 1) * (1 - tr) + val(r0 + 1, c0 + 1) * tr) * tc;
+        if (v < 0.5) continue; // no model gives a thunderstorm here
+        var q = (px + py) % P, i4 = (py * W + px) * 4;
+        if (q < 2){ od[i4] = 25; od[i4 + 1] = 25; od[i4 + 2] = 30; od[i4 + 3] = 205; }            // dark stripe
+        else if (q === 2 || q === P - 1){ od[i4] = od[i4 + 1] = od[i4 + 2] = 255; od[i4 + 3] = 140; } // its light edge
+        else { od[i4] = 25; od[i4 + 1] = 25; od[i4 + 2] = 30; od[i4 + 3] = 26; }                   // a faint tint between
+      }
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+  window._wxCvReg = window._wxCvReg || {};
+  window._wxCvReg.storm = {cv: cv, m: {x1: x1, x2: x2, y1: y1, y2: y2}};
   return {cv: cv, b: {w: LW, e: LE, s: LS, n: LN}};
 };
 window.wxSnowDraw = function(){ // selected hour's SNOW as a VIOLET ramp; registers 'snow' for the 3D tile cutter
@@ -2433,6 +2610,7 @@ function wxAboveOf(layerId){ var ls = wxStyleLayers(), i;
   for (i = 0; i < ls.length; i++){ if (ls[i].id === layerId) return (i + 1 < ls.length) ? ls[i + 1].id : undefined; }
   return undefined; }
 var CLD = 'wxcld-layer', CLDFC = 'wxcldfc-layer', cldTimer = null, cldOn = false, cldProtoDone = false, cldEmptyTile = null;
+var LI = 'wxli-layer', STM = 'wxstorm-layer', liTimer = null; // lightning (now) + model thunderstorms (ahead), both with ☁
 // An 'image' source gets clipped to a single web-mercator tile when 3D terrain
 // is on (seen live: hard edges at 22.5°E / 40.98°N — z4 tile borders). So the
 // cloud canvas is served as proper raster TILES instead, cut on the fly.
@@ -2501,11 +2679,67 @@ function cldModelShow(){ // draw the model clouds for the selected hour (hour > 
     wxRaster(CLDFC, 'wxcldfc', 'cldfc', 'Clouds &copy; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (model)', 0.85, pos);
   });
 }
-window.wxCloudApply = function(){ // toggle + every slider move: pick satellite (0) or model (ahead)
+// lightning = one GeoJSON symbol layer of ⚡ bolts (owner 15.10): the last 30 min without the rain
+// radar; while the radar loops, its data switches with every radar frame (the 30 min up to it)
+var liSync = false, LIATTR = 'Lightning &copy; <a href="https://www.eumetsat.int/" target="_blank" rel="noopener">EUMETSAT</a>';
+function liRemove(){ if (map.getLayer(LI)) map.removeLayer(LI); if (map.getSource('wxli')) map.removeSource('wxli'); liSync = false; window.wxLiRef = 0; }
+function stormRemove(){ if (map.getLayer(STM)) map.removeLayer(STM); if (map.getSource('wxstorm')) map.removeSource('wxstorm'); }
+// lightning is drawn just above the zones (owner 15.10: over the clouds AND the zones) but below
+// the layers added later without a slot (NOTAM pins, aircraft, activated zones)
+function liSlot(){ return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
+function liFrames(){ return (rvOn && rvFrames.length) ? rvFrames.map(function(f){ return f.time * 1000; }) : null; }
+function liIcon(){ // a yellow bolt with a dark outline, drawn once at pixel ratio 2
+  if (map.hasImage('ltg-bolt')) return;
+  var R = 2, w = 22 * R, h = 26 * R, c = document.createElement('canvas'); c.width = w; c.height = h;
+  var x = c.getContext('2d'); x.translate(w / 2, h / 2); x.scale(R * 1.2, R * 1.2);
+  x.beginPath(); x.moveTo(1, -9); x.lineTo(-5, 1); x.lineTo(-1, 1); x.lineTo(-3, 9); x.lineTo(5, -2); x.lineTo(1, -2); x.lineTo(3, -9); x.closePath();
+  x.lineJoin = 'round'; x.lineWidth = 2.2; x.strokeStyle = '#141414'; x.stroke(); x.fillStyle = '#ffd400'; x.fill();
+  map.addImage('ltg-bolt', x.getImageData(0, 0, w, h), {pixelRatio: R});
+}
+function liLayer(){ // the bolts layer (once): bolts never overlap - MapLibre thins them when zoomed out, the
+  // newest + strongest win where they would collide; older = fainter
+  liIcon();
+  if (!map.getSource('wxli')) map.addSource('wxli', {type: 'geojson', data: {type: 'FeatureCollection', features: []}, attribution: LIATTR});
+  if (!map.getLayer(LI)) map.addLayer({id: LI, type: 'symbol', source: 'wxli',
+    layout: {'icon-image': 'ltg-bolt', 'icon-size': 0.8, 'icon-allow-overlap': false, 'icon-ignore-placement': false, 'icon-padding': 2,
+      'symbol-sort-key': ['-', ['get', 'a'], ['*', 10, ['get', 'f']]]},
+    paint: {'icon-opacity': ['interpolate', ['linear'], ['get', 'a'], 0, 1, 25, 0.4]}}, liSlot());
+}
+function liShow(){ // hour 0: the last 30 min, or one window per radar frame while the radar loops
+  var fr = liFrames();
+  window.wxLiBuild(fr, function(ok){
+    if (window.wxLtgNote) window.wxLtgNote();
+    if (!ok || !cldOn || cldMode() !== 'sat') return; // a failed refresh keeps the last bolts; the note tells
+    whenReady(function(){
+      if (!cldOn || cldMode() !== 'sat') return;
+      liLayer(); liSync = !!fr;
+      if (liSync) liSyncShow();
+      else { window.wxLiRef = 0; map.getSource('wxli').setData(window.wxLiState.fc[0]); if (window.wxLtgNote) window.wxLtgNote(); }
+    });
+  });
+}
+function liSyncShow(){ // the radar ticked: the bolts of that frame's 30 min, and the note's time with it
+  if (!liSync || !map.getSource('wxli')) return;
+  var L = window.wxLiState, i = Math.min(rvIdx, L.fc.length - 1); if (i < 0) return;
+  map.getSource('wxli').setData(L.fc[i]); window.wxLiRef = L.refs[i] || 0;
+  if (window.wxLtgNote) window.wxLtgNote();
+}
+function stormShow(){ // the model thunderstorms for the selected hour (ahead), just above the model clouds
+  var r = window.wxStormDraw(); if (window.wxLtgNote) window.wxLtgNote(); if (!r) return;
+  whenReady(function(){
+    if (!cldOn || cldMode() !== 'model') return;
+    cldProto();
+    wxRaster(STM, 'wxstorm', 'storm', 'Thunderstorms &copy; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (model)', 1,
+      map.getLayer(CLDFC) ? wxAboveOf(CLDFC) : wxBefore());
+  });
+}
+window.wxCloudApply = function(){ // toggle + every slider move: satellite + lightning (0) or model clouds + thunderstorms (ahead)
   if (!cldOn) return;
-  if (cldMode() === 'sat'){ cldSatShow(); }
-  else if (window.wxFcState && window.wxFcState.data){ cldModelShow(); }
-  else { window.wxFcFetch(function(){ if (cldOn && cldMode() === 'model') cldModelShow(); }); } // grid loads once; rain/snow reuse it
+  if (cldMode() === 'sat'){ stormRemove(); cldSatShow(); liShow(); }
+  else { liRemove();
+    if (window.wxFcState && window.wxFcState.data){ cldModelShow(); stormShow(); }
+    else { window.wxFcFetch(function(){ if (cldOn && cldMode() === 'model'){ cldModelShow(); stormShow(); } }); } } // grid loads once; rain/snow reuse it
+  if (window.wxLtgNote) window.wxLtgNote();
 };
 // generic "working…" cue: pulse a layer's button/chip from toggle-on until its
 // MapLibre source appears (or ~12 s timeout). Turning the layer off removes the
@@ -2522,14 +2756,17 @@ function wxBtnBusy(btnId, srcIds){
 }
 function wxBtnIdle(btnId){ var b = document.getElementById(btnId); if (b) b.classList.remove('loading'); }
 
-window.wxSetClouds = function(on){ cldOn = on;
+window.wxSetClouds = function(on){ cldOn = on; clearInterval(cldTimer); clearInterval(liTimer);
   if (on){ wxBtnBusy('wxcld', ['wxcld','wxcldfc']); window.wxCloudApply();
     cldTimer = setInterval(function(){ if (cldOn && cldMode() === 'sat') cldSatShow(); }, 600000); // refresh the satellite every 10 min while it is the one shown
-  } else { clearInterval(cldTimer); wxBtnIdle('wxcld');
+    liTimer = setInterval(function(){ if (cldOn && cldMode() === 'sat') liShow(); }, 300000); // a new lightning step every 5 min
+  } else { wxBtnIdle('wxcld');
     if (map.getLayer(CLD)) map.removeLayer(CLD);
     if (map.getSource('wxcld')) map.removeSource('wxcld');
     if (map.getLayer(CLDFC)) map.removeLayer(CLDFC);
-    if (map.getSource('wxcldfc')) map.removeSource('wxcldfc'); }
+    if (map.getSource('wxcldfc')) map.removeSource('wxcldfc');
+    liRemove(); stormRemove(); }
+  if (window.wxLtgNote) window.wxLtgNote();
   if (window.wxSyncFcBar) window.wxSyncFcBar();
 };
 var rvFrames = [], rvIds = [], rvIdx = 0, rvTick = null, rvRefresh = null, rvOn = false;
@@ -2546,7 +2783,7 @@ function rvClear(){ rvIds.forEach(function(id){
     if (map.getLayer(id)) map.removeLayer(id);
     if (map.getSource(id)) map.removeSource(id); }); rvIds = []; }
 function rvShow(){ rvIds.forEach(function(id, i){
-    map.setLayoutProperty(id, 'visibility', i === rvIdx ? 'visible' : 'none'); }); rvLabel(); }
+    map.setLayoutProperty(id, 'visibility', i === rvIdx ? 'visible' : 'none'); }); rvLabel(); liSyncShow(); } // the lightning follows the radar frame
 function rvBuild(host){
   // keep the radar block's current z-slot on a reload; else use the rain block's slot
   var pos = (rvIds.length && map.getLayer(rvIds[rvIds.length - 1])) ? wxAboveOf(rvIds[rvIds.length - 1]) : (rainBefore || wxBefore()); // capture may predate the style - re-anchor now
@@ -2558,7 +2795,8 @@ function rvBuild(host){
     map.addLayer({id: id, type: 'raster', source: id, layout: {visibility: 'none'},
       paint: {'raster-opacity': 0.7}}, pos);
     rvIds.push(id); });
-  rvIdx = rvFrames.length - 1; rvShow(); }
+  rvIdx = rvFrames.length - 1; rvShow();
+  if (cldOn && cldMode() === 'sat') liShow(); } // new radar frames: rebuild the lightning windows for them
 function rvLoad(){
   fetch('https://api.rainviewer.com/public/weather-maps.json')
     .then(function(r){ return r.json(); })
@@ -2569,7 +2807,8 @@ function rvLoad(){
 function rvStart(){ if (rvOn) return; rvOn = true; rvLoad();
   rvTick = setInterval(function(){ if (rvIds.length){ rvIdx = (rvIdx + 1) % rvIds.length; rvShow(); } }, 800);
   rvRefresh = setInterval(rvLoad, 300000); }
-function rvStop(){ rvOn = false; clearInterval(rvTick); clearInterval(rvRefresh); rvClear(); rvFrames = []; rvLabel(); }
+function rvStop(){ rvOn = false; clearInterval(rvTick); clearInterval(rvRefresh); rvClear(); rvFrames = []; rvLabel();
+  if (liSync && cldOn && cldMode() === 'sat') liShow(); } // radar gone: back to one lightning picture (the last 30 min)
 // ---- forecast rain (Open-Meteo model, shared engine in WX_JS) ----
 window.wxFcApply = function(){
   if (!window.wxFcState.on) return;
