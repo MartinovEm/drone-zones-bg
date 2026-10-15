@@ -2,8 +2,9 @@
 
 The widget is a small chip in the top-left corner (under the search box) showing
 current conditions for the MAP CENTER; tapping it expands a card with a 7-day
-hourly forecast: temperature, wind at 10/80/120 m, gusts, direction arrows and
-precipitation probability. Hours with strong wind/gusts are highlighted so
+hourly forecast: temperature, dew point, cloud cover (all + low), visibility, wind
+at 10/80/120 m, gusts, direction arrows, precipitation, snow, CAPE and the
+freezing level. Hours with strong wind/gusts (and CAPE bands) are highlighted so
 no-fly hours are obvious; hours in the night of the EU drone rules (after
 evening civil twilight) are marked, computed in the browser. Data: Open-Meteo (keyless, CORS-open, verified);
 place name: Photon reverse geocoding (same keyless service the search uses).
@@ -78,6 +79,7 @@ WX_CSS = r"""
 .wxtab tr.wxhr td.wxnight{background:#33415c;color:#fff;border-radius:4px}
 :root[data-theme="dark"] .wxtab tr.wxhr td.wxnight{background:#1b2440;color:#e8e8ea;box-shadow:inset 0 0 0 1px #6b7fa6}
 .wxnote{line-height:1.35}
+.wxnote + .wxnote{margin-top:2px}
 .wxtab td.wxw{background:rgba(255,140,48,.28);border-radius:4px}
 .wxtab td.wxd{background:rgba(208,48,48,.30);border-radius:4px;font-weight:700}
 .wxtab td.wxrain{color:#2b6cb0;font-weight:700}
@@ -159,6 +161,10 @@ WX_JS = r"""
 var WXT = {
  bg:{now:'Сега',hum:'влажност',gust:'порив',rain:'дъжд %',rmm:'валеж мм',cld:'облаци',sunrise:'изгрев',sunset:'залез',today:'Днес',
      night:'нощ',nightNote:'Тъмните часове = нощ (след гражданския здрач): по правилата за дронове е нужна зелена мигаща светлина.',
+     dew:'оросяване',low:'ниски обл.',vis:'видимост км',cape:'⛈ CAPE',frz:'0°C на (м)',
+     dewNote:'Оросяване: колкото по-близо е до температурата, толкова по-вероятни са мъгла и конденз.',
+     capeNote:'⛈ CAPE (енергия за гръмотевични бури, J/kg): под 1000 слаба · 1000–2500 умерена · 2500–4000 силна · над 4000 екстремна.',
+     frzNote:'0°C на (м): височината над морето, на която въздухът е 0°C',frzHere:'теренът тук е ≈ {h} м',
      hh:'час',t:'°C',w10:'вятър 10 м',w80:'вятър 80 м',w120:'вятър 120 м',ms:'м/с',foot:'Прогноза:',nodata:'Няма данни за тук',wxLimitDay:'Изчерпан дневен лимит на метео заявките — нулира се в {t}',wxLimit:'Изчерпан лимит на метео заявките (временно)',wxDown:'Метео услугата временно е недостъпна',
      days:['нд','пн','вт','ср','чт','пт','сб'],title:'Метео прогноза (центъра на картата)',
      bCld:'Облаци — сателит сега, модел напред (плъзгач)',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
@@ -170,6 +176,10 @@ var WXT = {
      rvNote:'нощем слабото ехо може да е шум'},
  en:{now:'Now',hum:'humidity',gust:'gust',rain:'rain %',rmm:'rain mm',cld:'clouds',sunrise:'sunrise',sunset:'sunset',today:'Today',
      night:'night',nightNote:'Dark hours = night (after civil twilight): drone rules require a green flashing light.',
+     dew:'dew point',low:'low clouds',vis:'visibility km',cape:'⛈ CAPE',frz:'0°C at (m)',
+     dewNote:'Dew point: the closer it is to the temperature, the likelier fog and condensation.',
+     capeNote:'⛈ CAPE (energy for thunderstorms, J/kg): below 1000 weak · 1000–2500 moderate · 2500–4000 strong · above 4000 extreme.',
+     frzNote:'0°C at (m): the height above sea level where the air is 0°C',frzHere:'the ground here is ≈ {h} m',
      hh:'hour',t:'°C',w10:'wind 10 m',w80:'wind 80 m',w120:'wind 120 m',ms:'m/s',foot:'Forecast:',nodata:'No data for this spot',wxLimitDay:'Weather request limit reached — resets at {t}',wxLimit:'Weather request limit reached (temporary)',wxDown:'Weather service temporarily unavailable',
      days:['Su','Mo','Tu','We','Th','Fr','Sa'],title:'Weather forecast (map center)',
      bCld:'Clouds — satellite now, model ahead (slider)',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
@@ -318,12 +328,19 @@ function wxTable(){
     for (i = start; i < end; i++){ if (times[i].slice(0, 13) >= nowH){ start = i; break; } }
   }
   var hr = '', ic = '', te = '', cl = '', w1 = '', w8 = '', w12 = '', gu = '', ra = '', rm = '', sn = '';
+  var dw = '', lo = '', vi = '', ca = '', fz = '';
+  function hv(k){ return (H[k] && H[k][i] != null) ? H[k][i] : null; } // one hourly value, null when absent
   for (i = start; i < end; i++){
     hr += '<td' + (wxIsNight(times[i]) ? ' class="wxnight"' : '') + '>' + times[i].slice(11, 16) + '</td>';
     ic += '<td>' + wxIco(H.weather_code[i], H.is_day[i]) + '</td>';
     te += '<td>' + Math.round(H.temperature_2m[i]) + '°</td>';
+    var dp = hv('dew_point_2m');
+    dw += '<td>' + (dp == null ? '—' : Math.round(dp) + '°') + '</td>';
     var cc = H.cloud_cover ? H.cloud_cover[i] : null;
     cl += '<td>' + (cc == null ? '—' : cc + '%') + '</td>';
+    var cw = hv('cloud_cover_low');
+    lo += '<td>' + (cw == null ? '—' : cw + '%') + '</td>';
+    vi += '<td>' + wxVis(hv('visibility')) + '</td>';
     w1 += '<td' + wxCls(H.wind_speed_10m[i]) + '>' + wxV(H.wind_speed_10m[i]) + wxArrow(H.wind_direction_10m[i]) + '</td>';
     w8 += '<td' + wxCls(H.wind_speed_80m[i]) + '>' + wxV(H.wind_speed_80m[i]) + wxArrow(H.wind_direction_80m[i]) + '</td>';
     w12 += '<td' + wxCls(H.wind_speed_120m[i]) + '>' + wxV(H.wind_speed_120m[i]) + wxArrow(H.wind_direction_120m[i]) + '</td>';
@@ -334,12 +351,29 @@ function wxTable(){
     rm += '<td' + ((mm != null && mm >= 0.5) ? ' class="wxrain"' : '') + '>' + (mm == null ? '—' : (mm === 0 ? '0' : (Math.round(mm * 10) / 10).toFixed(1))) + '</td>';
     var sm = H.snowfall ? H.snowfall[i] : null;
     sn += '<td' + ((sm != null && sm >= 0.1) ? ' class="wxsnowcell"' : '') + '>' + (sm == null ? '—' : (sm === 0 ? '0' : (Math.round(sm * 10) / 10).toFixed(1))) + '</td>';
+    var cp = hv('cape');
+    ca += '<td' + (cp == null ? '' : wxCapeCls(cp)) + '>' + (cp == null ? '—' : Math.round(cp)) + '</td>';
+    var fl = hv('freezing_level_height');
+    fz += '<td>' + (fl == null ? '—' : Math.round(fl)) + '</td>';
   }
   return '<div class="wxscrollwrap"><div class="wxscroll" id="wxscroll"><table class="wxtab">' +
-    wxRow(t.hh, hr, 'wxhr') + wxRow('', ic) + wxRow(t.t, te) + wxRow(t.cld, cl) +
+    wxRow(t.hh, hr, 'wxhr') + wxRow('', ic) + wxRow(t.t, te) + wxRow(t.dew, dw) + wxRow(t.cld, cl) +
+    wxRow(t.low, lo) + wxRow(t.vis, vi) +
     wxRow(t.w10, w1) + wxRow(t.w80, w8) + wxRow(t.w120, w12) +
     wxRow(t.gust, gu) + wxRow(t.rain, ra) + wxRow(t.rmm, rm) + wxRow(t.snowRow, sn) +
+    wxRow(t.cape, ca) + wxRow(t.frz, fz) +
     '</table></div></div>';
+}
+// visibility in km: one decimal under 10 km, whole km above
+function wxVis(m){ if (m == null) return '—'; var k = Math.round(m / 100) / 10; return k < 10 ? k.toFixed(1) : String(Math.round(m / 1000)); }
+// CAPE bands of the US National Weather Service / SPC (owner, 15.10): moderate 1000-2500 J/kg
+// orange, strong (2500-4000) and extreme (>4000) red - the same cell shading as wind
+function wxCapeCls(v){ return v >= 2500 ? ' class="wxd"' : (v >= 1000 ? ' class="wxw"' : ''); }
+// the explanations under the table, in the table's row order
+function wxNotes(){
+  var t = WXT[wxLang()], el = wxData ? wxData.elevation : null;
+  var frz = t.frzNote + (el != null ? '; ' + t.frzHere.replace('{h}', Math.round(el)) : '') + '.';
+  return [t.nightNote, t.dewNote, t.capeNote, frz].map(function(s){ return '<div class="wxfoot wxnote">' + s + '</div>'; }).join('');
 }
 function wxRender(){
   var t = WXT[wxLang()];
@@ -375,7 +409,7 @@ function wxRender(){
   var sun = '<div class="wxsun"><span>🌅 ' + t.sunrise + ' ' + sr.slice(11, 16) + ' · 🌇 ' + t.sunset + ' ' + ss.slice(11, 16) +
     ((cv && cn) ? ' · 🌙 ' + t.night + ' ' + cv.dusk + '–' + cn.dawn : '') + '</span>' +
     '<span class="wxnav"><button class="wxnavbtn" id="wxleft">◀</button><button class="wxnavbtn" id="wxright">▶</button></span></div>';
-  wxBody.innerHTML = now + wxDayTabs() + sun + wxTable() + '<div class="wxfoot wxnote">' + t.nightNote + '</div>';
+  wxBody.innerHTML = now + wxDayTabs() + sun + wxTable() + wxNotes();
   wxBody.querySelectorAll('.wxday').forEach(function(b){
     b.onclick = function(e){ e.stopPropagation(); wxDay = +b.getAttribute('data-d'); wxRender(); };
   });
@@ -426,7 +460,7 @@ function wxFetch(){
   // instant paint from a persisted cache for this cell: the 2D<->3D switch carries
   // the map center, so the new page's cell matches and the chip fills with no network
   if (!wxData || wxCell !== cell){
-    try{ var cw = JSON.parse(localStorage.getItem('wxwx'));
+    try{ var cw = JSON.parse(localStorage.getItem('wxwx2')); // '2': the answer carries visibility/low cloud/dew point/0°C/CAPE since 15.10
       if (cw && cw.cell === cell && (Date.now() - cw.at) < 900000){
         wxData = cw.data; wxCell = cell; wxAt = cw.at;
         if (wxDay >= wxData.daily.time.length) wxDay = 0;
@@ -438,12 +472,13 @@ function wxFetch(){
   var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + c.lat.toFixed(4) + '&longitude=' + c.lng.toFixed(4) +
     '&current=temperature_2m,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m' +
     '&hourly=temperature_2m,weather_code,is_day,precipitation_probability,precipitation,snowfall,cloud_cover,' +
-    'wind_speed_10m,wind_speed_80m,wind_speed_120m,wind_gusts_10m,wind_direction_10m,wind_direction_80m,wind_direction_120m' +
+    'wind_speed_10m,wind_speed_80m,wind_speed_120m,wind_gusts_10m,wind_direction_10m,wind_direction_80m,wind_direction_120m,' +
+    'visibility,cloud_cover_low,dew_point_2m,freezing_level_height,cape' +
     '&daily=sunrise,sunset&wind_speed_unit=ms&timezone=auto&forecast_days=8'; // today + 7 full days ahead
   fetch(u).then(function(r){ var st = r.status; return r.json().then(function(d){ return [st, d]; }, function(){ return [st, null]; }); })
     .then(function(sd){ var st = sd[0], d = sd[1];
       if (d && d.hourly && d.current){ wxErr = null; wxData = d; wxRetryMs = 7000; if (wxDay >= d.daily.time.length) wxDay = 0;
-        try{ localStorage.setItem('wxwx', JSON.stringify({cell: cell, at: Date.now(), data: d})); }catch(e){}
+        try{ localStorage.setItem('wxwx2', JSON.stringify({cell: cell, at: Date.now(), data: d})); }catch(e){}
         wxRender(); wxPlaceName(); }
       else { // a rate-limited answer (HTTP 429) is an error JSON, not data; tell it apart from an outage
         var reason = (d && d.reason) || '';
