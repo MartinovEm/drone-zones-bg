@@ -4,7 +4,8 @@ The widget is a small chip in the top-left corner (under the search box) showing
 current conditions for the MAP CENTER; tapping it expands a card with a 7-day
 hourly forecast: temperature, wind at 10/80/120 m, gusts, direction arrows and
 precipitation probability. Hours with strong wind/gusts are highlighted so
-no-fly hours are obvious. Data: Open-Meteo (keyless, CORS-open, verified);
+no-fly hours are obvious; hours in the night of the EU drone rules (after
+evening civil twilight) are marked, computed in the browser. Data: Open-Meteo (keyless, CORS-open, verified);
 place name: Photon reverse geocoding (same keyless service the search uses).
 
 make_3d.py inserts the three strings below at marker comments in
@@ -73,6 +74,10 @@ WX_CSS = r"""
  padding:2px 8px 2px 2px;font-size:11px}
 .wxtab td{text-align:center;padding:2px 4px;min-width:44px;font-variant-numeric:tabular-nums}
 .wxtab tr.wxhr td{font-weight:700;color:#333}
+/* hours that start in the night (after evening civil twilight, before morning civil twilight) */
+.wxtab tr.wxhr td.wxnight{background:#33415c;color:#fff;border-radius:4px}
+:root[data-theme="dark"] .wxtab tr.wxhr td.wxnight{background:#1b2440;color:#e8e8ea;box-shadow:inset 0 0 0 1px #6b7fa6}
+.wxnote{line-height:1.35}
 .wxtab td.wxw{background:rgba(255,140,48,.28);border-radius:4px}
 .wxtab td.wxd{background:rgba(208,48,48,.30);border-radius:4px;font-weight:700}
 .wxtab td.wxrain{color:#2b6cb0;font-weight:700}
@@ -153,6 +158,7 @@ WX_JS = r"""
 (function(){
 var WXT = {
  bg:{now:'Сега',hum:'влажност',gust:'порив',rain:'дъжд %',rmm:'валеж мм',cld:'облаци',sunrise:'изгрев',sunset:'залез',today:'Днес',
+     night:'нощ',nightNote:'Тъмните часове = нощ (след гражданския здрач): по правилата за дронове е нужна зелена мигаща светлина.',
      hh:'час',t:'°C',w10:'вятър 10 м',w80:'вятър 80 м',w120:'вятър 120 м',ms:'м/с',foot:'Прогноза:',nodata:'Няма данни за тук',wxLimitDay:'Изчерпан дневен лимит на метео заявките — нулира се в {t}',wxLimit:'Изчерпан лимит на метео заявките (временно)',wxDown:'Метео услугата временно е недостъпна',
      days:['нд','пн','вт','ср','чт','пт','сб'],title:'Метео прогноза (центъра на картата)',
      bCld:'Облаци — сателит сега, модел напред (плъзгач)',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
@@ -163,6 +169,7 @@ var WXT = {
      bGj:'GPS смущения (наши данни от самолетите, последни 12 ч) — дял самолети с влошен GPS на височина; празно = няма прелетели самолети; не значи смущение при земята',gjX:'малко данни',gjG:'чисто',gjY:'2–10% смутени',gjR:'>10% смутени',gjNote:'На самолетна височина',gjLive:'На живо',gjW12:'12ч',gjW24:'24ч',gjHr:'ч',gjStamp:'данни към',
      rvNote:'нощем слабото ехо може да е шум'},
  en:{now:'Now',hum:'humidity',gust:'gust',rain:'rain %',rmm:'rain mm',cld:'clouds',sunrise:'sunrise',sunset:'sunset',today:'Today',
+     night:'night',nightNote:'Dark hours = night (after civil twilight): drone rules require a green flashing light.',
      hh:'hour',t:'°C',w10:'wind 10 m',w80:'wind 80 m',w120:'wind 120 m',ms:'m/s',foot:'Forecast:',nodata:'No data for this spot',wxLimitDay:'Weather request limit reached — resets at {t}',wxLimit:'Weather request limit reached (temporary)',wxDown:'Weather service temporarily unavailable',
      days:['Su','Mo','Tu','We','Th','Fr','Sa'],title:'Weather forecast (map center)',
      bCld:'Clouds — satellite now, model ahead (slider)',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
@@ -211,6 +218,55 @@ function wxNowHourIdx(){ // hourly index for the current hour (hourly + current 
   var nowH = wxData.current.time.slice(0, 13), ts = wxData.hourly.time;
   for (var i = 0; i < ts.length; i++){ if (ts[i].slice(0, 13) >= nowH) return i; }
   return 0;
+}
+// Civil twilight = the sun's centre 6° below the horizon. The EU drone rules call the time from
+// the end of evening civil twilight to the start of morning civil twilight "night" (Reg.
+// 2019/947 Art. 2(34)); a green flashing light is required then (UAS.OPEN.060(2)(g)). Computed
+// for the forecast point with no extra request; matches the USNO calculator (Sofia 15.10.2026:
+// 07:11 / 19:13). Returns [dawn, dusk] as UTC ms for the local date 'YYYY-MM-DD', or null.
+function wxCivil(lat, lng, ds){
+  var y = +ds.slice(0, 4), mo = +ds.slice(5, 7) - 1, d = +ds.slice(8, 10), rad = Math.PI / 180, out = [];
+  for (var k = 0; k < 2; k++){
+    var t = Date.UTC(y, mo, d, 12) - lng / 15 * 3600000; // first guess: local solar noon
+    for (var it = 0; it < 4; it++){ // refine the sun's position at the event itself
+      var n = t / 86400000 + 2440587.5 - 2451545.0; // days since J2000
+      var L = (280.460 + 0.9856474 * n) % 360, g = ((357.528 + 0.9856003 * n) % 360) * rad;
+      var lam = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad, eps = (23.439 - 0.0000004 * n) * rad;
+      var dec = Math.asin(Math.sin(eps) * Math.sin(lam));
+      var ra = (Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam)) / rad + 360) % 360;
+      var eqt = (L - ra + 540) % 360 - 180; // equation of time, degrees
+      var cosH = (Math.sin(-6 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec));
+      if (cosH < -1 || cosH > 1) return null; // no civil twilight that day (polar; never in Bulgaria)
+      t = Date.UTC(y, mo, d) + (720 - 4 * lng - 4 * eqt + (k ? 4 : -4) * Math.acos(cosH) / rad) * 60000;
+    }
+    out.push(t);
+  }
+  return out;
+}
+var wxTzF = {}, wxCivCache = {};
+function wxLocalHM(ms){ // UTC ms -> 'HH:MM' in the forecast's own time zone, to the nearest minute
+  ms = Math.round(ms / 60000) * 60000;
+  var tz = (wxData && wxData.timezone) || 'Europe/Sofia';
+  try{
+    var f = wxTzF[tz] || (wxTzF[tz] = new Intl.DateTimeFormat('en-GB', {timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false}));
+    var p = {}; f.formatToParts(new Date(ms)).forEach(function(x){ p[x.type] = x.value; });
+    return (p.hour === '24' ? '00' : p.hour) + ':' + p.minute;
+  }catch(e){ // no Intl time zones: use the forecast's own UTC offset
+    var dt = new Date(ms + ((wxData && wxData.utc_offset_seconds) || 0) * 1000);
+    return ('0' + dt.getUTCHours()).slice(-2) + ':' + ('0' + dt.getUTCMinutes()).slice(-2);
+  }
+}
+function wxCivilHM(ds){ // {dawn, dusk} as local 'HH:MM' for a local date at the forecast point (cached)
+  if (!wxData || wxData.latitude == null) return null;
+  var key = wxData.latitude + ',' + wxData.longitude + ',' + ds;
+  if (!(key in wxCivCache)){ var r = wxCivil(wxData.latitude, wxData.longitude, ds);
+    wxCivCache[key] = r ? {dawn: wxLocalHM(r[0]), dusk: wxLocalHM(r[1])} : null; }
+  return wxCivCache[key];
+}
+function wxNextDay(ds){ return new Date(Date.UTC(+ds.slice(0, 4), +ds.slice(5, 7) - 1, +ds.slice(8, 10) + 1)).toISOString().slice(0, 10); }
+function wxIsNight(ts){ // local 'YYYY-MM-DDTHH:MM' -> true when that hour starts in the night
+  var c = wxCivilHM(ts.slice(0, 10)), hm = ts.slice(11, 16);
+  return !!c && (hm < c.dawn || hm >= c.dusk);
 }
 // the chip's short form: the name up to its first comma ("София, София-град" -> "София"); the
 // coordinates shown where there is no place name stay whole ("42.82, 20.35": both numbers)
@@ -263,7 +319,7 @@ function wxTable(){
   }
   var hr = '', ic = '', te = '', cl = '', w1 = '', w8 = '', w12 = '', gu = '', ra = '', rm = '', sn = '';
   for (i = start; i < end; i++){
-    hr += '<td>' + times[i].slice(11, 16) + '</td>';
+    hr += '<td' + (wxIsNight(times[i]) ? ' class="wxnight"' : '') + '>' + times[i].slice(11, 16) + '</td>';
     ic += '<td>' + wxIco(H.weather_code[i], H.is_day[i]) + '</td>';
     te += '<td>' + Math.round(H.temperature_2m[i]) + '°</td>';
     var cc = H.cloud_cover ? H.cloud_cover[i] : null;
@@ -314,9 +370,12 @@ function wxRender(){
     '<span class="wxsub">' + t.hum + ' ' + c.relative_humidity_2m + '%<br>' +
     wxV(c.wind_speed_10m) + ' ' + t.ms + wxArrow(c.wind_direction_10m) + ' · ' + t.gust + ' ' + wxV(c.wind_gusts_10m) + '</span></div>';
   var sr = wxData.daily.sunrise[wxDay], ss = wxData.daily.sunset[wxDay];
-  var sun = '<div class="wxsun"><span>🌅 ' + t.sunrise + ' ' + sr.slice(11, 16) + ' · 🌇 ' + t.sunset + ' ' + ss.slice(11, 16) + '</span>' +
+  // the night that follows this day: end of its evening civil twilight -> start of the next morning's
+  var ds = wxData.daily.time[wxDay], cv = wxCivilHM(ds), cn = wxCivilHM(wxNextDay(ds));
+  var sun = '<div class="wxsun"><span>🌅 ' + t.sunrise + ' ' + sr.slice(11, 16) + ' · 🌇 ' + t.sunset + ' ' + ss.slice(11, 16) +
+    ((cv && cn) ? ' · 🌙 ' + t.night + ' ' + cv.dusk + '–' + cn.dawn : '') + '</span>' +
     '<span class="wxnav"><button class="wxnavbtn" id="wxleft">◀</button><button class="wxnavbtn" id="wxright">▶</button></span></div>';
-  wxBody.innerHTML = now + wxDayTabs() + sun + wxTable();
+  wxBody.innerHTML = now + wxDayTabs() + sun + wxTable() + '<div class="wxfoot wxnote">' + t.nightNote + '</div>';
   wxBody.querySelectorAll('.wxday').forEach(function(b){
     b.onclick = function(e){ e.stopPropagation(); wxDay = +b.getAttribute('data-d'); wxRender(); };
   });
