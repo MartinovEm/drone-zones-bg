@@ -804,13 +804,13 @@ map.on('load', function(){
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f8ed2b78300348ea854f1b425ee36c57", "spa": false}'></script><!-- End Cloudflare Web Analytics -->
 </body></html>
 """
-# the Natura 2000 data version for the layer's popups (natura.json is built separately by
-# make_natura.py and sits next to index.html; its "v" member comes first in the file)
-natver = ""
+# when the EEA last published the Natura 2000 data, for the layer's popups (natura.json is
+# built separately by make_natura.py and sits next to index.html; "pub" is near its start)
+natpub = ""
 try:
     with open(os.path.join(outdir, "natura.json"), encoding="utf-8") as f:
-        mv = re.search(r'"v":"(\d{4})"', f.read(400))
-        natver = mv.group(1) if mv else ""
+        mv = re.search(r'"pub":"(\d{4}-\d{2}-\d{2})"', f.read(400))
+        natpub = mv.group(1) if mv else ""
 except OSError:
     pass
 html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).replace("__DATESPAN__", datespan).replace("__CHANGED__", changed)
@@ -826,7 +826,7 @@ html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).rep
         .replace("<!--__LANG__-->", LANG_HTML)
         .replace("/*__WX_CSS__*/", WX_CSS).replace("<!--__WX_HTML__-->", WX_HTML)
         .replace("//__WX_JS__", WX_JS).replace("//__WX_LAYERS_JS__", WX_LAYERS_JS_3D)
-        .replace("__NATVER__", natver))
+        .replace("__NATPUB__", natpub))
 os.makedirs(outdir, exist_ok=True)
 # The whole app is ONE page, written as index.html (2D and 3D both live here; opens
 # in flat 2D mode by default). The old Leaflet index.html and the separate 3d.html

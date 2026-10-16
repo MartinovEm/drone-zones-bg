@@ -15,12 +15,19 @@ output is committed. The zone build (build.py) does not touch it.
   conditions apply to access and use"), joined by site code; the EEA carries Latin names only.
 Every Bulgarian site the EEA lists is kept: a site whose simplified shape collapses is
 fetched again unsimplified, nothing is dropped.
+The map shows when the EEA last published the data (owner 16.10). The map service does not
+carry that date, so it is set here from the release's catalogue record; when the service
+starts serving a newer release, the script stops until both settings below are updated.
 """
 import datetime, io, json, os, re, sys, time, urllib.parse, urllib.request
 
 EEA = "https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000Sites/MapServer"
 MOEW = "https://natura2000.egov.bg/arcgis/rest/services/OpenData/ProtectedSitesOpenData_Feature/MapServer"
 HDRS = {"User-Agent": "bgr-drone-zones (natura build)"}
+# the release the map service serves ("dataset: 2024" in its description) and its publication
+# date in the EEA catalogue ("Natura 2000 (vector) - version end 2024", published 2025-12-01:
+# https://sdi.eea.europa.eu/catalogue/srv/api/records/91357f39-7866-41ce-b447-43905c364ec8)
+EEA_RELEASE, EEA_PUBLISHED = "2024", "2025-12-01"
 BOX = (14.5, 35.5, 37.0, 49.5)    # the map's data-coverage box (W, S, E, N); Bulgaria lies well inside
 FINE = (0.0005, 4)                # maxAllowableOffset (deg, ~50 m), geometryPrecision (~10 m)
 FULL = (None, 5)                  # no simplification - the fallback for collapsed shapes
@@ -135,6 +142,9 @@ def main():
     ms = get(EEA, {"f": "json"}, "eea_service")
     m = re.search(r"dataset:\s*(\d{4})", ms.get("description") or "")
     version = m.group(1) if m else ""
+    if version != EEA_RELEASE:
+        raise SystemExit("The EEA map service now serves the Natura 2000 release '%s' (expected '%s'): set "
+                         "EEA_RELEASE and EEA_PUBLISHED from that release's catalogue record first." % (version, EEA_RELEASE))
 
     sites = {f["properties"]["SITECODE"]: f for f in eea_sites("MS='BG'", BOX, FINE, "eea_BG")}
     total = len(sites)
@@ -166,12 +176,12 @@ def main():
     if nobg:
         print("  WARNING: no MOEW name for %d sites: %s" % (len(nobg), ", ".join(nobg)))
 
-    fc = {"type": "FeatureCollection", "v": version, "built": datetime.date.today().isoformat(), "features": feats}
+    fc = {"type": "FeatureCollection", "v": version, "pub": EEA_PUBLISHED, "built": datetime.date.today().isoformat(), "features": feats}
     path = os.path.join(out_dir, "natura.json")
     with io.open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(fc, ensure_ascii=False, separators=(",", ":")))
-    print("natura.json: %d sites (of %d listed), EEA version %s, %d bytes"
-          % (len(feats), total, version or "?", os.path.getsize(path)))
+    print("natura.json: %d sites (of %d listed), EEA release %s published %s, %d bytes"
+          % (len(feats), total, version, EEA_PUBLISHED, os.path.getsize(path)))
 
 
 if __name__ == "__main__":

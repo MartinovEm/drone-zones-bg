@@ -2367,7 +2367,7 @@ window.wxActSelect = function(key){
 // the zones, above GPS + weather (natFloor in the stack helpers). Its sites join the shared
 // click chooser (items tagged _nat) after the zones, NOTAMs and activated zones.
 window.wxNatUrl = 'natura.json';
-var NAT_VER = '__NATVER__', NAT_COL = '#2e7d32', NAT_EDGE = '#1b5e20', NAT_SEL = ['boolean', ['feature-state', 'sel'], false];
+var NAT_PUB = '__NATPUB__', NAT_COL = '#2e7d32', NAT_EDGE = '#1b5e20', NAT_SEL = ['boolean', ['feature-state', 'sel'], false];
 var NAT_TYPE = {bg: {A: 'за птиците', B: 'за местообитанията', C: 'за птиците и местообитанията'},
                 en: {A: 'birds (SPA)', B: 'habitats (SCI)', C: 'birds + habitats (SPA + SCI)'}};
 function natEn(){ return (window.LANG || 'bg') === 'en'; }
@@ -2434,9 +2434,10 @@ window.wxNatDetail = function(p){ var en = natEn(), t = NAT_TYPE[en ? 'en' : 'bg
     // the ЗБР bans disturbing ALL wild birds (чл. 46) but only the PROTECTED animals (чл. 38, Annex 3)
     '<br>' + (en ? 'Disturbing wild birds and protected animals is banned everywhere, especially during nesting.'
                  : 'Навсякъде е забранено безпокоенето на диви птици и защитени животни, особено при гнездене.') +
+    // whose date it is: the EEA's last publication of the data, not our update (owner 16.10)
     '<br><small>' + (en ? 'Boundaries: EEA / European Commission' : 'Граници: ЕАОС / ЕК') +
-      (NAT_VER ? (en ? ', data as of end ' + NAT_VER : ', данни към края на ' + NAT_VER + ' г.') : '') +
-      (en ? ', simplified' : ', опростени') + (p.b && !en ? ' · име: МОСВ' : '') + '</small>'; };
+      (NAT_PUB ? (en ? ' — last published: ' + NAT_PUB + ';' : ' — последна публикация: ' + NAT_PUB.split('-').reverse().join('.') + ';') : ',') +
+      (en ? ' simplified' : ' опростени') + (p.b && !en ? ' · име: МОСВ' : '') + '</small>'; };
 // thicken the CLICKED site's outline (feature-state 'sel'); one at a time
 window._natSel = null;
 window.wxNatSelect = function(code){
