@@ -563,7 +563,7 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('gj', on);
   if (window.wxSetGj) window.wxSetGj(on); };
 // airspace + NOTAM toggles are CHIPS in the drawer (not on-map buttons)
-['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam'].forEach(function(s){
+['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat'].forEach(function(s){
   var a = s.split(':'), el = document.getElementById(a[0]); if (!el) return;
   el.onclick = function(e){ e.stopPropagation(); var on = el.classList.toggle('on');
     try{ ST.set(a[1], on); }catch(_){} if (window[a[2]]) window[a[2]](on); };
@@ -1490,7 +1490,7 @@ WX_RESTORE_JS = r"""
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
    ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['notam','cbNotam','wxSetNotam'],
-   ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
+   ['nat','cbNat','wxSetNat'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){
     if (!ST.get(s[0], false)) return;
     var fn = window[s[2]]; if (typeof fn !== 'function') return; // layer not present on this page yet
@@ -1521,8 +1521,8 @@ WX_LAYERS_JS_3D = r"""
 (function(){
 // weather rasters go below the zone fills (and below buildings) so zones stay readable
 // Fixed stack below the zones (whatever order the user toggles): weather < GPS <
-// airspace < zones (< aircraft, which have no beforeId). Each layer inserts before the
-// lowest layer of a higher slot that currently exists.
+// Natura 2000 < airspace < zones (< aircraft, which have no beforeId). Each layer inserts
+// before the lowest layer of a higher slot that currently exists.
 function wxStyleLayers(){ try{ var st = map.getStyle(); return (st && st.layers) || []; }catch(e){ return []; } } // [] before the style is ready - callers then anchor lazily
 function wxZoneAnchor(){ var zs = {'f-PROHIBITED':1, 'f-REQ_AUTHORISATION':1, 'f-CONDITIONAL':1}, ls = wxStyleLayers(), i;
   for (i = 0; i < ls.length; i++){ if (zs[ls[i].id]) return ls[i].id; } // LOWEST zone layer = "below ALL zones"
@@ -1534,7 +1534,11 @@ function wxZoneAnchor(){ var zs = {'f-PROHIBITED':1, 'f-REQ_AUTHORISATION':1, 'f
 function wxAirFloor(){ var ls = wxStyleLayers(), i;
   for (i = 0; i < ls.length; i++){ if (ls[i].id === 'air-ctrl' || ls[i].id === 'air-spec' || ls[i].id === 'air-ctrl-labels' || ls[i].id === 'air-spec-labels') return ls[i].id; }
   return undefined; }
-function wxGjBefore(){ return wxAirFloor() || wxZoneAnchor(); } // GPS + weather below ALL airspace
+// the LOWEST Natura 2000 layer (an information layer: above GPS + weather, below airspace + zones)
+function natFloor(){ var ls = wxStyleLayers(), i;
+  for (i = 0; i < ls.length; i++){ if (ls[i].id.indexOf('wxnat-') === 0) return ls[i].id; }
+  return undefined; }
+function wxGjBefore(){ return natFloor() || wxAirFloor() || wxZoneAnchor(); } // GPS + weather below Natura 2000 + ALL airspace
 function wxBefore(){ return map.getLayer('wxgj-layer') ? 'wxgj-layer' : wxGjBefore(); } // weather below GPS
 // adding sources/layers before the style finishes loading throws in MapLibre.
 // Wait for 'idle', not 'load': 'load' fires only ONCE ever, so waiting on it
@@ -2355,6 +2359,92 @@ window.wxActSelect = function(key){
   map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; });
 });
+// ---- Natura 2000 (owner 16.10): an INFORMATION layer, not a drone zone, Bulgaria only. The EEA's
+// boundaries (CC BY 4.0, simplified) + the MOEW's Bulgarian names from the static natura.json (built
+// by tools/make_natura.py, refreshed about once a year). MapLibre loads the file itself on the
+// first switch-on (parsed in its worker, not on the page's thread). Green - never the zones'
+// red / orange / yellow: a faint fill + a fine hatch + a dark outline, under the airspace and
+// the zones, above GPS + weather (natFloor in the stack helpers). Its sites join the shared
+// click chooser (items tagged _nat) after the zones, NOTAMs and activated zones.
+window.wxNatUrl = 'natura.json';
+var NAT_VER = '__NATVER__', NAT_COL = '#2e7d32', NAT_EDGE = '#1b5e20', NAT_SEL = ['boolean', ['feature-state', 'sel'], false];
+var NAT_TYPE = {bg: {A: 'за птиците', B: 'за местообитанията', C: 'за птиците и местообитанията'},
+                en: {A: 'birds (SPA)', B: 'habitats (SCI)', C: 'birds + habitats (SPA + SCI)'}};
+function natEn(){ return (window.LANG || 'bg') === 'en'; }
+function natHatch(){ // a fine 45° green hatch, drawn once at pixel ratio 2 (seamless: the step divides the tile)
+  if (map.hasImage('nathatch')) return;
+  var pr = 2, S = 16, cv = document.createElement('canvas'); cv.width = S * pr; cv.height = S * pr;
+  var x = cv.getContext('2d'); x.scale(pr, pr); x.strokeStyle = 'rgba(27,94,32,0.5)'; x.lineWidth = 1.2;
+  for (var o = -S; o <= S; o += 8){ x.beginPath(); x.moveTo(o, S); x.lineTo(o + S, 0); x.stroke(); }
+  map.addImage('nathatch', {width: S * pr, height: S * pr, data: x.getImageData(0, 0, S * pr, S * pr).data}, {pixelRatio: pr});
+}
+// a load failure is told under the chip, in the page language
+function natMsg(){ var el = document.getElementById('wxnatmsg'); if (!el) return;
+  var on = !!(window._natFail && window.wxNatOn);
+  el.textContent = on ? (natEn() ? 'Natura 2000: the data could not be loaded.' : 'Натура 2000: данните не се заредиха.') : '';
+  el.style.display = on ? '' : 'none'; }
+window.wxSetNat = function(on){ window.wxNatOn = on; window._natFail = false; natMsg();
+  var chip = document.getElementById('cbNat');
+  if (on){
+    if (chip && !map.getSource('wxnat')) chip.classList.add('loading'); // until MapLibre has the file
+    whenReady(function(){ if (!window.wxNatOn) return;
+      natHatch();
+      if (!map.getSource('wxnat')) map.addSource('wxnat', {type: 'geojson', data: window.wxNatUrl, promoteId: 'c', maxzoom: 14,
+        attribution: 'Natura 2000 &copy; <a href="https://www.eea.europa.eu/en/datahub/datahubitem-view/6fc8ad2d-195d-40f4-bdec-576e7d1268e4" target="_blank" rel="noopener">EEA / European Commission</a> (CC BY 4.0, simplified) · names <a href="https://natura2000.egov.bg/" target="_blank" rel="noopener">MOEW</a>'});
+      var b = wxAirFloor() || wxZoneAnchor(); // under ALL airspace + zones; GPS + weather anchor below natFloor()
+      if (!map.getLayer('wxnat-fill')) map.addLayer({id: 'wxnat-fill', type: 'fill', source: 'wxnat',
+        paint: {'fill-color': NAT_COL, 'fill-opacity': 0.1}}, b);
+      if (!map.getLayer('wxnat-hatch')) map.addLayer({id: 'wxnat-hatch', type: 'fill', source: 'wxnat',
+        paint: {'fill-pattern': 'nathatch'}}, b);
+      if (!map.getLayer('wxnat-line')) map.addLayer({id: 'wxnat-line', type: 'line', source: 'wxnat', layout: {'line-join': 'round'},
+        paint: {'line-color': NAT_EDGE, 'line-opacity': 0.85,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, ['case', NAT_SEL, 2.6, 0.6], 11, ['case', NAT_SEL, 3.6, 1.4]]}}, b);
+    }); }
+  else { if (chip) chip.classList.remove('loading');
+    ['wxnat-line', 'wxnat-hatch', 'wxnat-fill'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wxnat')) map.removeSource('wxnat'); // a failed load is retried at the next switch-on
+    window._natSel = null;
+    if (window.wxPopupPrune) window.wxPopupPrune(); }
+};
+// the file has landed (the chip stops pulsing) / could not be loaded (the drawer says so)
+map.on('sourcedata', function(e){ if (e.sourceId === 'wxnat' && e.isSourceLoaded){ var c = document.getElementById('cbNat'); if (c) c.classList.remove('loading'); } });
+map.on('error', function(e){ if (!e || e.sourceId !== 'wxnat') return;
+  var c = document.getElementById('cbNat'); if (c) c.classList.remove('loading');
+  window._natFail = true; natMsg(); });
+(window.wxLangRefresh = window.wxLangRefresh || []).push(natMsg);
+// helpers for the SHARED click chooser in make_3d (same list as zones / NOTAM / airspace)
+function natNum(v, en){ // 27102 -> "27 102" / "27,102"; 0.5 -> "0,5" / "0.5"
+  var s = String(v).split('.'), i = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, en ? ',' : ' ');
+  return s.length > 1 ? i + (en ? '.' : ',') + s[1] : i; }
+window.wxNatColor = function(){ return NAT_COL; };
+window.wxNatName = function(p){ return (!natEn() && p.b) ? p.b : (p.n || p.c); };
+window.wxNatSub = function(p){ var en = natEn(), t = NAT_TYPE[en ? 'en' : 'bg'][p.t];
+  return (en ? 'Natura 2000' : 'Натура 2000') + (t ? ' · ' + t : ''); };
+window.wxNatDetail = function(p){ var en = natEn(), t = NAT_TYPE[en ? 'en' : 'bg'][p.t];
+  var ha = +p.a, km = ha >= 100 ? Math.round(ha / 100) : 0;
+  // the MOEW page of the site: its designation order (the bans, if any), the SDF, the boundaries
+  var a = '<a href="https://natura2000.egov.bg/EsriBg.Natura.Public.Web.App/Home/ProtectedSite?code=' + encodeURIComponent(p.c) +
+          '&siteType=' + (p.t === 'B' ? 'HabitatDirective' : 'BirdsDirective') + '" target="_blank" rel="noopener">';
+  return '<b>' + esc(window.wxNatName(p)) + '</b> <span class="ptype">' + (en ? 'Natura 2000' : 'Натура 2000') + '</span><br>' +
+    (t ? (en ? 'Protected area for ' : 'Защитена зона ') + t + ' · ' : '') + esc(p.c) +
+    '<br>' + (en ? 'Area: ' : 'Площ: ') + natNum(ha, en) + (en ? ' ha' : ' ха') + (km ? ' (' + natNum(km, en) + (en ? ' km²)' : ' км²)') : '') +
+    // the owner's wording (16.10)
+    '<br>' + (en ? 'Natura 2000 by itself does not ban drone flights. Any bans for this site are in its designation order: ' + a + 'MOEW ↗</a>'
+                 : 'Натура 2000 сама по себе си не забранява полети с дрон. Ако за тази зона има забрани, те са в заповедта ѝ: ' + a + 'МОСВ ↗</a>') +
+    // the ЗБР bans disturbing ALL wild birds (чл. 46) but only the PROTECTED animals (чл. 38, Annex 3)
+    '<br>' + (en ? 'Disturbing wild birds and protected animals is banned everywhere, especially during nesting.'
+                 : 'Навсякъде е забранено безпокоенето на диви птици и защитени животни, особено при гнездене.') +
+    '<br><small>' + (en ? 'Boundaries: EEA / European Commission' : 'Граници: ЕАОС / ЕК') +
+      (NAT_VER ? (en ? ', data as of end ' + NAT_VER : ', данни към края на ' + NAT_VER + ' г.') : '') +
+      (en ? ', simplified' : ', опростени') + (p.b && !en ? ' · име: МОСВ' : '') + '</small>'; };
+// thicken the CLICKED site's outline (feature-state 'sel'); one at a time
+window._natSel = null;
+window.wxNatSelect = function(code){
+  if (window._natSel != null && map.getSource('wxnat')) map.setFeatureState({source: 'wxnat', id: window._natSel}, {sel: false});
+  window._natSel = null;
+  if (code != null && map.getSource('wxnat')){ window._natSel = code; map.setFeatureState({source: 'wxnat', id: code}, {sel: true}); } };
+map.on('mouseenter', 'wxnat-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
+map.on('mouseleave', 'wxnat-fill', function(){ map.getCanvas().style.cursor = ''; });
 // ---- NOTAM layer (/notam relay over the FAA NMS-API): temporary drone-relevant
 // restrictions drawn ABOVE the zones. A lettered pin (P/R/D/M/!) at the centre + a
 // dashed, lightly-filled (20%) circle/polygon coloured by category. Click shows the

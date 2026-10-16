@@ -462,6 +462,19 @@ NOTAM_SECTION = (
   '</div>')
 
 
+# Nature section (owner 16.10): Natura 2000 as an INFORMATION layer, not a drone zone, Bulgaria
+# only — the EEA's boundaries + the MOEW's Bulgarian names from the static natura.json. Default OFF.
+NATURE_SECTION = (
+  '<div class="psec"><div class="psh" data-i18n="secNat">Природа</div>'
+  '<div class="prow">'
+  '<span class="chip" id="cbNat"><span class="dot" style="background:#2e7d32"></span><span data-i18n="natShow">Натура 2000</span></span>'
+  '</div>'
+  '<div class="flnote" data-i18n="natNote">Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ</div>'
+  # a load failure is told here (filled by JS)
+  '<div class="flnote" id="wxnatmsg" style="display:none"></div>'
+  '</div>')
+
+
 SHELL_JS = r"""
 // ---- UI shell: menu drawer, loupe, mutual exclusivity, mobile viewport ----
 (function(){

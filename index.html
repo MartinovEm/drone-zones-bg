@@ -508,7 +508,7 @@ html,body{height:100%;margin:0}
  </div>
 </div>
  <button id="menubtn" class="pill icon" aria-label="menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
- <div id="panel" hidden><div class="phead"><button class="pclose" id="panelclose" aria-label="close">✕</button></div><div class="psec"><div class="psh" data-i18n="secZones">Зони</div><div class="prow"><span class="chip on" id="cbP"><span class="dot" style="background:#ff2020"></span><span data-i18n="fP">Забранени</span> <span class="cnt" id="nP"></span></span><span class="chip on" id="cbA"><span class="dot" style="background:#ff8000"></span><span data-i18n="fA">С разрешение</span> <span class="cnt" id="nA"></span></span><span class="chip on" id="cbC"><span class="dot" style="background:#ffcc00"></span><span data-i18n="fC">Условни</span> <span class="cnt" id="nC"></span></span><span class="chip on" id="cbB"><span class="dot" style="background:#b7ad9c"></span><span data-i18n="bld">Сгради</span></span></div></div><div class="psec"><div class="psh" data-i18n="secAir">Въздушно пространство</div><div class="prow"><span class="chip" id="cbAct"><span class="dot" style="background:#d0202a"></span><span data-i18n="actShow">Активирани зони</span></span><span class="chip" id="cbAirC"><span class="dot" style="background:#2b6cb0"></span><span data-i18n="airCtrl">Контролирано</span></span><span class="chip" id="cbAirS"><span class="dot" style="background:#d0202a"></span><span data-i18n="airSpec">Специални зони</span></span></div><div class="airnote"><span class="airsw" style="background:#d0202a"></span><span data-i18n="airLegRPD">забранени / ограничени / опасни</span><span class="airsw" style="background:#d81fbf;margin-left:6px"></span><span data-i18n="airMil">военни</span></div><div class="flnote" data-i18n="airFL180">Показва се само до FL180 (18 000 ft)</div><div class="flnote" data-i18n="actNote">Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА</div><div class="flnote" id="wxactfresh" style="display:none"></div></div><div class="psec"><div class="psh" data-i18n="secNotam">NOTAM (временни)</div><div class="prow"><span class="chip" id="cbNotam"><span class="dot" style="background:#d0202a"></span><span data-i18n="ntShow">NOTAM</span></span></div><div class="airnote"><span class="ntk" style="background:#d0202a">P</span><span data-i18n="ntP">забранена</span><span class="ntk" style="background:#d0202a">D</span><span data-i18n="ntD">опасна</span><span class="ntk" style="background:#d0202a">R</span><span data-i18n="ntR">ограничена (щрих)</span><span class="ntk" style="background:#d81fbf">M</span><span data-i18n="ntM">военна</span><span class="ntk" style="background:#00897b">O</span><span data-i18n="ntO">препятствие</span><span class="ntk" style="background:#ef6c00">!</span><span data-i18n="ntW">предупреждение</span><span class="ntk" style="background:#f9b800;color:#2b2100">G</span><span data-i18n="ntG">GNSS смущения</span></div><div class="flnote" data-i18n="ntUpc">приглушените са предстоящи (все още неактивни)</div><div class="flnote" data-i18n="ntSrc">Международна серия (FAA)</div><div class="flnote" id="wxntfresh" style="display:none"></div></div><div class="psec fldis" id="flsec"><div class="psh" data-i18n="secFL">Височина на самолетите</div><div class="flrow"><div class="fltrack"><div class="flfill" id="flfill"></div><input type="range" id="flmin" min="0" max="660" step="10" value="0" aria-label="FL min"><input type="range" id="flmax" min="0" max="660" step="10" value="660" aria-label="FL max"></div><div class="fllbl"><span id="fllblmin">FL0</span><span id="fllblmax">FL660</span></div><div class="flnote" data-i18n="flnote">активно само при включени ✈ самолети</div></div></div><div class="psec"><div class="psh" data-i18n="secTheme">Тема</div><div class="thmseg" id="thmseg"><button data-thm="light" aria-label="light">☀</button><button data-thm="dark" aria-label="dark">🌙</button><button data-thm="system" aria-label="system"><span data-i18n="thmAuto">Авто</span></button></div></div><div class="psec"><div class="psh" data-i18n="secTools">Инструменти</div><div class="prow"><a class="pbtn" href="bgr_drone_zones.kml" download>⬇ <span data-i18n="kml">KML за Google Earth</span></a><button class="pbtn" id="rst" title="">⟳ <span data-i18n="reset">Нулиране</span></button></div></div><div class="psec"><div class="pln-hint" data-i18n="hint">десен бутон = въртене/наклон</div></div><div class="pfoot"><a href="https://github.com/MartinovEm/drone-zones-bg" target="_blank" rel="noopener" data-i18n="moreinfo">Повече информация и източници</a></div></div>
+ <div id="panel" hidden><div class="phead"><button class="pclose" id="panelclose" aria-label="close">✕</button></div><div class="psec"><div class="psh" data-i18n="secZones">Зони</div><div class="prow"><span class="chip on" id="cbP"><span class="dot" style="background:#ff2020"></span><span data-i18n="fP">Забранени</span> <span class="cnt" id="nP"></span></span><span class="chip on" id="cbA"><span class="dot" style="background:#ff8000"></span><span data-i18n="fA">С разрешение</span> <span class="cnt" id="nA"></span></span><span class="chip on" id="cbC"><span class="dot" style="background:#ffcc00"></span><span data-i18n="fC">Условни</span> <span class="cnt" id="nC"></span></span><span class="chip on" id="cbB"><span class="dot" style="background:#b7ad9c"></span><span data-i18n="bld">Сгради</span></span></div></div><div class="psec"><div class="psh" data-i18n="secAir">Въздушно пространство</div><div class="prow"><span class="chip" id="cbAct"><span class="dot" style="background:#d0202a"></span><span data-i18n="actShow">Активирани зони</span></span><span class="chip" id="cbAirC"><span class="dot" style="background:#2b6cb0"></span><span data-i18n="airCtrl">Контролирано</span></span><span class="chip" id="cbAirS"><span class="dot" style="background:#d0202a"></span><span data-i18n="airSpec">Специални зони</span></span></div><div class="airnote"><span class="airsw" style="background:#d0202a"></span><span data-i18n="airLegRPD">забранени / ограничени / опасни</span><span class="airsw" style="background:#d81fbf;margin-left:6px"></span><span data-i18n="airMil">военни</span></div><div class="flnote" data-i18n="airFL180">Показва се само до FL180 (18 000 ft)</div><div class="flnote" data-i18n="actNote">Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА</div><div class="flnote" id="wxactfresh" style="display:none"></div></div><div class="psec"><div class="psh" data-i18n="secNotam">NOTAM (временни)</div><div class="prow"><span class="chip" id="cbNotam"><span class="dot" style="background:#d0202a"></span><span data-i18n="ntShow">NOTAM</span></span></div><div class="airnote"><span class="ntk" style="background:#d0202a">P</span><span data-i18n="ntP">забранена</span><span class="ntk" style="background:#d0202a">D</span><span data-i18n="ntD">опасна</span><span class="ntk" style="background:#d0202a">R</span><span data-i18n="ntR">ограничена (щрих)</span><span class="ntk" style="background:#d81fbf">M</span><span data-i18n="ntM">военна</span><span class="ntk" style="background:#00897b">O</span><span data-i18n="ntO">препятствие</span><span class="ntk" style="background:#ef6c00">!</span><span data-i18n="ntW">предупреждение</span><span class="ntk" style="background:#f9b800;color:#2b2100">G</span><span data-i18n="ntG">GNSS смущения</span></div><div class="flnote" data-i18n="ntUpc">приглушените са предстоящи (все още неактивни)</div><div class="flnote" data-i18n="ntSrc">Международна серия (FAA)</div><div class="flnote" id="wxntfresh" style="display:none"></div></div><div class="psec"><div class="psh" data-i18n="secNat">Природа</div><div class="prow"><span class="chip" id="cbNat"><span class="dot" style="background:#2e7d32"></span><span data-i18n="natShow">Натура 2000</span></span></div><div class="flnote" data-i18n="natNote">Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ</div><div class="flnote" id="wxnatmsg" style="display:none"></div></div><div class="psec fldis" id="flsec"><div class="psh" data-i18n="secFL">Височина на самолетите</div><div class="flrow"><div class="fltrack"><div class="flfill" id="flfill"></div><input type="range" id="flmin" min="0" max="660" step="10" value="0" aria-label="FL min"><input type="range" id="flmax" min="0" max="660" step="10" value="660" aria-label="FL max"></div><div class="fllbl"><span id="fllblmin">FL0</span><span id="fllblmax">FL660</span></div><div class="flnote" data-i18n="flnote">активно само при включени ✈ самолети</div></div></div><div class="psec"><div class="psh" data-i18n="secTheme">Тема</div><div class="thmseg" id="thmseg"><button data-thm="light" aria-label="light">☀</button><button data-thm="dark" aria-label="dark">🌙</button><button data-thm="system" aria-label="system"><span data-i18n="thmAuto">Авто</span></button></div></div><div class="psec"><div class="psh" data-i18n="secTools">Инструменти</div><div class="prow"><a class="pbtn" href="bgr_drone_zones.kml" download>⬇ <span data-i18n="kml">KML за Google Earth</span></a><button class="pbtn" id="rst" title="">⟳ <span data-i18n="reset">Нулиране</span></button></div></div><div class="psec"><div class="pln-hint" data-i18n="hint">десен бутон = въртене/наклон</div></div><div class="pfoot"><a href="https://github.com/MartinovEm/drone-zones-bg" target="_blank" rel="noopener" data-i18n="moreinfo">Повече информация и източници</a></div></div>
  <div id="loupe">
   <button id="loupebtn" class="pill icon" aria-label="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
   <div class="sbox"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="q" type="text" autocomplete="off" spellcheck="false"><button id="loc" class="locbtn" aria-label="locate"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="7"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg></button></div>
@@ -567,6 +567,7 @@ var T = {
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
      secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntG:'GNSS смущения',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
+     secNat:'Природа',natShow:'Натура 2000',natNote:'Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
  en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',bld:'Buildings',
@@ -576,6 +577,7 @@ var T = {
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
      secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntG:'GNSS interference',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
+     secNat:'Nature',natShow:'Natura 2000',natNote:'Natura 2000 by itself does not ban drone flights · boundaries: EEA (simplified), names: MOEW',
      disc:'Unofficial visualization. Before flying, check the official source and <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, active zones).',
      tP:'PROHIBITED',tA:'AUTHORISATION REQUIRED',tC:'CONDITIONAL'}
 };
@@ -623,24 +625,27 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
-// thicken the outline of the ONE item a popup shows (airspace or activated zone); none = null
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+// thicken the outline of the ONE item a popup shows (airspace, activated zone or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
-  if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null); }
+  if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null);
+  if (window.wxNatSelect) window.wxNatSelect(p && p._nat ? p.c : null); }
 function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LANG].zonesHere + '</div>';
   list.forEach(function(p, i){ var dot, inner;
     if (p._nt){ dot = window.wxNotamColor(p.l);
       inner = '<b>' + esc(window.wxNotamName(p)) + '</b> <span class="ptype">NOTAM · ' + esc(window.wxNotamSub(p)) + '</span>'; }
     else if (p._act){ dot = window.wxActColor(p);
       inner = '<b>' + esc(window.wxActName(p)) + '</b> <span class="ptype">' + esc(window.wxActSub(p)) + '</span>'; }
+    else if (p._nat){ dot = window.wxNatColor(p);
+      inner = '<b>' + esc(window.wxNatName(p)) + '</b> <span class="ptype">' + esc(window.wxNatSub(p)) + '</span>'; }
     else if (p._air){ dot = window.wxAirColor(p);
       inner = '<b>' + esc(window.wxAirName(p)) + '</b> <span class="ptype">' + esc(window.wxAirSub(p)) + '</span>'; }
     else { dot = COL[p.r];
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -664,6 +669,7 @@ function openZones(list, lngLat){ if (!list.length) return; curList = list; curP
 function featShown(p){
   if (p._nt) return !!map.getLayer('notam-pin');
   if (p._act) return !!map.getLayer('act-fill');
+  if (p._nat) return !!map.getLayer('wxnat-fill');
   if (p._air) return !!(p._al && map.getLayer(p._al));
   var id = 'f-' + p.r; return !!map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'; }
 // A layer was switched OFF: drop its items from the open popup. Nothing left -> close it;
@@ -1026,6 +1032,11 @@ map.on('load', function(){
     if (xl.length){ var xs = {};
       map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
         if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
+    // Natura 2000 sites (when that layer is on) - anywhere inside a site; information, listed after the above
+    var ul = ['wxnat-fill'].filter(function(id){ return map.getLayer(id); });
+    if (ul.length){ var us = {};
+      map.queryRenderedFeatures(box, {layers: ul}).forEach(function(f){ var c = f.properties.c;
+        if (c && !us[c]){ us[c] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._nat = true; list.push(p); } }); }
     // airspace joins LAST (order: drone-zones > NOTAM > airspace); reachable ONLY via its NAME label (owner's choice)
     var al = ['air-ctrl-labels','air-spec-labels'].filter(function(id){ return map.getLayer(id); });
     if (al.length){ var as = {};
@@ -1657,7 +1668,7 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('gj', on);
   if (window.wxSetGj) window.wxSetGj(on); };
 // airspace + NOTAM toggles are CHIPS in the drawer (not on-map buttons)
-['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam'].forEach(function(s){
+['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat'].forEach(function(s){
   var a = s.split(':'), el = document.getElementById(a[0]); if (!el) return;
   el.onclick = function(e){ e.stopPropagation(); var on = el.classList.toggle('on');
     try{ ST.set(a[1], on); }catch(_){} if (window[a[2]]) window[a[2]](on); };
@@ -2573,8 +2584,8 @@ window.wxRefreshOpenPopups = function(){ (window.wxLangRefresh || []).forEach(fu
 (function(){
 // weather rasters go below the zone fills (and below buildings) so zones stay readable
 // Fixed stack below the zones (whatever order the user toggles): weather < GPS <
-// airspace < zones (< aircraft, which have no beforeId). Each layer inserts before the
-// lowest layer of a higher slot that currently exists.
+// Natura 2000 < airspace < zones (< aircraft, which have no beforeId). Each layer inserts
+// before the lowest layer of a higher slot that currently exists.
 function wxStyleLayers(){ try{ var st = map.getStyle(); return (st && st.layers) || []; }catch(e){ return []; } } // [] before the style is ready - callers then anchor lazily
 function wxZoneAnchor(){ var zs = {'f-PROHIBITED':1, 'f-REQ_AUTHORISATION':1, 'f-CONDITIONAL':1}, ls = wxStyleLayers(), i;
   for (i = 0; i < ls.length; i++){ if (zs[ls[i].id]) return ls[i].id; } // LOWEST zone layer = "below ALL zones"
@@ -2586,7 +2597,11 @@ function wxZoneAnchor(){ var zs = {'f-PROHIBITED':1, 'f-REQ_AUTHORISATION':1, 'f
 function wxAirFloor(){ var ls = wxStyleLayers(), i;
   for (i = 0; i < ls.length; i++){ if (ls[i].id === 'air-ctrl' || ls[i].id === 'air-spec' || ls[i].id === 'air-ctrl-labels' || ls[i].id === 'air-spec-labels') return ls[i].id; }
   return undefined; }
-function wxGjBefore(){ return wxAirFloor() || wxZoneAnchor(); } // GPS + weather below ALL airspace
+// the LOWEST Natura 2000 layer (an information layer: above GPS + weather, below airspace + zones)
+function natFloor(){ var ls = wxStyleLayers(), i;
+  for (i = 0; i < ls.length; i++){ if (ls[i].id.indexOf('wxnat-') === 0) return ls[i].id; }
+  return undefined; }
+function wxGjBefore(){ return natFloor() || wxAirFloor() || wxZoneAnchor(); } // GPS + weather below Natura 2000 + ALL airspace
 function wxBefore(){ return map.getLayer('wxgj-layer') ? 'wxgj-layer' : wxGjBefore(); } // weather below GPS
 // adding sources/layers before the style finishes loading throws in MapLibre.
 // Wait for 'idle', not 'load': 'load' fires only ONCE ever, so waiting on it
@@ -3407,6 +3422,92 @@ window.wxActSelect = function(key){
   map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; });
 });
+// ---- Natura 2000 (owner 16.10): an INFORMATION layer, not a drone zone, Bulgaria only. The EEA's
+// boundaries (CC BY 4.0, simplified) + the MOEW's Bulgarian names from the static natura.json (built
+// by tools/make_natura.py, refreshed about once a year). MapLibre loads the file itself on the
+// first switch-on (parsed in its worker, not on the page's thread). Green - never the zones'
+// red / orange / yellow: a faint fill + a fine hatch + a dark outline, under the airspace and
+// the zones, above GPS + weather (natFloor in the stack helpers). Its sites join the shared
+// click chooser (items tagged _nat) after the zones, NOTAMs and activated zones.
+window.wxNatUrl = 'natura.json';
+var NAT_VER = '2024', NAT_COL = '#2e7d32', NAT_EDGE = '#1b5e20', NAT_SEL = ['boolean', ['feature-state', 'sel'], false];
+var NAT_TYPE = {bg: {A: 'за птиците', B: 'за местообитанията', C: 'за птиците и местообитанията'},
+                en: {A: 'birds (SPA)', B: 'habitats (SCI)', C: 'birds + habitats (SPA + SCI)'}};
+function natEn(){ return (window.LANG || 'bg') === 'en'; }
+function natHatch(){ // a fine 45° green hatch, drawn once at pixel ratio 2 (seamless: the step divides the tile)
+  if (map.hasImage('nathatch')) return;
+  var pr = 2, S = 16, cv = document.createElement('canvas'); cv.width = S * pr; cv.height = S * pr;
+  var x = cv.getContext('2d'); x.scale(pr, pr); x.strokeStyle = 'rgba(27,94,32,0.5)'; x.lineWidth = 1.2;
+  for (var o = -S; o <= S; o += 8){ x.beginPath(); x.moveTo(o, S); x.lineTo(o + S, 0); x.stroke(); }
+  map.addImage('nathatch', {width: S * pr, height: S * pr, data: x.getImageData(0, 0, S * pr, S * pr).data}, {pixelRatio: pr});
+}
+// a load failure is told under the chip, in the page language
+function natMsg(){ var el = document.getElementById('wxnatmsg'); if (!el) return;
+  var on = !!(window._natFail && window.wxNatOn);
+  el.textContent = on ? (natEn() ? 'Natura 2000: the data could not be loaded.' : 'Натура 2000: данните не се заредиха.') : '';
+  el.style.display = on ? '' : 'none'; }
+window.wxSetNat = function(on){ window.wxNatOn = on; window._natFail = false; natMsg();
+  var chip = document.getElementById('cbNat');
+  if (on){
+    if (chip && !map.getSource('wxnat')) chip.classList.add('loading'); // until MapLibre has the file
+    whenReady(function(){ if (!window.wxNatOn) return;
+      natHatch();
+      if (!map.getSource('wxnat')) map.addSource('wxnat', {type: 'geojson', data: window.wxNatUrl, promoteId: 'c', maxzoom: 14,
+        attribution: 'Natura 2000 &copy; <a href="https://www.eea.europa.eu/en/datahub/datahubitem-view/6fc8ad2d-195d-40f4-bdec-576e7d1268e4" target="_blank" rel="noopener">EEA / European Commission</a> (CC BY 4.0, simplified) · names <a href="https://natura2000.egov.bg/" target="_blank" rel="noopener">MOEW</a>'});
+      var b = wxAirFloor() || wxZoneAnchor(); // under ALL airspace + zones; GPS + weather anchor below natFloor()
+      if (!map.getLayer('wxnat-fill')) map.addLayer({id: 'wxnat-fill', type: 'fill', source: 'wxnat',
+        paint: {'fill-color': NAT_COL, 'fill-opacity': 0.1}}, b);
+      if (!map.getLayer('wxnat-hatch')) map.addLayer({id: 'wxnat-hatch', type: 'fill', source: 'wxnat',
+        paint: {'fill-pattern': 'nathatch'}}, b);
+      if (!map.getLayer('wxnat-line')) map.addLayer({id: 'wxnat-line', type: 'line', source: 'wxnat', layout: {'line-join': 'round'},
+        paint: {'line-color': NAT_EDGE, 'line-opacity': 0.85,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 6, ['case', NAT_SEL, 2.6, 0.6], 11, ['case', NAT_SEL, 3.6, 1.4]]}}, b);
+    }); }
+  else { if (chip) chip.classList.remove('loading');
+    ['wxnat-line', 'wxnat-hatch', 'wxnat-fill'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wxnat')) map.removeSource('wxnat'); // a failed load is retried at the next switch-on
+    window._natSel = null;
+    if (window.wxPopupPrune) window.wxPopupPrune(); }
+};
+// the file has landed (the chip stops pulsing) / could not be loaded (the drawer says so)
+map.on('sourcedata', function(e){ if (e.sourceId === 'wxnat' && e.isSourceLoaded){ var c = document.getElementById('cbNat'); if (c) c.classList.remove('loading'); } });
+map.on('error', function(e){ if (!e || e.sourceId !== 'wxnat') return;
+  var c = document.getElementById('cbNat'); if (c) c.classList.remove('loading');
+  window._natFail = true; natMsg(); });
+(window.wxLangRefresh = window.wxLangRefresh || []).push(natMsg);
+// helpers for the SHARED click chooser in make_3d (same list as zones / NOTAM / airspace)
+function natNum(v, en){ // 27102 -> "27 102" / "27,102"; 0.5 -> "0,5" / "0.5"
+  var s = String(v).split('.'), i = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, en ? ',' : ' ');
+  return s.length > 1 ? i + (en ? '.' : ',') + s[1] : i; }
+window.wxNatColor = function(){ return NAT_COL; };
+window.wxNatName = function(p){ return (!natEn() && p.b) ? p.b : (p.n || p.c); };
+window.wxNatSub = function(p){ var en = natEn(), t = NAT_TYPE[en ? 'en' : 'bg'][p.t];
+  return (en ? 'Natura 2000' : 'Натура 2000') + (t ? ' · ' + t : ''); };
+window.wxNatDetail = function(p){ var en = natEn(), t = NAT_TYPE[en ? 'en' : 'bg'][p.t];
+  var ha = +p.a, km = ha >= 100 ? Math.round(ha / 100) : 0;
+  // the MOEW page of the site: its designation order (the bans, if any), the SDF, the boundaries
+  var a = '<a href="https://natura2000.egov.bg/EsriBg.Natura.Public.Web.App/Home/ProtectedSite?code=' + encodeURIComponent(p.c) +
+          '&siteType=' + (p.t === 'B' ? 'HabitatDirective' : 'BirdsDirective') + '" target="_blank" rel="noopener">';
+  return '<b>' + esc(window.wxNatName(p)) + '</b> <span class="ptype">' + (en ? 'Natura 2000' : 'Натура 2000') + '</span><br>' +
+    (t ? (en ? 'Protected area for ' : 'Защитена зона ') + t + ' · ' : '') + esc(p.c) +
+    '<br>' + (en ? 'Area: ' : 'Площ: ') + natNum(ha, en) + (en ? ' ha' : ' ха') + (km ? ' (' + natNum(km, en) + (en ? ' km²)' : ' км²)') : '') +
+    // the owner's wording (16.10)
+    '<br>' + (en ? 'Natura 2000 by itself does not ban drone flights. Any bans for this site are in its designation order: ' + a + 'MOEW ↗</a>'
+                 : 'Натура 2000 сама по себе си не забранява полети с дрон. Ако за тази зона има забрани, те са в заповедта ѝ: ' + a + 'МОСВ ↗</a>') +
+    // the ЗБР bans disturbing ALL wild birds (чл. 46) but only the PROTECTED animals (чл. 38, Annex 3)
+    '<br>' + (en ? 'Disturbing wild birds and protected animals is banned everywhere, especially during nesting.'
+                 : 'Навсякъде е забранено безпокоенето на диви птици и защитени животни, особено при гнездене.') +
+    '<br><small>' + (en ? 'Boundaries: EEA / European Commission' : 'Граници: ЕАОС / ЕК') +
+      (NAT_VER ? (en ? ', data as of end ' + NAT_VER : ', данни към края на ' + NAT_VER + ' г.') : '') +
+      (en ? ', simplified' : ', опростени') + (p.b && !en ? ' · име: МОСВ' : '') + '</small>'; };
+// thicken the CLICKED site's outline (feature-state 'sel'); one at a time
+window._natSel = null;
+window.wxNatSelect = function(code){
+  if (window._natSel != null && map.getSource('wxnat')) map.setFeatureState({source: 'wxnat', id: window._natSel}, {sel: false});
+  window._natSel = null;
+  if (code != null && map.getSource('wxnat')){ window._natSel = code; map.setFeatureState({source: 'wxnat', id: code}, {sel: true}); } };
+map.on('mouseenter', 'wxnat-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
+map.on('mouseleave', 'wxnat-fill', function(){ map.getCanvas().style.cursor = ''; });
 // ---- NOTAM layer (/notam relay over the FAA NMS-API): temporary drone-relevant
 // restrictions drawn ABOVE the zones. A lettered pin (P/R/D/M/!) at the centre + a
 // dashed, lightly-filled (20%) circle/polygon coloured by category. Click shows the
@@ -3833,7 +3934,7 @@ window.wxSetOgn = function(on){ ognOn = on;
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
    ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['notam','cbNotam','wxSetNotam'],
-   ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
+   ['nat','cbNat','wxSetNat'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){
     if (!ST.get(s[0], false)) return;
     var fn = window[s[2]]; if (typeof fn !== 'function') return; // layer not present on this page yet

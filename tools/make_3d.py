@@ -1,13 +1,13 @@
 """Build the 3D drone-zones page (MapLibre GL: ESRI imagery + AWS terrarium terrain,
 zones as flat fills draped on the terrain, plus OpenFreeMap 3D buildings at close zoom).
 Usage: python make_3d.py <bgr_zones.json> <out_dir>"""
-import json, math, sys, os, urllib.parse
+import json, math, re, sys, os, urllib.parse
 from zone_i18n import AUTH_EN, en_text, FREEMAIL
 from weather_widget import WX_CSS, WX_HTML, WX_JS, WX_LAYERS_JS_3D
 from settings_store import ST_JS
 from ui_shell import (SHELL_CSS, SHELL_JS, LOUPE_HTML, MENUBTN_HTML, PLNBTN_HTML,
                       OGNBTN_HTML, GJBTN_HTML, LANG_HTML, CTRHAIR_HTML, FSBTN_HTML, panel_html, ZONE_CHIPS, BUILDINGS_CHIP,
-                      AIRSPACE_SECTION, NOTAM_SECTION)
+                      AIRSPACE_SECTION, NOTAM_SECTION, NATURE_SECTION)
 
 src, outdir = sys.argv[1], sys.argv[2]
 d = json.load(open(src, encoding="utf-8"))
@@ -201,6 +201,7 @@ var T = {
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
      secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntG:'GNSS смущения',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
+     secNat:'Природа',natShow:'Натура 2000',natNote:'Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
  en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',bld:'Buildings',
@@ -210,6 +211,7 @@ var T = {
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
      secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntG:'GNSS interference',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
+     secNat:'Nature',natShow:'Natura 2000',natNote:'Natura 2000 by itself does not ban drone flights · boundaries: EEA (simplified), names: MOEW',
      disc:'Unofficial visualization. Before flying, check the official source and <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, active zones).',
      tP:'PROHIBITED',tA:'AUTHORISATION REQUIRED',tC:'CONDITIONAL'}
 };
@@ -257,24 +259,27 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
-// thicken the outline of the ONE item a popup shows (airspace or activated zone); none = null
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+// thicken the outline of the ONE item a popup shows (airspace, activated zone or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
-  if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null); }
+  if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null);
+  if (window.wxNatSelect) window.wxNatSelect(p && p._nat ? p.c : null); }
 function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LANG].zonesHere + '</div>';
   list.forEach(function(p, i){ var dot, inner;
     if (p._nt){ dot = window.wxNotamColor(p.l);
       inner = '<b>' + esc(window.wxNotamName(p)) + '</b> <span class="ptype">NOTAM · ' + esc(window.wxNotamSub(p)) + '</span>'; }
     else if (p._act){ dot = window.wxActColor(p);
       inner = '<b>' + esc(window.wxActName(p)) + '</b> <span class="ptype">' + esc(window.wxActSub(p)) + '</span>'; }
+    else if (p._nat){ dot = window.wxNatColor(p);
+      inner = '<b>' + esc(window.wxNatName(p)) + '</b> <span class="ptype">' + esc(window.wxNatSub(p)) + '</span>'; }
     else if (p._air){ dot = window.wxAirColor(p);
       inner = '<b>' + esc(window.wxAirName(p)) + '</b> <span class="ptype">' + esc(window.wxAirSub(p)) + '</span>'; }
     else { dot = COL[p.r];
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -298,6 +303,7 @@ function openZones(list, lngLat){ if (!list.length) return; curList = list; curP
 function featShown(p){
   if (p._nt) return !!map.getLayer('notam-pin');
   if (p._act) return !!map.getLayer('act-fill');
+  if (p._nat) return !!map.getLayer('wxnat-fill');
   if (p._air) return !!(p._al && map.getLayer(p._al));
   var id = 'f-' + p.r; return !!map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'; }
 // A layer was switched OFF: drop its items from the open popup. Nothing left -> close it;
@@ -660,6 +666,11 @@ map.on('load', function(){
     if (xl.length){ var xs = {};
       map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
         if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
+    // Natura 2000 sites (when that layer is on) - anywhere inside a site; information, listed after the above
+    var ul = ['wxnat-fill'].filter(function(id){ return map.getLayer(id); });
+    if (ul.length){ var us = {};
+      map.queryRenderedFeatures(box, {layers: ul}).forEach(function(f){ var c = f.properties.c;
+        if (c && !us[c]){ us[c] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._nat = true; list.push(p); } }); }
     // airspace joins LAST (order: drone-zones > NOTAM > airspace); reachable ONLY via its NAME label (owner's choice)
     var al = ['air-ctrl-labels','air-spec-labels'].filter(function(id){ return map.getLayer(id); });
     if (al.length){ var as = {};
@@ -793,11 +804,20 @@ map.on('load', function(){
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f8ed2b78300348ea854f1b425ee36c57", "spa": false}'></script><!-- End Cloudflare Web Analytics -->
 </body></html>
 """
+# the Natura 2000 data version for the layer's popups (natura.json is built separately by
+# make_natura.py and sits next to index.html; its "v" member comes first in the file)
+natver = ""
+try:
+    with open(os.path.join(outdir, "natura.json"), encoding="utf-8") as f:
+        mv = re.search(r'"v":"(\d{4})"', f.read(400))
+        natver = mv.group(1) if mv else ""
+except OSError:
+    pass
 html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).replace("__DATESPAN__", datespan).replace("__CHANGED__", changed)
         .replace("//__ST_JS__", ST_JS)
         .replace("/*__SHELL_CSS__*/", SHELL_CSS).replace("//__SHELL_JS__", SHELL_JS)
         .replace("<!--__MENUBTN__-->", MENUBTN_HTML)
-        .replace("<!--__PANEL__-->", panel_html(ZONE_CHIPS, AIRSPACE_SECTION + NOTAM_SECTION, BUILDINGS_CHIP,
+        .replace("<!--__PANEL__-->", panel_html(ZONE_CHIPS, AIRSPACE_SECTION + NOTAM_SECTION + NATURE_SECTION, BUILDINGS_CHIP,
                  foot='<div class="psec"><div class="pln-hint" data-i18n="hint">десен бутон = въртене/наклон</div></div>'))
         .replace("<!--__LOUPE__-->", LOUPE_HTML).replace("<!--__PLNBTN__-->", PLNBTN_HTML)
         .replace("<!--__OGNBTN__-->", OGNBTN_HTML).replace("<!--__GJBTN__-->", GJBTN_HTML)
@@ -805,7 +825,8 @@ html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).rep
         .replace("<!--__FSBTN__-->", FSBTN_HTML)
         .replace("<!--__LANG__-->", LANG_HTML)
         .replace("/*__WX_CSS__*/", WX_CSS).replace("<!--__WX_HTML__-->", WX_HTML)
-        .replace("//__WX_JS__", WX_JS).replace("//__WX_LAYERS_JS__", WX_LAYERS_JS_3D))
+        .replace("//__WX_JS__", WX_JS).replace("//__WX_LAYERS_JS__", WX_LAYERS_JS_3D)
+        .replace("__NATVER__", natver))
 os.makedirs(outdir, exist_ok=True)
 # The whole app is ONE page, written as index.html (2D and 3D both live here; opens
 # in flat 2D mode by default). The old Leaflet index.html and the separate 3d.html
