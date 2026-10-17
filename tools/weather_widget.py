@@ -46,7 +46,7 @@ WX_CSS = r"""
  box-shadow:0 1px 6px rgba(0,0,0,.18);font-size:11px;color:#333;line-height:1.4;width:fit-content;max-width:calc(100vw - 20px)}
 #wxltg[hidden]{display:none}
 #wxltg .wxltgbad{color:#c62828;font-weight:600}
-.wxstk{display:inline-block;width:16px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.25);vertical-align:-2px;margin:0 3px 0 6px;background-color:#f2efe9}
+.wxpale{opacity:.45} /* the pale ⚡ in the thunderstorm key = the one-model bolts on the map */
 :root[data-theme="dark"] #wxltg{background:var(--glass-strong);color:var(--fg)}
 #wxwindh{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#333}
 #wxwindh[hidden]{display:none}
@@ -180,7 +180,7 @@ var WXT = {
      ltgNow:'⚡ Мълнии (сателит EUMETSAT): последните 30 мин, до {t}; по-бледите ⚡ са по-стари.',
      ltgOld:'⚡ Мълнии: няма нови данни след {t}.',ltgErr:'⚡ Мълнии: данните временно не се зареждат.',
      cldAt:'Облаци: сателитна снимка от {t}.',
-     stormHd:'⛈ Възможни бури по прогнозата',
+     stormKey:'⛈ Възможни бури: жълта ⚡ — по-вероятно (показват я поне 2 от 3 различни прогнозни модела), бледа <span class="wxpale">⚡</span> — по-малко вероятно (показва я само един модел).',
      stormNone:'⛈ Без бури по прогнозата за този час',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
      bWind:'Вятър — частиците текат по вятъра (модел Open-Meteo)',height:'Височина',bSnow:'Прогноза за сняг +72 ч (модел Open-Meteo, в см)',
      bOgn:'Нисък трафик — планери/парапланери/лека авиация (OGN/FLARM; само където има приемник)',
@@ -200,7 +200,7 @@ var WXT = {
      ltgNow:'⚡ Lightning (EUMETSAT satellite): last 30 min, up to {t}; fainter ⚡ = older.',
      ltgOld:'⚡ Lightning: no new data after {t}.',ltgErr:'⚡ Lightning: data temporarily unavailable.',
      cldAt:'Clouds: satellite image of {t}.',
-     stormHd:'⛈ Possible thunderstorms in the forecast',
+     stormKey:'⛈ Possible thunderstorms: yellow ⚡ — more likely (at least 2 of 3 different forecast models show it), pale <span class="wxpale">⚡</span> — less likely (only one model shows it).',
      stormNone:'⛈ No thunderstorms in the forecast for this hour',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
      bWind:'Wind — particles flow with the wind (Open-Meteo model)',height:'Height',bSnow:'Snow forecast +72 h (Open-Meteo model, in cm)',
      bOgn:'Low-level traffic — gliders/paragliders/light aircraft (OGN/FLARM; only where a receiver hears them)',
@@ -519,8 +519,6 @@ window.wxLtgNote = function(){
   if (!cb || !cb.classList.contains('on')){ el.hidden = true; return; }
   var t = WXT[wxLang()], S = window.wxFcState, L = window.wxLiState || {}, h = '';
   function hm(ms){ var d = new Date(ms); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
-  // the same hatching as the map layer (wxStormDraw)
-  var SW = '<i class="wxstk" style="background:repeating-linear-gradient(135deg,rgba(25,25,30,.8) 0 2px,rgba(255,255,255,.55) 2px 3px,rgba(25,25,30,.1) 3px 7px,rgba(255,255,255,.55) 7px 8px)"></i>';
   if (!(S && S.hour > 0)){
     // "до HH:MM" = the newest step, or - while the lightning follows the radar loop - that frame's window
     if (L.end) h = (Date.now() - L.end > 2700000) ? '<span class="wxltgbad">' + t.ltgOld.replace('{t}', hm(L.end)) + '</span>' : t.ltgNow.replace('{t}', hm(window.wxLiRef || L.end));
@@ -528,7 +526,7 @@ window.wxLtgNote = function(){
     // the satellite clouds are ONE picture (not 30 min): its own time, ~15-40 min behind (owner 15.10)
     if (window.wxCldTime) h += (h ? ' ' : '') + t.cldAt.replace('{t}', hm(window.wxCldTime));
   } else if (S.lastStorm != null){
-    h = S.lastStorm < 0.5 ? t.stormNone : t.stormHd + SW;
+    h = S.lastStorm < 0.5 ? t.stormNone : t.stormKey;
   }
   el.innerHTML = h; el.hidden = !h;
 };
@@ -921,50 +919,43 @@ window.wxFcDraw = function(){ // renders the selected hour; returns {cv, b} and 
   return {cv: cv, b: {w: LW, e: LE, s: LS, n: LN}};
 };
 // ---- thunderstorms ahead (☁ with the slider ahead) ----
-// Where at least one of the three models (ICON-EU, GFS, ECMWF, the same grid request as
-// rain/snow/clouds) gives a thunderstorm weather code (95-99) at the selected hour - the worst
-// case, like rain and clouds (owner 15.10) - drawn as HATCHING (purple shades looked like the
-// snow): dark 45° stripes with a light edge, so they read on light and dark basemaps. Model
-// thunderstorms are diagnosed from instability - an area and an hour of risk, not lightning
-// positions. Twice the rain canvas width keeps the stripes fine at country zoom. Registers
-// 'storm' for the 3D tile cutter.
-window.wxStormDraw = function(){
+// Where the three models (ICON-EU, GFS, ECMWF, the same grid request as rain/snow/clouds) give a
+// thunderstorm weather code (95-99) at the selected hour, as ⚡ like the lightning "now" (owner
+// 17.10): YELLOW where at least 2 of the 3 models give it, PALE where only one does - every storm
+// any model gives is shown (the worst case, like rain and clouds). Model thunderstorms are
+// diagnosed from instability: an area and an hour of risk, not lightning positions. The bolts sit
+// on a 0.2° lattice over the model grid, each nudged by a fixed pseudo-random offset (up to 40 %
+// of a step, the same on every draw) so they never line up in rows and columns (owner 17.10);
+// bilinear at that point: a storm where >= 0.5 models, yellow where >= 1.5. MapLibre thins them
+// when zoomed out (they never overlap).
+window.wxStormPoints = function(){
   var S = window.wxFcState;
   if (!S.data || !S.data.w) return null;
-  var LW = 17.0, LE = 33.5, LS = 35.5, LN = 49.5, NLO = 23, NLA = 21, W = 1120;
-  function mx(lon){ return lon * 20037508.343 / 180; }
-  function my(lat){ return 6378137 * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
-  var x1 = mx(LW), x2 = mx(LE), y1 = my(LS), y2 = my(LN), H = Math.round(W * (y2 - y1) / (x2 - x1));
-  var hi = window.wxFcIdx(), mxv = 0, p, pv;
+  var LW = 17.0, LE = 33.5, LS = 35.5, LN = 49.5, NLO = 23, NLA = 21, D = 0.2;
+  var NI = Math.floor((LN - LS) / D + 1e-6), NJ = Math.floor((LE - LW) / D + 1e-6);
+  var hi = window.wxFcIdx(), mxv = 0, p, pv, feats = [];
   for (p = 0; p < S.data.w.length; p++){ pv = S.data.w[p][hi]; if (pv > mxv) mxv = pv; }
   S.lastStorm = mxv; // the note under the slider says "no thunderstorms" on a quiet hour
-  var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  var ctx = cv.getContext('2d'), out = ctx.createImageData(W, H), od = out.data;
-  var P = 8; // stripe period (px)
   function val(r, c){ r = r < 0 ? 0 : (r > NLA - 1 ? NLA - 1 : r); c = c < 0 ? 0 : (c > NLO - 1 ? NLO - 1 : c);
     return S.data.w[r * NLO + c][hi] || 0; }
+  function jit(i, j, k){ // 0..1 from the lattice cell: the same for the same cell, every time
+    var h = Math.imul(i + 1, 374761393) ^ Math.imul(j + 1, 668265263) ^ Math.imul(k, 1274126177);
+    h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
   if (mxv > 0){
-    for (var py = 0; py < H; py++){
-      var ym = y2 - (py + 0.5) / H * (y2 - y1);
-      var lat = (2 * Math.atan(Math.exp(ym / 6378137)) - Math.PI / 2) * 180 / Math.PI;
-      var fr = (lat - LS) / 0.7, r0 = Math.floor(fr), tr = fr - r0;
-      for (var px = 0; px < W; px++){
-        var lon = LW + (px + 0.5) / W * (LE - LW);
+    for (var i = 0; i < NI; i++){
+      for (var j = 0; j < NJ; j++){
+        var lat = LS + (i + 0.5 + (jit(i, j, 1) - 0.5) * 0.8) * D, lon = LW + (j + 0.5 + (jit(i, j, 2) - 0.5) * 0.8) * D;
+        var fr = (lat - LS) / 0.7, r0 = Math.floor(fr), tr = fr - r0;
         var fc = (lon - LW) / 0.75, c0 = Math.floor(fc), tc = fc - c0;
         var v = (val(r0, c0) * (1 - tr) + val(r0 + 1, c0) * tr) * (1 - tc) +
                 (val(r0, c0 + 1) * (1 - tr) + val(r0 + 1, c0 + 1) * tr) * tc;
         if (v < 0.5) continue; // no model gives a thunderstorm here
-        var q = (px + py) % P, i4 = (py * W + px) * 4;
-        if (q < 2){ od[i4] = 25; od[i4 + 1] = 25; od[i4 + 2] = 30; od[i4 + 3] = 205; }            // dark stripe
-        else if (q === 2 || q === P - 1){ od[i4] = od[i4 + 1] = od[i4 + 2] = 255; od[i4 + 3] = 140; } // its light edge
-        else { od[i4] = 25; od[i4 + 1] = 25; od[i4 + 2] = 30; od[i4 + 3] = 26; }                   // a faint tint between
+        feats.push({type: 'Feature', geometry: {type: 'Point', coordinates: [Math.round(lon * 1000) / 1000, Math.round(lat * 1000) / 1000]},
+          properties: {s: v >= 1.5 ? 2 : 1}}); // 2 = yellow (2-3 models), 1 = pale (one model)
       }
     }
   }
-  ctx.putImageData(out, 0, 0);
-  window._wxCvReg = window._wxCvReg || {};
-  window._wxCvReg.storm = {cv: cv, m: {x1: x1, x2: x2, y1: y1, y2: y2}};
-  return {cv: cv, b: {w: LW, e: LE, s: LS, n: LN}};
+  return {type: 'FeatureCollection', features: feats};
 };
 window.wxSnowDraw = function(){ // selected hour's SNOW as a VIOLET ramp; registers 'snow' for the 3D tile cutter
   var S = window.wxFcState;
@@ -1678,13 +1669,17 @@ function liSyncShow(){ // the radar ticked: the bolts of that frame's 30 min, an
   map.getSource('wxli').setData(L.fc[i]); window.wxLiRef = L.refs[i] || 0;
   if (window.wxLtgNote) window.wxLtgNote();
 }
-function stormShow(){ // the model thunderstorms for the selected hour (ahead), just above the model clouds
-  var r = window.wxStormDraw(); if (window.wxLtgNote) window.wxLtgNote(); if (!r) return;
+function stormShow(){ // the model thunderstorms for the selected hour (ahead): ⚡ yellow (2-3 models) / pale (1 model), just above the zones like the lightning "now"
+  var fc = window.wxStormPoints(); if (window.wxLtgNote) window.wxLtgNote(); if (!fc) return;
   whenReady(function(){
     if (!cldOn || cldMode() !== 'model') return;
-    cldProto();
-    wxRaster(STM, 'wxstorm', 'storm', 'Thunderstorms &copy; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (model)', 1,
-      map.getLayer(CLDFC) ? wxAboveOf(CLDFC) : wxBefore());
+    liIcon();
+    if (map.getSource('wxstorm')) map.getSource('wxstorm').setData(fc);
+    else map.addSource('wxstorm', {type: 'geojson', data: fc, attribution: 'Thunderstorms &copy; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (model)'});
+    if (!map.getLayer(STM)) map.addLayer({id: STM, type: 'symbol', source: 'wxstorm',
+      layout: {'icon-image': 'ltg-bolt', 'icon-size': 0.8, 'icon-allow-overlap': false, 'icon-ignore-placement': false, 'icon-padding': 2,
+        'symbol-sort-key': ['-', ['get', 's']]}, // the yellow ones win where two would collide
+      paint: {'icon-opacity': ['case', ['==', ['get', 's'], 2], 1, 0.45]}}, liSlot());
   });
 }
 window.wxCloudApply = function(){ // toggle + every slider move: satellite + lightning (0) or model clouds + thunderstorms (ahead)
