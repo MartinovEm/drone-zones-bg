@@ -6,8 +6,8 @@ from zone_i18n import AUTH_EN, en_text, FREEMAIL
 from weather_widget import WX_CSS, WX_HTML, WX_JS, WX_LAYERS_JS_3D
 from settings_store import ST_JS
 from ui_shell import (SHELL_CSS, SHELL_JS, LOUPE_HTML, MENUBTN_HTML, PLNBTN_HTML,
-                      OGNBTN_HTML, GJBTN_HTML, LANG_HTML, CTRHAIR_HTML, FSBTN_HTML, panel_html, ZONE_CHIPS, BUILDINGS_CHIP,
-                      AIRSPACE_SECTION, NOTAM_SECTION, NATURE_SECTION)
+                      OGNBTN_HTML, GJBTN_HTML, LANG_HTML, CTRHAIR_HTML, FSBTN_HTML, panel_html, ZONE_CHIPS,
+                      OBSTACLES_SECTION, AIRSPACE_SECTION, NOTAM_SECTION, NATURE_SECTION)
 
 src, outdir = sys.argv[1], sys.argv[2]
 d = json.load(open(src, encoding="utf-8"))
@@ -194,7 +194,8 @@ html,body{height:100%;margin:0}
 var Z = {type: 'FeatureCollection', features: []}; // zones are fetched from zones.json once the map starts (keeps index.html small -> fast first paint / LCP)
 var BGOUT = __BGOUTLINE__; // BG border outline: "land" (per-basemap colour) + "danube" (blue); see tools/make_bg_outline.py
 var T = {
- bg:{brand:'Дрон зони в България',menu:'Меню',fP:'Забранени',fA:'С разрешение',fC:'Условни',bld:'Сгради',
+ bg:{brand:'Дрон зони в България',menu:'Меню',fP:'Забранени',fA:'С разрешение',fC:'Условни',
+     secObs:'Препятствия',obsShow:'Препятствия',obsNote:'Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D · виждат се при приближаване · „~“ = типична височина · липсата на линия на картата не значи, че там няма · OpenStreetMap, ЕСО ЕАД',
      kml:'KML за Google Earth',hint:'десен бутон = въртене/наклон',search:'Търсене на локация…',loc:'Къде съм',
      ddate:'синхронизация от __CHANGED__',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',
      clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
@@ -205,7 +206,8 @@ var T = {
      zztShow:'Защитени територии',zztNote:'Защитени територии: червен контур = изрична забрана за дронове или полети; пунктир = само в част от територията или от годината; зелено = не е открита изрична забрана · ИАОС / МОСВ',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
- en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',bld:'Buildings',
+ en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',
+     secObs:'Obstacles',obsShow:'Obstacles',obsNote:'Power lines, towers, wind turbines, masts, lifts and the 3D buildings · shown when zoomed in · "~" = a typical height · a line missing on the map does not mean there is none · OpenStreetMap, ESO EAD',
      kml:'KML for Google Earth',hint:'right-drag = rotate/tilt',search:'Search for a place…',loc:'Where am I',
      ddate:'synced from __CHANGED__',src:'Zones source: Bulgarian CAA',here:'You are here',
      clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
@@ -261,7 +263,7 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
 // thicken the outline of the ONE item a popup shows (airspace, activated zone, protected territory or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
@@ -274,6 +276,8 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(window.wxNotamName(p)) + '</b> <span class="ptype">NOTAM · ' + esc(window.wxNotamSub(p)) + '</span>'; }
     else if (p._act){ dot = window.wxActColor(p);
       inner = '<b>' + esc(window.wxActName(p)) + '</b> <span class="ptype">' + esc(window.wxActSub(p)) + '</span>'; }
+    else if (p._obs){ dot = window.wxObsColor(p);
+      inner = '<b>' + esc(window.wxObsName(p)) + '</b> <span class="ptype">' + esc(window.wxObsSub(p)) + '</span>'; }
     else if (p._zzt){ dot = window.wxZztColor(p);
       inner = '<b>' + esc(window.wxZztName(p)) + '</b> <span class="ptype">' + esc(window.wxZztSub(p)) + '</span>'; }
     else if (p._nat){ dot = window.wxNatColor(p);
@@ -284,7 +288,7 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -313,6 +317,7 @@ function openZones(list, lngLat){ if (!list.length) return; curList = list; curP
 function featShown(p){
   if (p._nt) return !!map.getLayer('notam-pin');
   if (p._act) return !!map.getLayer('act-fill');
+  if (p._obs) return !!map.getLayer('obs-line');
   if (p._zzt) return !!map.getLayer('wxnat-t-fill');
   if (p._nat) return !!map.getLayer('wxnat-fill');
   if (p._air) return !!(p._al && map.getLayer(p._al));
@@ -487,7 +492,7 @@ window.wxSetMode = function(m){
   // by the selector (wxApplyBasemap), NOT the mode - so it stays across 2D<->3D.
   var apply = function(){
     if (wxMode !== m) return;
-    var bOn = !document.getElementById('cbB').classList.contains('off');
+    var ob = document.getElementById('cbObs'), bOn = !ob || ob.classList.contains('on'); // the buildings ride the «Препятствия» button
     map.setLayoutProperty('buildings', 'visibility', (!d2 && bOn) ? 'visible' : 'none');
     map.setTerrain(d2 ? null : {source: 'dem', exaggeration: 1.15});
   };
@@ -677,6 +682,11 @@ map.on('load', function(){
     if (xl.length){ var xs = {};
       map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
         if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
+    // obstacles (when that layer is on): tall objects, towers / poles, then the wires - thin, so a wider box
+    var ol = ['obs-sym','obs-sym2','obs-sup','obs-line','obs-eso','obs-minor','obs-lift','obs-rail'].filter(function(id){ return map.getLayer(id); });
+    if (ol.length){ var os = {}, ob = [[pt.x - 8, pt.y - 8], [pt.x + 8, pt.y + 8]];
+      map.queryRenderedFeatures(ob, {layers: ol}).forEach(function(f){ var oid = f.id;
+        if (oid != null && !os[oid]){ os[oid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._obs = true; p._oid = oid; list.push(p); } }); }
     // protected territories (when that layer is on) - anywhere inside one; before Natura (their bans are the explicit ones)
     var tl = ['wxnat-t-fill'].filter(function(id){ return map.getLayer(id); });
     if (tl.length){ var ts = {};
@@ -707,10 +717,7 @@ map.on('load', function(){
     var on = el.classList.toggle('on'); ST.set(k, on);
     zvis(r, on); if (!on && window.wxPopupPrune) window.wxPopupPrune(); }; }
   chip('cbP','PROHIBITED','fP'); chip('cbA','REQ_AUTHORISATION','fA'); chip('cbC','CONDITIONAL','fC');
-  var eb = document.getElementById('cbB');
-  if (!ST.get('bld', true)) eb.classList.remove('on'); // visibility is gated by the mode (2D hides buildings)
-  eb.onclick = function(){ var on = eb.classList.toggle('on'); ST.set('bld', on);
-    map.setLayoutProperty('buildings', 'visibility', (wxMode === '3d' && on) ? 'visible' : 'none'); };
+  // the 3D buildings are switched by the «Препятствия» button (wxSetObs, owner 17.10)
 });
 // ---- measure tool ("линийка") -------------------------------------------------
 // Cyan draggable pins; a pin dropped inside a restriction turns RED (still valid) - see banHit. Left
@@ -848,7 +855,7 @@ html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).rep
         .replace("//__ST_JS__", ST_JS)
         .replace("/*__SHELL_CSS__*/", SHELL_CSS).replace("//__SHELL_JS__", SHELL_JS)
         .replace("<!--__MENUBTN__-->", MENUBTN_HTML)
-        .replace("<!--__PANEL__-->", panel_html(ZONE_CHIPS, AIRSPACE_SECTION + NOTAM_SECTION + NATURE_SECTION, BUILDINGS_CHIP,
+        .replace("<!--__PANEL__-->", panel_html(ZONE_CHIPS, OBSTACLES_SECTION + AIRSPACE_SECTION + NOTAM_SECTION + NATURE_SECTION, "",
                  foot='<div class="psec"><div class="pln-hint" data-i18n="hint">десен бутон = въртене/наклон</div></div>'))
         .replace("<!--__LOUPE__-->", LOUPE_HTML).replace("<!--__PLNBTN__-->", PLNBTN_HTML)
         .replace("<!--__OGNBTN__-->", OGNBTN_HTML).replace("<!--__GJBTN__-->", GJBTN_HTML)

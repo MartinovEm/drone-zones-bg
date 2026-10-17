@@ -561,7 +561,7 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('gj', on);
   if (window.wxSetGj) window.wxSetGj(on); };
 // airspace + NOTAM toggles are CHIPS in the drawer (not on-map buttons)
-['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat', 'cbZzt:zzt:wxSetZzt'].forEach(function(s){
+['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat', 'cbZzt:zzt:wxSetZzt', 'cbObs:obs:wxSetObs'].forEach(function(s){
   var a = s.split(':'), el = document.getElementById(a[0]); if (!el) return;
   el.onclick = function(e){ e.stopPropagation(); var on = el.classList.toggle('on');
     try{ ST.set(a[1], on); }catch(_){} if (window[a[2]]) window[a[2]](on); };
@@ -1488,6 +1488,9 @@ WX_RESTORE_JS = r"""
     var b = document.getElementById(s[1]); if (b) b.classList.add('on');
     try{ fn(true); }catch(e){} // one broken engine must never kill the layers after it (F5 bug, 17.09)
   });
+  // obstacles + the 3D buildings: ON by default (owner 17.10), so restored from their own default
+  var ob = document.getElementById('cbObs');
+  if (ob){ var obOn = ST.get('obs', true); ob.classList.toggle('on', obOn); if (window.wxSetObs) try{ window.wxSetObs(obOn); }catch(e){} }
   if (window.wxFlEnable) window.wxFlEnable(ST.get('pln', false)); // FL slider active only if ✈ restored on
   if (ST.get('wind', false)){ var whd = document.getElementById('wxwindh'); if (whd) whd.hidden = false;
     if (window.wxSyncFcBar) window.wxSyncFcBar(); }
@@ -1631,7 +1634,8 @@ function liRemove(){ if (map.getLayer(LI)) map.removeLayer(LI); if (map.getSourc
 function stormRemove(){ if (map.getLayer(STM)) map.removeLayer(STM); if (map.getSource('wxstorm')) map.removeSource('wxstorm'); }
 // lightning is drawn just above the zones (owner 15.10: over the clouds AND the zones) but below
 // the layers added later without a slot (NOTAM pins, aircraft, activated zones)
-function liSlot(){ return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
+function liSlot(){ var top = map.getLayer('obs-sym2') ? 'obs-sym2' : map.getLayer('o-CONDITIONAL') ? 'o-CONDITIONAL' : null; // above the zones AND the obstacles
+  return top ? wxAboveOf(top) : undefined; }
 function liFrames(){ return (rvOn && rvFrames.length) ? rvFrames.map(function(f){ return f.time * 1000; }) : null; }
 function liIcon(){ // a yellow bolt with a dark outline, drawn once at pixel ratio 2
   if (map.hasImage('ltg-bolt')) return;
@@ -2532,6 +2536,228 @@ window.wxZztSelect = function(id){
   if (id != null && map.getSource('wxzzt')){ window._zztSel = id; map.setFeatureState({source: 'wxzzt', id: id}, {sel: true}); } };
 map.on('mouseenter', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = ''; });
+// ---- obstacles (owner 17.10): power lines and their towers / poles, ESO's lines that OSM lacks, wind
+// turbines, masts, towers, chimneys and other tall objects, lifts, rail / tram / trolleybus wires - from
+// obstacles/ (built daily by tools/make_obstacles.py from OpenStreetMap + ESO, ODbL). ONE button together
+// with the 3D buildings, ON by default. Only the 0.5° cells on the screen are fetched, and only when
+// zoomed in (OBS_MINZ); the cells around the view sit in ONE GeoJSON source (the ones used longest ago
+// are forgotten after OBS_KEEP). Dark lines and symbols - never the zones' red / orange / yellow - just
+// above the zones, below the layers added without a slot (NOTAM, activated zones, aircraft). Heights:
+// OSM's own, or a typical one ("~"; values + sources from index.json / tools/obstacle_heights.py).
+window.wxObsUrl = 'obstacles/';
+var OBS_MINZ = 11, OBS_KEEP = 16, OBS_INK = '#1f2a30', OBS_LIFT = '#00695c', OBS_RAIL = '#6a1b9a';
+var OBS = {idx: null, idxP: null, have: {}, cells: {}, order: [], shown: '', on: false, busy: 0, fail: false};
+var OBS_IDS = ['obs-rail', 'obs-lift', 'obs-minor', 'obs-eso-case', 'obs-eso', 'obs-line-case', 'obs-line', 'obs-sup', 'obs-sym', 'obs-sym2'];
+// owner 17.10, after seeing Sofia: the small objects (flagpoles, antennas, silos, cranes, water towers, bell towers)
+// show from zoom 14, the rail / tram / trolleybus wires from 13; the rest as before (lines and tall objects 11, poles 13)
+var OBS_SMALL = ['flagpole', 'antenna', 'silo', 'crane', 'wtower'], OBS_Z_SMALL = 14, OBS_Z_RAIL = 13;
+var OBS_SUP = ['tower', 'pole', 'upole', 'portal', 'catmast', 'liftpylon'];
+var OBS_TALL = ['turbine', 'mast', 'mtower', 'ctower', 'chimney', 'wtower', 'lighthouse', 'crane', 'flagpole', 'antenna', 'silo',
+                'windmill', 'flare', 'gasometer'];
+function obsEn(){ return (window.LANG || 'bg') === 'en'; }
+function obsNum(v){ var s = String(Math.round(v * 10) / 10); return obsEn() ? s : s.replace('.', ','); }
+function obsMsg(){ var el = document.getElementById('wxobsmsg'); if (!el) return;
+  var on = !!(OBS.fail && OBS.on);
+  el.textContent = on ? (obsEn() ? 'Obstacles: the data could not be loaded.' : 'Препятствия: данните не се заредиха.') : '';
+  el.style.display = on ? '' : 'none'; }
+function obsBusy(d){ OBS.busy = Math.max(0, OBS.busy + d); var c = document.getElementById('cbObs');
+  if (c) c.classList.toggle('loading', OBS.busy > 0 && OBS.on); }
+function obsIcons(){ var pr = 2;
+  function make(id, w, h, draw){ if (map.hasImage(id)) return;
+    var c = document.createElement('canvas'); c.width = w * pr; c.height = h * pr;
+    var x = c.getContext('2d'); x.scale(pr, pr); x.lineJoin = 'round'; x.lineCap = 'round'; draw(x);
+    map.addImage(id, {width: w * pr, height: h * pr, data: x.getImageData(0, 0, w * pr, h * pr).data}, {pixelRatio: pr}); }
+  // a tall object: the aviation obstacle sign - a narrow spike over a dot, dark with a white edge
+  make('obs-spike', 16, 22, function(x){
+    var path = function(){ x.beginPath(); x.moveTo(3, 20); x.lineTo(8, 2); x.lineTo(13, 20); };
+    path(); x.lineWidth = 4.4; x.strokeStyle = 'rgba(255,255,255,0.95)'; x.stroke();
+    path(); x.lineWidth = 2.1; x.strokeStyle = OBS_INK; x.stroke();
+    x.beginPath(); x.arc(8, 17, 2.7, 0, 7); x.fillStyle = '#fff'; x.fill();
+    x.beginPath(); x.arc(8, 17, 1.8, 0, 7); x.fillStyle = OBS_INK; x.fill(); });
+  // a wind turbine: a mast and three blades
+  make('obs-wind', 20, 24, function(x){
+    var draw = function(lw, col){ x.lineWidth = lw; x.strokeStyle = col;
+      x.beginPath(); x.moveTo(10, 23); x.lineTo(10, 9); x.stroke();
+      [-90, 30, 150].forEach(function(a){ var r = a * Math.PI / 180;
+        x.beginPath(); x.moveTo(10, 9); x.lineTo(10 + 8 * Math.cos(r), 9 + 8 * Math.sin(r)); x.stroke(); }); };
+    draw(4.4, 'rgba(255,255,255,0.95)'); draw(2.1, OBS_INK);
+    x.beginPath(); x.arc(10, 9, 1.9, 0, 7); x.fillStyle = OBS_INK; x.fill(); });
+}
+// the height label next to a tall object: "150 м" (OSM's own) or "~125 м" (typical)
+function obsLabel(){ var H = ['abs', ['get', 'h']];
+  return ['case', ['==', ['get', 'h'], 0], '',
+          ['concat', ['case', ['<', ['get', 'h'], 0], '~', ''], ['number-format', H, {'max-fraction-digits': 0}], obsEn() ? ' m' : ' м']]; }
+function obsSlot(){ var ls = wxStyleLayers(), i; // just above the zones, below the lightning / thunderstorm bolts (liSlot)
+  for (i = 0; i < ls.length; i++){ if (ls[i].id === 'wxli-layer' || ls[i].id === 'wxstorm-layer') return ls[i].id; }
+  return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
+function obsLayers(){
+  if (map.getLayer('obs-line')) return;
+  var b = obsSlot(), Z = function(a, c){ return ['interpolate', ['linear'], ['zoom'], 11, a, 16, c]; };
+  // a power line's width by its voltage (400 / 220 / the rest), from zoom 11 to 16
+  var V = function(add){ var w = function(a, m, c){ return ['case', ['>=', ['get', 'v'], 300], a + add, ['>=', ['get', 'v'], 200], m + add, c + add]; };
+    return ['interpolate', ['linear'], ['zoom'], 11, w(2.2, 1.8, 1.4), 16, w(4.5, 3.6, 2.8)]; };
+  var K = function(k){ return ['==', ['get', 'k'], k]; }, IN = function(a){ return ['in', ['get', 'k'], ['literal', a]]; };
+  var L = function(id, filter, paint, minz){ map.addLayer({id: id, type: 'line', source: 'wxobs', minzoom: minz || OBS_MINZ, filter: filter,
+    layout: {'line-join': 'round'}, paint: paint}, b); };
+  L('obs-rail', IN(['rail', 'tram', 'trolley']), {'line-color': OBS_RAIL, 'line-width': Z(0.8, 2), 'line-opacity': 0.85, 'line-dasharray': [3, 2]}, OBS_Z_RAIL);
+  L('obs-lift', K('lift'), {'line-color': OBS_LIFT, 'line-width': Z(1.2, 2.6), 'line-dasharray': [2, 1.2]});
+  L('obs-minor', K('minor'), {'line-color': OBS_INK, 'line-width': Z(0.7, 1.8), 'line-opacity': 0.9});
+  L('obs-eso-case', K('eso'), {'line-color': '#fff', 'line-opacity': 0.5, 'line-width': V(1.6)});
+  L('obs-eso', K('eso'), {'line-color': OBS_INK, 'line-width': V(0), 'line-dasharray': [2.5, 1.5]});   // ESO: an approximate route
+  L('obs-line-case', K('line'), {'line-color': '#fff', 'line-opacity': 0.5, 'line-width': V(1.6)});
+  L('obs-line', K('line'), {'line-color': OBS_INK, 'line-width': V(0)});
+  map.addLayer({id: 'obs-sup', type: 'circle', source: 'wxobs', minzoom: 13, filter: ['all', ['==', ['geometry-type'], 'Point'], IN(OBS_SUP)],
+    paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.8, 17, 4], 'circle-color': ['match', ['get', 'k'], 'liftpylon', OBS_LIFT, OBS_INK],
+            'circle-stroke-color': '#fff', 'circle-stroke-width': 0.8}}, b);
+  var small = ['any', IN(OBS_SMALL), ['all', K('mtower'), ['==', ['get', 't'], 'bell_tower']]];
+  var S = function(id, filter, minz){ map.addLayer({id: id, type: 'symbol', source: 'wxobs', minzoom: minz,
+    filter: ['all', ['==', ['geometry-type'], 'Point'], IN(OBS_TALL), filter],
+    layout: {'icon-image': ['match', ['get', 'k'], 'turbine', 'obs-wind', 'obs-spike'], 'icon-anchor': 'bottom',
+             'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.75, 15, 1], 'symbol-sort-key': ['-', 0, ['abs', ['get', 'h']]],
+             'text-field': obsLabel(), 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-anchor': 'left', 'text-offset': [0.7, -1],
+             'text-optional': true},
+    paint: {'text-color': OBS_INK, 'text-halo-color': '#fff', 'text-halo-width': 1.4}}, b); };
+  S('obs-sym', ['!', small], OBS_MINZ);
+  S('obs-sym2', small, OBS_Z_SMALL);
+}
+// one cell file -> GeoJSON features (coordinates are delta-encoded integers, see make_obstacles.py)
+function obsDecode(key, c){
+  var K = OBS.idx.kinds, S = OBS.idx.scale, kk = key.split('_'), base = (+kk[0] * 64 + +kk[1]) * 100000, n = 0, out = [];
+  (c.l || []).forEach(function(r){ var f = r[2], x = f[0], y = f[1], co = [[x / S, y / S]];
+    for (var i = 2; i < f.length; i += 2){ x += f[i]; y += f[i + 1]; co.push([x / S, y / S]); }
+    out.push({type: 'Feature', id: base + n++, geometry: {type: 'LineString', coordinates: co},
+              properties: {k: K[r[0]], v: r[1] || 0, n: r[3] || '', t: r[4] || ''}}); });
+  var x = 0, y = 0;
+  (c.p || []).forEach(function(r){ x += r[0]; y += r[1];
+    out.push({type: 'Feature', id: base + n++, geometry: {type: 'Point', coordinates: [x / S, y / S]},
+              properties: {k: K[r[2]], h: (r[3] || 0) / 10, v: r[4] || 0, n: r[5] || '', t: r[6] || ''}}); });
+  return out; }
+// the cells on the screen (+ a quarter cell around it); when the view is tilted towards the horizon,
+// only the OBS_KEEP - 4 nearest to the centre
+function obsView(){ var I = OBS.idx, b = map.getBounds(), C = I.cell, m = C / 4, out = [], c = map.getCenter();
+  for (var ix = Math.floor((b.getWest() - m - I.x0) / C); ix <= Math.floor((b.getEast() + m - I.x0) / C); ix++)
+    for (var iy = Math.floor((b.getSouth() - m - I.y0) / C); iy <= Math.floor((b.getNorth() + m - I.y0) / C); iy++)
+      if (OBS.have[ix + '_' + iy]) out.push(ix + '_' + iy);
+  if (out.length > OBS_KEEP - 4){
+    var d = function(k){ var a = k.split('_'); return Math.pow(I.x0 + (+a[0] + 0.5) * C - c.lng, 2) + Math.pow(I.y0 + (+a[1] + 0.5) * C - c.lat, 2); };
+    out.sort(function(p, q){ return d(p) - d(q); }); out = out.slice(0, OBS_KEEP - 4); }
+  return out.sort(); }
+function obsPush(){
+  var src = map.getSource('wxobs'); if (!OBS.on || !src || !OBS.idx) return;
+  var keys = map.getZoom() < OBS_MINZ - 0.5 ? [] : obsView().filter(function(k){ return OBS.cells[k]; });
+  Object.keys(OBS.cells).forEach(function(k){ if (OBS.cells[k] && OBS.order.indexOf(k) < 0) OBS.order.unshift(k); }); // loaded after the view moved on
+  keys.forEach(function(k){ var i = OBS.order.indexOf(k); if (i >= 0) OBS.order.splice(i, 1); OBS.order.push(k); });
+  while (OBS.order.length > OBS_KEEP){ var old = OBS.order.shift(); if (keys.indexOf(old) >= 0){ OBS.order.push(old); break; } delete OBS.cells[old]; }
+  var sig = keys.join(','); if (sig === OBS.shown) return;
+  OBS.shown = sig;
+  var fs = []; keys.forEach(function(k){ fs = fs.concat(OBS.cells[k]); });
+  src.setData({type: 'FeatureCollection', features: fs}); }
+function obsRefresh(){
+  if (!OBS.on || !OBS.idx || !map.getSource('wxobs')) return;
+  if (map.getZoom() >= OBS_MINZ - 0.5) obsView().forEach(function(k){
+    if (OBS.cells[k] !== undefined) return;
+    OBS.cells[k] = null; obsBusy(1);
+    fetch(window.wxObsUrl + 'c' + k + '.json?v=' + encodeURIComponent(OBS.idx.changed || ''))
+      .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function(c){ OBS.cells[k] = obsDecode(k, c); OBS.fail = false; })
+      .catch(function(){ delete OBS.cells[k]; OBS.fail = true; })
+      .then(function(){ obsBusy(-1); obsMsg(); obsPush(); }); });
+  obsPush(); }
+function obsIndex(){ if (OBS.idx || OBS.idxP) return;
+  obsBusy(1);
+  OBS.idxP = fetch(window.wxObsUrl + 'index.json', {cache: 'no-cache'})
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function(d){ OBS.idx = d; OBS.have = {}; (d.cells || []).forEach(function(c){ OBS.have[c[0] + '_' + c[1]] = 1; }); OBS.fail = false; })
+    .catch(function(){ OBS.fail = true; })
+    .then(function(){ OBS.idxP = null; obsBusy(-1); obsMsg(); obsRefresh(); }); }
+window.wxSetObs = function(on){ OBS.on = on; OBS.fail = false; obsMsg(); obsBusy(0);
+  whenReady(function(){
+    // the 3D buildings ride the same button (owner 17.10); 2D never shows them
+    if (map.getLayer('buildings')) map.setLayoutProperty('buildings', 'visibility', (OBS.on && window.wxMode === '3d') ? 'visible' : 'none');
+    if (!OBS.on){
+      OBS_IDS.slice().reverse().forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+      if (map.getSource('wxobs')) map.removeSource('wxobs');
+      OBS.shown = ''; obsBusy(0);
+      if (window.wxPopupPrune) window.wxPopupPrune();
+      return; }
+    obsIcons();
+    if (!map.getSource('wxobs')) map.addSource('wxobs', {type: 'geojson', data: {type: 'FeatureCollection', features: []}, maxzoom: 16,
+      attribution: '<a href="https://webapps.eso.bg/joining/public/map/" target="_blank" rel="noopener">ESO EAD</a> (power lines)'});
+    obsLayers(); OBS.shown = '';
+    if (OBS.idx) obsRefresh(); else obsIndex();
+  }); };
+map.on('moveend', function(){ if (OBS.on) obsRefresh(); });
+(window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ obsMsg();
+  ['obs-sym', 'obs-sym2'].forEach(function(id){ if (map.getLayer(id)) map.setLayoutProperty(id, 'text-field', obsLabel()); }); });
+['obs-sym', 'obs-sym2', 'obs-sup', 'obs-line', 'obs-eso', 'obs-minor', 'obs-lift', 'obs-rail'].forEach(function(id){
+  map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; }); });
+// helpers for the SHARED click chooser in make_3d (items tagged _obs)
+var OBS_N = {
+  bg: {line: 'Далекопровод', minor: 'Електропровод', eso: 'Далекопровод', rail: 'Контактна мрежа на жп линия', tram: 'Контактна мрежа на трамвай',
+       trolley: 'Контактна мрежа на тролейбус', lift: 'Лифт', tower: 'Стълб на далекопровод', pole: 'Стълб на електропровод', upole: 'Стълб',
+       portal: 'Портал (подстанция)', catmast: 'Стълб на контактна мрежа', liftpylon: 'Опора на лифт', turbine: 'Ветрогенератор', mast: 'Мачта',
+       mtower: 'Кула', ctower: 'Телекомуникационна кула', chimney: 'Комин', wtower: 'Водна кула', lighthouse: 'Фар', crane: 'Кран',
+       flagpole: 'Пилон', antenna: 'Антена', silo: 'Силоз', windmill: 'Вятърна мелница', flare: 'Газов факел', gasometer: 'Газхолдер'},
+  en: {line: 'Power line', minor: 'Power line', eso: 'Power line', rail: 'Railway overhead wire', tram: 'Tram overhead wire',
+       trolley: 'Trolleybus overhead wire', lift: 'Lift', tower: 'Power line tower', pole: 'Power line pole', upole: 'Pole',
+       portal: 'Portal (substation)', catmast: 'Catenary mast', liftpylon: 'Lift pylon', turbine: 'Wind turbine', mast: 'Mast',
+       mtower: 'Tower', ctower: 'Communications tower', chimney: 'Chimney', wtower: 'Water tower', lighthouse: 'Lighthouse', crane: 'Crane',
+       flagpole: 'Flagpole', antenna: 'Antenna', silo: 'Silo', windmill: 'Windmill', flare: 'Gas flare', gasometer: 'Gas holder'}};
+var OBS_LIFTS = {
+  bg: {chair_lift: 'Седалков лифт', gondola: 'Кабинков лифт', cable_car: 'Въжена линия', mixed_lift: 'Смесен лифт', drag_lift: 'Ски влек',
+       't-bar': 'Ски влек', 'j-bar': 'Ски влек', platter: 'Ски влек', rope_tow: 'Въжен влек', magic_carpet: 'Лента за начинаещи',
+       zip_line: 'Зиплайн', goods: 'Товарна въжена линия', abandoned: 'Изоставен лифт'},
+  en: {chair_lift: 'Chair lift', gondola: 'Gondola lift', cable_car: 'Cable car', mixed_lift: 'Mixed lift', drag_lift: 'Drag lift',
+       't-bar': 'T-bar lift', 'j-bar': 'J-bar lift', platter: 'Platter lift', rope_tow: 'Rope tow', magic_carpet: 'Magic carpet',
+       zip_line: 'Zip line', goods: 'Goods ropeway', abandoned: 'Abandoned lift'}};
+var OBS_TT = {
+  bg: {communication: 'комуникационна', bell_tower: 'камбанария', cooling: 'охладителна', minaret: 'минаре', observation: 'наблюдателна',
+       lighting: 'осветителна', defensive: 'крепостна', watchtower: 'наблюдателна', clock: 'часовникова'},
+  en: {communication: 'communication', bell_tower: 'bell tower', cooling: 'cooling', minaret: 'minaret', observation: 'observation',
+       lighting: 'lighting', defensive: 'defensive', watchtower: 'watchtower', clock: 'clock'}};
+function obsCls(v){ return v >= 300 ? 400 : v >= 200 ? 220 : v >= 60 ? 110 : v >= 1 ? 20 : v > 0 ? 0.4 : 0; }
+window.wxObsColor = function(p){ return (p.k === 'lift' || p.k === 'liftpylon') ? OBS_LIFT : (p.k === 'rail' || p.k === 'tram' || p.k === 'trolley') ? OBS_RAIL : OBS_INK; };
+window.wxObsName = function(p){ var L = obsEn() ? 'en' : 'bg', q = obsEn() ? ['"', '"'] : ['„', '“'];
+  var s = p.k === 'lift' ? (OBS_LIFTS[L][p.t] || OBS_N[L].lift) : (OBS_N[L][p.k] || p.k);
+  if (p.k === 'mtower' && OBS_TT[L][p.t]) s += ' (' + OBS_TT[L][p.t] + ')';
+  if (['line', 'minor', 'eso', 'tower', 'pole'].indexOf(p.k) >= 0 && +p.v) s += ' ' + obsNum(+p.v) + ' kV';
+  return s + (p.n ? ' ' + q[0] + p.n + q[1] : ''); };
+window.wxObsSub = function(p){ var en = obsEn(), h = +p.h || 0;
+  if (p.k === 'eso') return en ? 'route by ESO, approximate' : 'трасе по ЕСО, приблизително';
+  if ((p.k === 'line' || p.k === 'minor') && !+p.v) return en ? 'voltage unknown' : 'напрежението не е известно';
+  if (h > 0) return obsNum(h) + (en ? ' m' : ' м');
+  if (h < 0) return '~' + obsNum(-h) + (en ? ' m (typical)' : ' м (типична)');
+  return ''; };
+function obsHeight(p){ var en = obsEn(), I = OBS.idx || {}, h = +p.h || 0, M = en ? ' m' : ' м', H = en ? 'Height: ' : 'Височина: ';
+  if (h > 0) return H + obsNum(h) + M;
+  if (!h) return H + (en ? 'no data' : 'няма данни');
+  var t = H + '~' + obsNum(-h) + M + ' — ', c = obsCls(+p.v), tw = (I.towers || {})[String(c)];
+  if (p.k === 'turbine'){ var f = (I.farms || {})[p.t], r = (I.wind || {}).range;
+    return H + '~' + obsNum(-h) + M + (en ? ' to the blade tip — ' : ' до върха на перката — ') +
+      (f ? (en ? 'typical for the ' + f.n + ' wind farm (' + f.m + ')' : 'типична за ВЕП „' + f.n + '“ (' + f.m + ')')
+         : (en ? 'typical (' + r + ' m)' : 'типична (' + r + ' м)')); }
+  if (p.k === 'liftpylon') return t + (en ? 'typical (' + (I.lift || {}).range + ' m)' : 'типична (' + (I.lift || {}).range + ' м)');
+  if (tw) return t + (en ? 'typical for a ' + c + ' kV tower (' + tw.range + ' m); the lowest wire hangs at ~' + obsNum(tw.low) + ' m at the tower'
+                         : 'типична за стълб ' + c + ' kV (' + tw.range + ' м); долният проводник е на ~' + obsNum(tw.low) + ' м при стълба');
+  if (c === 20) return t + (en ? 'typical for a 20 kV pole' : 'типична за стълб 20 kV');
+  if (c === 0.4) return t + (en ? 'typical for a low-voltage pole' : 'типична за стълб ниско напрежение');
+  if (Math.abs(-h - (I.poleUnknown || 11)) < 0.01)
+    return t + (en ? 'typical; the voltage is unknown, so the taller 20 kV pole is assumed' : 'типична; напрежението не е известно, приет е по-високият стълб 20 kV');
+  return t + (en ? 'typical for a power line tower; the voltage is unknown' : 'типична за стълб на далекопровод; напрежението не е известно'); }
+function obsWire(p){ var en = obsEn(), W = (OBS.idx || {}).wire || {}, w = W[String(obsCls(+p.v))] || W['0'] || [6, 6];
+  return en ? 'The wires may hang as low as ' + obsNum(w[0]) + ' m above the ground' + (w[1] !== w[0] ? ' (' + obsNum(w[1]) + ' m in settlements)' : '') + ' — Bulgarian rules (Наредба № 3).'
+            : 'Проводниците може да са само на ' + obsNum(w[0]) + ' м над земята' + (w[1] !== w[0] ? ' (' + obsNum(w[1]) + ' м в населено място)' : '') + ' — по Наредба № 3.'; }
+window.wxObsDetail = function(p){ var en = obsEn(), I = OBS.idx || {}, sub = window.wxObsSub(p), wire = ['line', 'minor', 'eso'].indexOf(p.k) >= 0;
+  var h = '<b>' + esc(window.wxObsName(p)) + '</b>' + (sub ? ' <span class="ptype">' + esc(sub) + '</span>' : '');
+  if (OBS_TALL.indexOf(p.k) >= 0 || OBS_SUP.indexOf(p.k) >= 0) h += '<br>' + esc(obsHeight(p));
+  if (wire) h += '<br>' + esc(obsWire(p));
+  if (p.k === 'eso') h += '<br>' + (en ? 'The route is from ESO\'s map (approximate); OpenStreetMap does not have this line.'
+                                     : 'Трасето е по картата на ЕСО (приблизително); в OpenStreetMap тази линия липсва.');
+  if (p.k === 'rail' && I.rail) h += '<br>' + (en ? 'The contact wire hangs about ' + obsNum(I.rail.h) + ' m above the rails (' + obsNum(I.rail.lc) + ' m at level crossings).'
+                                                  : 'Контактният проводник е на около ' + obsNum(I.rail.h) + ' м над релсите (' + obsNum(I.rail.lc) + ' м на прелезите).');
+  if (wire) h += '<br><small>' + (en ? 'A line missing on the map does not mean there is none.' : 'Липсата на линия на картата не значи, че там няма.') + '</small>';
+  return h; };
 // ---- NOTAM layer (/notam relay over the FAA NMS-API): temporary drone-relevant
 // restrictions drawn ABOVE the zones. A lettered pin (P/R/D/M/!) at the centre + a
 // dashed, lightly-filled (20%) circle/polygon coloured by category. Click shows the

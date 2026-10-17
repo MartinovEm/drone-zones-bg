@@ -11,7 +11,8 @@ startup and writes it on change:
     ST.clear()             -> wipes the whole record (the reset button)
 
 Current keys: fP/fA/fC (colour filter chips), cld/rad/fc/pln (clouds, radar,
-rain forecast, aircraft), fch (forecast slider hour), bld (3D buildings),
+rain forecast, aircraft), fch (forecast slider hour), obs (the obstacles + the 3D
+buildings, default ON; the old bld key is no longer read),
 pitch/bearing (3D camera angle). The language stays under its pre-existing
 separate 'lang' key. A future setting (theme, basemap, ...) just picks a new
 key - no other wiring needed.

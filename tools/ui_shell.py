@@ -415,7 +415,18 @@ ZONE_CHIPS = (
  '<span class="chip on" id="cbA"><span class="dot" style="background:#ff8000"></span><span data-i18n="fA">С разрешение</span> <span class="cnt" id="nA"></span></span>'
  '<span class="chip on" id="cbC"><span class="dot" style="background:#ffcc00"></span><span data-i18n="fC">Условни</span> <span class="cnt" id="nC"></span></span>')
 
-BUILDINGS_CHIP = '<span class="chip on" id="cbB"><span class="dot" style="background:#b7ad9c"></span><span data-i18n="bld">Сгради</span></span>'
+# Obstacles section (owner 17.10): ONE button for every obstacle (power lines and their towers /
+# poles, ESO's lines missing in OSM, wind turbines, masts, towers, chimneys, lifts, rail / tram /
+# trolleybus wires) AND the 3D buildings (it replaces the old «Сгради» chip), ON by default. The
+# obstacles show only when zoomed in; a load failure is told under it (filled by JS).
+OBSTACLES_SECTION = (
+  '<div class="psec"><div class="psh" data-i18n="secObs">Препятствия</div>'
+  '<div class="prow">'
+  '<span class="chip on" id="cbObs"><span class="dot" style="background:#1f2a30"></span><span data-i18n="obsShow">Препятствия</span></span>'
+  '</div>'
+  '<div class="flnote" data-i18n="obsNote">Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D</div>'
+  '<div class="flnote" id="wxobsmsg" style="display:none"></div>'
+  '</div>')
 
 # Airspace section for the drawer (goes right under "Zones"): two independent toggles —
 # controlled (blue) + special-use (red/pink) — from OpenAIP, with a small colour note
