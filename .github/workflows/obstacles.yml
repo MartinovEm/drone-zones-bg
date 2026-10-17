@@ -1,0 +1,31 @@
+name: Update obstacles from OpenStreetMap and ESO
+on:
+  schedule:
+    - cron: "41 2 * * *"   # daily 02:41 UTC, after Geofabrik's nightly Bulgaria extract (owner 17.10: checked every day); make_obstacles.py rewrites only the cells that changed, so no churn
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pyosmium
+        run: pip install "osmium==4.3.1"
+      - name: Build the obstacles (a source failure writes nothing)
+        run: python tools/make_obstacles.py
+      - name: Commit if changed
+        run: |
+          git config user.name "obstacles-updater"
+          git config user.email "actions@users.noreply.github.com"
+          git add obstacles
+          git diff --cached --quiet && echo "no changes" || {
+            git commit -m "Update obstacles from OpenStreetMap and ESO ($(date -u +%F))"
+            git pull --rebase
+            git push
+          }
