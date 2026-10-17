@@ -713,7 +713,7 @@ map.on('load', function(){
     map.setLayoutProperty('buildings', 'visibility', (wxMode === '3d' && on) ? 'visible' : 'none'); };
 });
 // ---- measure tool ("линийка") -------------------------------------------------
-// Cyan draggable pins; a pin dropped inside a zone turns RED (still valid). Left
+// Cyan draggable pins; a pin dropped inside a restriction turns RED (still valid) - see banHit. Left
 // click adds a pin, left-drag moves it; right-click (desktop) / long-press (touch)
 // removes one pin (on a pin) or all (on empty map). Numbers between pins show each
 // segment's length; from the 2nd segment the last one also shows the total
@@ -722,7 +722,18 @@ map.on('load', function(){
 (function(){
   var btn = document.getElementById('rulerbtn'); if (!btn) return;
   var CYAN = '#06b6d4', RED = '#e23b3b';
-  var ZL = ['f-PROHIBITED','f-REQ_AUTHORISATION','f-CONDITIONAL'];
+  // RED inside anything that restricts flying NOW, among the layers that are ON (owner 17.10): the
+  // CAA zones, NOTAM areas (a FIR-wide NOTAM has no area on the map - only its pin + the FIR line -
+  // and GNSS NOTAMs never count: interference is not a ban), activated zones (of the airspace
+  // layers only these), and the protected territories with an explicit ban (red / dashed outline).
+  // Upcoming NOTAMs and activated zones (not active yet, drawn muted / dashed) do not count: red
+  // means "applies now". Natura 2000 never: no explicit bans there.
+  var ZL = ['f-PROHIBITED','f-REQ_AUTHORISATION','f-CONDITIONAL','notam-fill','notam-hatch','act-fill','wxnat-t-fill'];
+  function banHit(f){ var id = f.layer && f.layer.id, q = f.properties || {};
+    if (id === 'wxnat-t-fill') return q.k === 'f' || q.k === 'p';
+    if (id === 'notam-fill' || id === 'notam-hatch') return q.l !== 'G' && +q.fut !== 1;
+    if (id === 'act-fill') return +q.fut !== 1;
+    return true; }
   var pins = [], labels = [], on = false, suppressClick = false;
   // tell a right CLICK (delete) apart from a right DRAG (rotate/tilt): remember where
   // the right button went down; if the pointer moved, the contextmenu was a rotate.
@@ -744,7 +755,11 @@ map.on('load', function(){
     if (!av.length){ p.inZone = false; paint(p); return; }
     var pt = map.project(p.marker.getLngLat());
     var f = map.queryRenderedFeatures([[pt.x-2, pt.y-2], [pt.x+2, pt.y+2]], {layers: av});
-    p.inZone = f.length > 0; paint(p); }
+    p.inZone = f.some(banHit); paint(p); }
+  // a layer switched on/off (or its data refreshed) re-colours the pins on screen; the ones off
+  // screen keep their colour (nothing is rendered there to check against)
+  map.on('idle', function(){ if (!pins.length) return; var c = map.getCanvas(), w = c.clientWidth, h = c.clientHeight;
+    pins.forEach(function(p){ var q = map.project(p.marker.getLngLat()); if (q.x >= 0 && q.y >= 0 && q.x <= w && q.y <= h) zoneCheck(p); }); });
   function coords(){ return pins.map(function(p){ var l = p.marker.getLngLat(); return [l.lng, l.lat]; }); }
   function ensureLine(){ if (map.getSource('ruler-line')) return;
     map.addSource('ruler-line', {type:'geojson', data:{type:'Feature',geometry:{type:'LineString',coordinates:[]}}});
