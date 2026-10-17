@@ -297,7 +297,12 @@ function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getEl
     if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); selShown(curList[i]); }
   });
 }
-function showPopup(html, lngLat){ if (curPopup) curPopup.remove(); curPopup = new maplibregl.Popup({maxWidth:'340px'}).setLngLat(lngLat).setHTML(html).addTo(map); wirePopup(); curPopup.on('close', function(){ selShown(null); }); }
+function showPopup(html, lngLat){
+  if (curPopup){ var old = curPopup; curPopup = null; old.remove(); } // detached first: its 'close' must not wipe the new list
+  var pp = curPopup = new maplibregl.Popup({maxWidth:'340px'}).setLngLat(lngLat).setHTML(html).addTo(map); wirePopup();
+  // closed by × (or a tap elsewhere): forget it, so the next tap on the same spot opens it again
+  // instead of "dismissing" a popup that is already gone (owner 17.10: every layer was hit)
+  pp.on('close', function(){ selShown(null); if (curPopup === pp){ curPopup = null; curList = []; curPick = null; } }); }
 function setPopupContent(html){ if (curPopup){ curPopup.setHTML(html); wirePopup(); } }
 function openZones(list, lngLat){ if (!list.length) return; curList = list; curPick = null;
   curRender = (list.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
