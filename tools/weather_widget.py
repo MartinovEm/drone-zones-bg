@@ -2546,8 +2546,16 @@ map.on('mouseleave', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = 
 // OSM's own, or a typical one ("~"; values + sources from index.json / tools/obstacle_heights.py).
 window.wxObsUrl = 'obstacles/';
 var OBS_MINZ = 11, OBS_KEEP = 16, OBS_INK = '#1f2a30', OBS_LIFT = '#00695c', OBS_RAIL = '#6a1b9a';
-var OBS = {idx: null, idxP: null, have: {}, cells: {}, order: [], shown: '', on: false, busy: 0, fail: false};
-var OBS_IDS = ['obs-rail', 'obs-lift', 'obs-minor', 'obs-eso-case', 'obs-eso', 'obs-line-case', 'obs-line', 'obs-sup', 'obs-sym', 'obs-sym2'];
+var OBS = {idx: null, idxP: null, have: {}, cells: {}, order: [], shown: '', shown3d: '', on: false, busy: 0, fail: false};
+var OBS_IDS = ['obs-rail', 'obs-lift', 'obs-minor', 'obs-eso-case', 'obs-eso', 'obs-line-case', 'obs-line', 'obs-sup', 'obs-3d', 'obs-sym', 'obs-sym2'];
+// 3D (owner 17-18.10): every object with a height (OSM's own or a typical one) stands as a tapered "needle" of
+// that height, from zoom OBS_Z_3D, only in 3D mode and only around the screen; the wires stay on the ground
+// (MapLibre cannot lift lines). Transmission towers get arms across their line at the height of the lowest
+// wire (ESO): 400 kV two (the upper a little narrower), 220 kV two 6 m apart (ESO type НТ), 110 kV three
+// 3.5 m apart, the middle one the widest (ESO's „бъчва“); a tower with its OWN height is the model scaled to
+// it. Widths are a sign, not the real footprint. Turbines: a white tower to the hub (0.67 x the tip height:
+// 0.64-0.70 in the four farms of obstacle_heights.py) and a thin grey part up to the blade tip.
+var OBS_Z_3D = 14, OBS_WHITE = '#eceff1', OBS_BLADE = '#b0bec5';
 // owner 17.10, after seeing Sofia: the small objects (flagpoles, antennas, silos, cranes, water towers, bell towers)
 // show from zoom 14, the rail / tram / trolleybus wires from 13; the rest as before (lines and tall objects 11, poles 13)
 var OBS_SMALL = ['flagpole', 'antenna', 'silo', 'crane', 'wtower'], OBS_Z_SMALL = 14, OBS_Z_RAIL = 13;
@@ -2587,6 +2595,11 @@ function obsIcons(){ var pr = 2;
 function obsLabel(){ var H = ['abs', ['get', 'h']];
   return ['case', ['==', ['get', 'h'], 0], '',
           ['concat', ['case', ['<', ['get', 'h'], 0], '~', ''], ['number-format', H, {'max-fraction-digits': 0}], obsEn() ? ' m' : ' м']]; }
+// in 3D, from the zoom where an object stands as a 3D shape, its 2D sign (icon / dot) goes; the height label
+// stays (owner 18.10: „където се появи 3D колона скриваш знака“). Objects without a height keep their sign.
+function obsIcon(){ var normal = ['match', ['get', 'k'], 'turbine', 'obs-wind', 'obs-spike'];
+  return window.wxMode === '3d' ? ['step', ['zoom'], normal, OBS_Z_3D, ['case', ['!=', ['get', 'h'], 0], '', normal]] : normal; }
+function obsDotOp(){ return window.wxMode === '3d' ? ['step', ['zoom'], 1, OBS_Z_3D, ['case', ['!=', ['get', 'h'], 0], 0, 1]] : 1; }
 function obsSlot(){ var ls = wxStyleLayers(), i; // just above the zones, below the lightning / thunderstorm bolts (liSlot)
   for (i = 0; i < ls.length; i++){ if (ls[i].id === 'wxli-layer' || ls[i].id === 'wxstorm-layer') return ls[i].id; }
   return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
@@ -2608,11 +2621,17 @@ function obsLayers(){
   L('obs-line', K('line'), {'line-color': OBS_INK, 'line-width': V(0)});
   map.addLayer({id: 'obs-sup', type: 'circle', source: 'wxobs', minzoom: 13, filter: ['all', ['==', ['geometry-type'], 'Point'], IN(OBS_SUP)],
     paint: {'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.8, 17, 4], 'circle-color': ['match', ['get', 'k'], 'liftpylon', OBS_LIFT, OBS_INK],
-            'circle-stroke-color': '#fff', 'circle-stroke-width': 0.8}}, b);
+            'circle-stroke-color': '#fff', 'circle-stroke-width': 0.8, 'circle-opacity': obsDotOp(), 'circle-stroke-opacity': obsDotOp()}}, b);
+  // the 3D needles + arms (their own source of small polygons, built only in 3D - obs3dPush)
+  if (!map.getSource('wxobs3d')) map.addSource('wxobs3d', {type: 'geojson', data: {type: 'FeatureCollection', features: []}, maxzoom: 16});
+  map.addLayer({id: 'obs-3d', type: 'fill-extrusion', source: 'wxobs3d', minzoom: OBS_Z_3D,
+    layout: {visibility: window.wxMode === '3d' ? 'visible' : 'none'},
+    paint: {'fill-extrusion-color': ['get', 'zc'], 'fill-extrusion-base': ['get', 'zb'], 'fill-extrusion-height': ['get', 'zt'],
+            'fill-extrusion-opacity': 0.95}}, b);
   var small = ['any', IN(OBS_SMALL), ['all', K('mtower'), ['==', ['get', 't'], 'bell_tower']]];
   var S = function(id, filter, minz){ map.addLayer({id: id, type: 'symbol', source: 'wxobs', minzoom: minz,
     filter: ['all', ['==', ['geometry-type'], 'Point'], IN(OBS_TALL), filter],
-    layout: {'icon-image': ['match', ['get', 'k'], 'turbine', 'obs-wind', 'obs-spike'], 'icon-anchor': 'bottom',
+    layout: {'icon-image': obsIcon(), 'icon-anchor': 'bottom',
              'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.75, 15, 1], 'symbol-sort-key': ['-', 0, ['abs', ['get', 'h']]],
              'text-field': obsLabel(), 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-anchor': 'left', 'text-offset': [0.7, -1],
              'text-optional': true},
@@ -2622,11 +2641,15 @@ function obsLayers(){
 }
 // one cell file -> GeoJSON features (coordinates are delta-encoded integers, see make_obstacles.py)
 function obsDecode(key, c){
-  var K = OBS.idx.kinds, S = OBS.idx.scale, kk = key.split('_'), base = (+kk[0] * 64 + +kk[1]) * 100000, n = 0, out = [];
-  (c.l || []).forEach(function(r){ var f = r[2], x = f[0], y = f[1], co = [[x / S, y / S]];
-    for (var i = 2; i < f.length; i += 2){ x += f[i]; y += f[i + 1]; co.push([x / S, y / S]); }
-    out.push({type: 'Feature', id: base + n++, geometry: {type: 'LineString', coordinates: co},
-              properties: {k: K[r[0]], v: r[1] || 0, n: r[3] || '', t: r[4] || ''}}); });
+  var K = OBS.idx.kinds, S = OBS.idx.scale, kk = key.split('_'), base = (+kk[0] * 64 + +kk[1]) * 100000, n = 0, out = [], dir = {};
+  (c.l || []).forEach(function(r){ var f = r[2], x = f[0], y = f[1], q = [[x, y]], k = K[r[0]];
+    for (var i = 2; i < f.length; i += 2){ x += f[i]; y += f[i + 1]; q.push([x, y]); }
+    // the line's direction at each vertex (its towers / poles / lift pylons stand there): the 3D arms go across it
+    if (k === 'line' || k === 'minor' || k === 'lift') q.forEach(function(p, i){ var a = q[Math.max(0, i - 1)], e = q[Math.min(q.length - 1, i + 1)];
+      dir[p[0] + ',' + p[1]] = Math.atan2((e[1] - a[1]) * 0.993, (e[0] - a[0]) * Math.cos(p[1] / S * Math.PI / 180)); }); // 0.993 = m per deg lat / lon
+    out.push({type: 'Feature', id: base + n++, geometry: {type: 'LineString', coordinates: q.map(function(p){ return [p[0] / S, p[1] / S]; })},
+              properties: {k: k, v: r[1] || 0, n: r[3] || '', t: r[4] || ''}}); });
+  out.dir = dir;
   var x = 0, y = 0;
   (c.p || []).forEach(function(r){ x += r[0]; y += r[1];
     out.push({type: 'Feature', id: base + n++, geometry: {type: 'Point', coordinates: [x / S, y / S]},
@@ -2648,10 +2671,59 @@ function obsPush(){
   Object.keys(OBS.cells).forEach(function(k){ if (OBS.cells[k] && OBS.order.indexOf(k) < 0) OBS.order.unshift(k); }); // loaded after the view moved on
   keys.forEach(function(k){ var i = OBS.order.indexOf(k); if (i >= 0) OBS.order.splice(i, 1); OBS.order.push(k); });
   while (OBS.order.length > OBS_KEEP){ var old = OBS.order.shift(); if (keys.indexOf(old) >= 0){ OBS.order.push(old); break; } delete OBS.cells[old]; }
-  var sig = keys.join(','); if (sig === OBS.shown) return;
-  OBS.shown = sig;
-  var fs = []; keys.forEach(function(k){ fs = fs.concat(OBS.cells[k]); });
+  var sig = keys.join(',');
+  if (sig !== OBS.shown){ OBS.shown = sig;
+    var fs = []; keys.forEach(function(k){ fs = fs.concat(OBS.cells[k]); });
+    src.setData({type: 'FeatureCollection', features: fs}); }
+  obs3dPush(keys); }
+// the 3D shapes of one object (polygons with zb / zt = their base / top in metres and zc = colour); every polygon
+// carries the object's id + properties, so the click chooser shows it once
+function obsShape(f, dir, out){
+  var p = f.properties, H = Math.abs(p.h), x = f.geometry.coordinates[0], y = f.geometry.coordinates[1];
+  var mx = 111320 * Math.cos(y * Math.PI / 180), my = 110540, S = OBS.idx.scale;
+  var th = dir[Math.round(x * S) + ',' + Math.round(y * S)] || 0;
+  var P = function(ring, zb, zt, zc){ out.push({type: 'Feature', id: f.id, geometry: {type: 'Polygon', coordinates: [ring]},
+    properties: {k: p.k, h: p.h, v: p.v, n: p.n, t: p.t, zb: zb, zt: zt, zc: zc}}); };
+  var oct = function(r){ var g = []; for (var i = 0; i <= 8; i++){ var a = (i % 8) * Math.PI / 4 + Math.PI / 8; g.push([x + r * Math.cos(a) / mx, y + r * Math.sin(a) / my]); } return g; };
+  var arm = function(len, w){ var ux = Math.cos(th + Math.PI / 2), uy = Math.sin(th + Math.PI / 2), vx = Math.cos(th), vy = Math.sin(th);
+    return [[1, 1], [1, -1], [-1, -1], [-1, 1], [1, 1]].map(function(s){ var ex = s[0] * ux * len / 2 + s[1] * vx * w / 2, ey = s[0] * uy * len / 2 + s[1] * vy * w / 2;
+      return [x + ex / mx, y + ey / my]; }); };
+  var tiers = function(top, rs, zc){ rs.forEach(function(r, i){ P(oct(r), top * i / rs.length, top * (i + 1) / rs.length, zc); }); };
+  if (p.k === 'tower'){
+    var cls = p.v >= 300 ? 400 : p.v >= 200 ? 220 : p.v >= 60 ? 110 : p.v > 0 ? 20 : (H >= 20 ? 110 : 20);
+    if (cls === 20){ tiers(H, [1.2, 0.9, 0.6, 0.4], OBS_INK); P(arm(3, 0.5), H - 0.8, H - 0.4, OBS_INK); return; }
+    var T = (OBS.idx.towers || {})[String(cls)] || {low: 16, h: 27.5}, s = H / (T.h || H), sc = Math.max(0.5, Math.min(2.5, s));
+    var low = Math.min(T.low * s, H * 0.75);
+    var arms = cls === 400 ? [[0, 15], [(H - low) * 0.6 / s, 12]] : cls === 220 ? [[0, 12], [6, 9.6]] : [[0, 7], [3.5, 9], [7, 7]];
+    tiers(H, [3, 2.1, 1.35, 0.75].map(function(r){ return r * sc; }), OBS_INK);
+    arms.forEach(function(a){ var z = low + a[0] * s; if (z < H) P(arm(a[1] * sc, sc), z - 0.5 * sc, z + 0.5 * sc, OBS_INK); });
+  } else if (p.k === 'pole' || p.k === 'upole'){ P(oct(0.55), 0, H, OBS_INK); P(arm(2.6, 0.5), H - 0.8, H - 0.4, OBS_INK); }
+  else if (p.k === 'liftpylon'){ P(oct(0.7), 0, H, OBS_LIFT); P(arm(5, 0.6), H - 0.6, H, OBS_LIFT); }
+  else if (p.k === 'turbine'){ var hub = H * 0.67; tiers(hub, [2.2, 1.9, 1.6, 1.3], OBS_WHITE); P(oct(0.5), hub, H, OBS_BLADE); }
+  else if (p.k === 'chimney') tiers(H, [3.5, 3.1, 2.7, 2.4], OBS_INK);
+  else if (p.k === 'mtower' || p.k === 'ctower') tiers(H, [4, 3, 2, 1.2], OBS_INK);
+  else tiers(H, [1.4, 1, 0.7, 0.4], OBS_INK); }
+// in 3D from zoom OBS_Z_3D - 0.5: the shapes of the objects around the screen (rebuilt when the view moves on)
+function obs3dPush(keys){
+  var src = map.getSource('wxobs3d'); if (!src) return;
+  var on = OBS.on && window.wxMode === '3d' && map.getZoom() >= OBS_Z_3D - 0.5, b = map.getBounds();
+  var w = (b.getEast() - b.getWest()) * 0.3, h = (b.getNorth() - b.getSouth()) * 0.3, g = 0.002, R = function(v){ return Math.round(v / g); };
+  var W = b.getWest() - w, E = b.getEast() + w, Sb = b.getSouth() - h, N = b.getNorth() + h;
+  var want = on ? keys.join(',') + '|' + [R(W), R(E), R(Sb), R(N)].join(',') : '';
+  if (want === OBS.shown3d) return;
+  OBS.shown3d = want;
+  var fs = [];
+  if (on) keys.forEach(function(k){ var cell = OBS.cells[k]; (cell || []).forEach(function(f){
+    if (f.geometry.type !== 'Point' || !f.properties.h) return;
+    var x = f.geometry.coordinates[0], y = f.geometry.coordinates[1];
+    if (x >= W && x <= E && y >= Sb && y <= N) obsShape(f, cell.dir || {}, fs); }); });
   src.setData({type: 'FeatureCollection', features: fs}); }
+// called by wxSetMode (make_3d) on a 2D <-> 3D switch
+window.wxObs3D = function(){
+  if (map.getLayer('obs-3d')) map.setLayoutProperty('obs-3d', 'visibility', (OBS.on && window.wxMode === '3d') ? 'visible' : 'none');
+  ['obs-sym', 'obs-sym2'].forEach(function(id){ if (map.getLayer(id)) map.setLayoutProperty(id, 'icon-image', obsIcon()); });
+  if (map.getLayer('obs-sup')){ map.setPaintProperty('obs-sup', 'circle-opacity', obsDotOp()); map.setPaintProperty('obs-sup', 'circle-stroke-opacity', obsDotOp()); }
+  obsPush(); };
 function obsRefresh(){
   if (!OBS.on || !OBS.idx || !map.getSource('wxobs')) return;
   if (map.getZoom() >= OBS_MINZ - 0.5) obsView().forEach(function(k){
@@ -2676,20 +2748,20 @@ window.wxSetObs = function(on){ OBS.on = on; OBS.fail = false; obsMsg(); obsBusy
     if (map.getLayer('buildings')) map.setLayoutProperty('buildings', 'visibility', (OBS.on && window.wxMode === '3d') ? 'visible' : 'none');
     if (!OBS.on){
       OBS_IDS.slice().reverse().forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
-      if (map.getSource('wxobs')) map.removeSource('wxobs');
-      OBS.shown = ''; obsBusy(0);
+      ['wxobs', 'wxobs3d'].forEach(function(id){ if (map.getSource(id)) map.removeSource(id); });
+      OBS.shown = ''; OBS.shown3d = ''; obsBusy(0);
       if (window.wxPopupPrune) window.wxPopupPrune();
       return; }
     obsIcons();
     if (!map.getSource('wxobs')) map.addSource('wxobs', {type: 'geojson', data: {type: 'FeatureCollection', features: []}, maxzoom: 16,
       attribution: '<a href="https://webapps.eso.bg/joining/public/map/" target="_blank" rel="noopener">ESO EAD</a> (power lines)'});
-    obsLayers(); OBS.shown = '';
+    obsLayers(); OBS.shown = ''; OBS.shown3d = '';
     if (OBS.idx) obsRefresh(); else obsIndex();
   }); };
 map.on('moveend', function(){ if (OBS.on) obsRefresh(); });
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ obsMsg();
   ['obs-sym', 'obs-sym2'].forEach(function(id){ if (map.getLayer(id)) map.setLayoutProperty(id, 'text-field', obsLabel()); }); });
-['obs-sym', 'obs-sym2', 'obs-sup', 'obs-line', 'obs-eso', 'obs-minor', 'obs-lift', 'obs-rail'].forEach(function(id){
+['obs-sym', 'obs-sym2', 'obs-3d', 'obs-sup', 'obs-line', 'obs-eso', 'obs-minor', 'obs-lift', 'obs-rail'].forEach(function(id){
   map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
   map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; }); });
 // helpers for the SHARED click chooser in make_3d (items tagged _obs)

@@ -495,6 +495,7 @@ window.wxSetMode = function(m){
     var ob = document.getElementById('cbObs'), bOn = !ob || ob.classList.contains('on'); // the buildings ride the «Препятствия» button
     map.setLayoutProperty('buildings', 'visibility', (!d2 && bOn) ? 'visible' : 'none');
     map.setTerrain(d2 ? null : {source: 'dem', exaggeration: 1.15});
+    if (window.wxObs3D) window.wxObs3D(); // the obstacles' 3D columns follow the mode
   };
   (window.requestAnimationFrame || function(f){ setTimeout(f, 0); })(apply);
 };
@@ -683,7 +684,7 @@ map.on('load', function(){
       map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
         if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
     // obstacles (when that layer is on): tall objects, towers / poles, then the wires - thin, so a wider box
-    var ol = ['obs-sym','obs-sym2','obs-sup','obs-line','obs-eso','obs-minor','obs-lift','obs-rail'].filter(function(id){ return map.getLayer(id); });
+    var ol = ['obs-sym','obs-sym2','obs-3d','obs-sup','obs-line','obs-eso','obs-minor','obs-lift','obs-rail'].filter(function(id){ return map.getLayer(id); });
     if (ol.length){ var os = {}, ob = [[pt.x - 8, pt.y - 8], [pt.x + 8, pt.y + 8]];
       map.queryRenderedFeatures(ob, {layers: ol}).forEach(function(f){ var oid = f.id;
         if (oid != null && !os[oid]){ os[oid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._obs = true; p._oid = oid; list.push(p); } }); }
