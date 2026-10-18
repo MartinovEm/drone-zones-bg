@@ -152,6 +152,14 @@ jobs:
           [ "$code" = "200" ] || { echo "gpsown relay did not answer 200; X-Relay-Err follows:"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
           python3 -c "import json; d=json.load(open('body.json')); assert d.get('type')=='FeatureCollection','not a FeatureCollection'; n=len(d.get('features',[])); print(n,'cells, mode',d.get('mode')); assert n>0,'no cells'"
           cur=$(grep -i '^x-gpsown-cur:' "$hdr" | tr -d '\r' | awk '{print $2}')
+          # In the first minutes of a UTC hour the collector's first 2-min tick may not have
+          # written yet (a false alarm on 18.10 at 01:00:07 UTC): wait 3 min and look once more.
+          if [ "$cur" != "1" ] && [ $((10#$(date -u +%M))) -lt 5 ]; then
+            echo "the UTC hour has just started (X-Gpsown-Cur: ${cur:-?}); checking again in 3 min"
+            sleep 180
+            curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -D "$hdr" -o /dev/null -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/gpsown" || true
+            cur=$(grep -i '^x-gpsown-cur:' "$hdr" | tr -d '\r' | awk '{print $2}')
+          fi
           echo "current-hour collecting: ${cur:-?}"
           [ "$cur" = "1" ] || { echo "gpsown collector is NOT writing the current hour (cron/KV problem)"; exit 1; }
 
