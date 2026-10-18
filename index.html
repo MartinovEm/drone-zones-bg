@@ -3648,8 +3648,8 @@ var OBS_MINZ = 11, OBS_KEEP = 16, OBS_INK = '#1f2a30', OBS_LIFT = '#00695c', OBS
 var OBS = {idx: null, idxP: null, have: {}, cells: {}, order: [], shown: '', shown3d: '', on: false, busy: 0, fail: false};
 var OBS_IDS = ['obs-rail', 'obs-lift', 'obs-minor', 'obs-eso-case', 'obs-eso', 'obs-line-case', 'obs-line', 'obs-sup', 'obs-3d', 'obs-sym', 'obs-sym2'];
 // 3D (owner 17-18.10): every object with a height (OSM's own or a typical one) stands as a tapered "needle" of
-// that height, from zoom OBS_Z_3D, only in 3D mode and only around the screen; the wires stay on the ground
-// (MapLibre cannot lift lines). Transmission towers get arms across their line at the height of the lowest
+// that height, from zoom OBS_Z_3D, only in 3D mode and only around the screen; MapLibre cannot lift lines, so the
+// power wires are bands of short level pieces (obsWires), the other wires stay on the ground. Transmission towers get arms across their line at the height of the lowest
 // wire (ESO): 400 kV two (the upper a little narrower), 220 kV two 6 m apart (ESO type НТ), 110 kV three
 // 3.5 m apart, the middle one the widest (ESO's „бъчва“); a tower with its OWN height is the model scaled to
 // it. Widths are a sign, not the real footprint. Turbines: a white tower to the hub (0.67 x the tip height:
@@ -3749,11 +3749,14 @@ function obsDecode(key, c){
     out.push({type: 'Feature', id: base + n++, geometry: {type: 'LineString', coordinates: q.map(function(p){ return [p[0] / S, p[1] / S]; })},
               properties: {k: k, v: r[1] || 0, n: r[3] || '', t: r[4] || ''}}); });
   out.dir = dir;
-  var x = 0, y = 0;
+  var x = 0, y = 0, sup = {}, pw = [];
   (c.p || []).forEach(function(r){ x += r[0]; y += r[1];
     var pr = {k: K[r[2]], h: (r[3] || 0) / 10, v: r[4] || 0, n: r[5] || '', t: r[6] || ''};
     if (r[7]){ pr.s = r[7] / 10; pr.a = r[8] || 0; }   // a portal mapped as a way: its span (m) + the beam's direction (°)
+    // the supports of the power lines, for the wires in the air: by their spot (a line vertex), a portal way by its middle
+    if (pr.k === 'tower' || pr.k === 'pole' || pr.k === 'upole' || pr.k === 'portal'){ if (pr.s) pw.push({x: x, y: y, p: pr}); else sup[x + ',' + y] = pr; }
     out.push({type: 'Feature', id: base + n++, geometry: {type: 'Point', coordinates: [x / S, y / S]}, properties: pr}); });
+  out.sup = sup; out.pw = pw;
   return out; }
 // the cells on the screen (+ a quarter cell around it); when the view is tilted towards the horizon,
 // only the OBS_KEEP - 4 nearest to the centre
@@ -3817,6 +3820,69 @@ function obsShape(f, dir, out){
   else if (p.k === 'chimney') tiers(H, [3.5, 3.1, 2.7, 2.4], OBS_INK);
   else if (p.k === 'mtower' || p.k === 'ctower') tiers(H, [4, 3, 2, 1.2], OBS_INK);
   else tiers(H, [1.4, 1, 0.7, 0.4], OBS_INK); }
+// wires in the air (owner 18.10, a trial): every power line (line / minor) as a band of short level pieces from support
+// to support (every vertex of a line is taken as a support): at a tower the lowest wire (ESO; a tower with its own height
+// scaled like its arms), at a portal its beam, at a pole its top; between them the wire sags down to the Наредба № 3
+// minimum outside settlements (its lowest point). A span cut at a cell border is joined with its other half from the neighbouring
+// cell (mirrored when that cell is not loaded). ESO routes, lifts and contact wires stay on the ground; the ground line
+// stays as the wire's shadow. The pieces are cut by equal height steps (short where the wire is steep, by the
+// supports): OBS_WSTEP m near the bottom of the screen, coarser farther away; OBS_WTH = a piece's thickness,
+// widths by kind (m) (owner 18.10, after the first look: thinner, smooth by the towers).
+var OBS_WSTEP = [[1500, 0.4], [5000, 1], [Infinity, 2.5]], OBS_WTH = 0.25, OBS_WW = {line: 0.4, minor: 0.3};
+function obsWireZ(k, v, sp){ var I = OBS.idx, c = obsCls(+v), TW = I.towers || {}, PL = I.poles || {};
+  if (sp && sp.h){ var H = Math.abs(sp.h);
+    if (sp.k === 'portal'){ var P = (I.portals || {})[String(sp.v >= 300 ? 400 : sp.v >= 200 ? 220 : 110)]; return P ? P.beam * H / P.h : H; }
+    if (sp.k === 'tower'){ var tc = obsCls(+sp.v || +v), T = TW[String(tc || 110)];
+      return (!T || tc === 20 || tc === 0.4) ? H : Math.min(T.low * H / T.h, H * 0.75); }
+    return H; }
+  if (k === 'line' && c !== 20 && c !== 0.4) return (TW[String(c)] || TW['110'] || {low: 16}).low;
+  return PL[String(c)] || I.poleUnknown || 11; }
+function obsWires(keys, W, E, Sb, N, out){
+  var I = OBS.idx, S = I.scale, B = Math.round(I.cell * S), X0 = Math.round(I.x0 * S), Y0 = Math.round(I.y0 * S), segs = [], ends = {};
+  var K = function(p){ return Math.round(p[0] * S) + ',' + Math.round(p[1] * S); };
+  var M = function(a, b){ return Math.hypot((b[0] - a[0]) * 111320 * Math.cos(a[1] * Math.PI / 180), (b[1] - a[1]) * 110540); };
+  var inBox = function(p){ return p[0] >= W && p[0] <= E && p[1] >= Sb && p[1] <= N; };
+  keys.forEach(function(ck){ var cell = OBS.cells[ck]; if (!cell) return;
+    cell.forEach(function(f){ var p = f.properties; if (f.geometry.type !== 'LineString' || (p.k !== 'line' && p.k !== 'minor')) return;
+      var co = f.geometry.coordinates, n = co.length, z = [], cut = [];
+      for (var i = 0; i < n; i++){ var x = Math.round(co[i][0] * S), y = Math.round(co[i][1] * S), sp = (cell.sup || {})[x + ',' + y];
+        cut[i] = (i === 0 || i === n - 1) && ((x - X0) % B === 0 || (y - Y0) % B === 0);   // a cell border, not a support
+        if (!sp && (i === 0 || i === n - 1)) (cell.pw || []).forEach(function(q){   // a line ending on a node of a portal way
+          if (!sp && M(co[i], [q.x / S, q.y / S]) <= q.p.s / 2 + 3) sp = q.p; });
+        z[i] = cut[i] ? null : obsWireZ(p.k, p.v, sp); }
+      var w = {f: f, co: co, z: z, cut: cut, zmin: ((I.wire || {})[String(obsCls(+p.v))] || (I.wire || {})['0'] || [6])[0]};
+      [0, n - 1].forEach(function(i){ if (cut[i]) (ends[K(co[i])] = ends[K(co[i])] || []).push({w: w, i: i}); });
+      segs.push(w); }); });
+  // the pieces of a span from support a (height za) towards b, over the part [0, tb] of a span to a support of height zo
+  // (a parabola through both supports whose lowest point is the minimum - nearer the lower support when they differ)
+  var el = map.getContainer(), nb = map.unproject([el.clientWidth / 2, el.clientHeight]), near = [nb.lng, nb.lat];   // the nearest ground on the screen
+  var span = function(w, a, b, za, zo, tb){
+    var m = w.zmin, ra = Math.sqrt(Math.max(0, za - m)), rb = Math.sqrt(Math.max(0, zo - m)), c = (ra + rb) * (ra + rb), t0 = ra / ((ra + rb) || 1), sag = ra && rb;
+    var zf = sag ? function(t){ return m + c * (t - t0) * (t - t0); } : function(t){ return za + (zo - za) * t; };
+    var dn = M(near, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]), step = (OBS_WSTEP.filter(function(s){ return dn < s[0]; })[0] || OBS_WSTEP[OBS_WSTEP.length - 1])[1];
+    var ts = [0], cut = function(z0, z1, toT){ var k = Math.max(1, Math.ceil(Math.abs(z1 - z0) / step)); for (var j = 1; j <= k; j++) ts.push(toT(z0 + (z1 - z0) * j / k)); };
+    if (!sag) cut(zf(0), zf(tb), function(z){ return Math.abs(zo - za) > 1e-9 ? (z - za) / (zo - za) : tb; });
+    else { var t1 = Math.min(t0, tb);
+      cut(za, zf(t1), function(z){ return Math.min(t1, t0 - Math.sqrt(Math.max(0, z - m) / c)); });                 // down to the lowest point
+      if (tb > t0) cut(m, zf(tb), function(z){ return Math.min(tb, t0 + Math.sqrt(Math.max(0, z - m) / c)); }); }   // and up again
+    var len = M(a, b), mx = 111320 * Math.cos(a[1] * Math.PI / 180), my = 110540, ux = (b[0] - a[0]) * mx / (len || 1), uy = (b[1] - a[1]) * my / (len || 1);
+    var hw = (OBS_WW[w.f.properties.k] || 0.3) / 2, p = w.f.properties;
+    for (var j = 0; j + 1 < ts.length; j++){ if (ts[j + 1] - ts[j] < 1e-6) continue;
+      var z0 = zf(ts[j]), z1 = zf(ts[j + 1]), d0 = len * ts[j] / tb - 0.05, d1 = len * ts[j + 1] / tb + 0.05;
+      var ring = [[d0, -hw], [d1, -hw], [d1, hw], [d0, hw], [d0, -hw]].map(function(q){
+        return [a[0] + (q[0] * ux - q[1] * uy) / mx, a[1] + (q[0] * uy + q[1] * ux) / my]; });
+      out.push({type: 'Feature', id: w.f.id, geometry: {type: 'Polygon', coordinates: [ring]},
+                properties: {k: p.k, v: p.v, n: p.n, t: p.t, zb: Math.max(0, Math.min(z0, z1) - OBS_WTH / 2), zt: Math.max(z0, z1) + OBS_WTH / 2, zc: OBS_INK}}); } };
+  segs.forEach(function(w){ var co = w.co, n = co.length;
+    for (var i = 0; i + 1 < n; i++){ var a = co[i], b = co[i + 1];
+      if (!inBox(a) && !inBox(b)) continue;
+      if (!w.cut[i] && !w.cut[i + 1]){ span(w, a, b, w.z[i], w.z[i + 1], 1); continue; }
+      if (w.cut[i] && w.cut[i + 1]) continue;                        // a sliver between two borders: left on the ground
+      var si = w.cut[i] ? i + 1 : i, ci = w.cut[i] ? i : i + 1, dA = M(co[si], co[ci]), zo = w.z[si], dB = dA;
+      var o = (ends[K(co[ci])] || []).filter(function(e){ return e.w !== w && e.w.f.properties.k === w.f.properties.k; })[0];
+      if (o){ var oi = o.i === 0 ? 1 : o.w.co.length - 2;
+        if (o.w.z[oi] != null){ zo = o.w.z[oi]; dB = M(co[ci], o.w.co[oi]); } }   // the other half of the span
+      span(w, co[si], co[ci], w.z[si], zo, dA / (dA + dB)); } }); }
 // in 3D from zoom OBS_Z_3D - 0.5: the shapes of the objects around the screen (rebuilt when the view moves on)
 function obs3dPush(keys){
   var src = map.getSource('wxobs3d'); if (!src) return;
@@ -3831,6 +3897,7 @@ function obs3dPush(keys){
     if (f.geometry.type !== 'Point' || !f.properties.h) return;
     var x = f.geometry.coordinates[0], y = f.geometry.coordinates[1];
     if (x >= W && x <= E && y >= Sb && y <= N) obsShape(f, cell.dir || {}, fs); }); });
+  if (on) obsWires(keys, W, E, Sb, N, fs);
   src.setData({type: 'FeatureCollection', features: fs}); }
 // called by wxSetMode (make_3d) on a 2D <-> 3D switch
 window.wxObs3D = function(){
