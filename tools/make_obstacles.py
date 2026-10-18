@@ -28,12 +28,14 @@ Sources
 A cell file is {"lic": ..., "l": lines, "p": points}. Coordinates are integers in 1e-5 degrees
 (~1 m). A line is [kind, kV, [x0, y0, dx1, dy1, ...], name, type] with its coordinates
 delta-encoded; the points of a cell are sorted and delta-encoded the same way:
-[dx, dy, kind, height_dm, kV, name, type]. height_dm > 0 = OSM's own height, < 0 = a typical
-height, 0 = none. Trailing empty fields are left out. The kinds are listed in index.json.
+[dx, dy, kind, height_dm, kV, name, type, span_dm, angle]. height_dm > 0 = OSM's own height, < 0 =
+a typical height, 0 = none. A portal drawn in OSM as a way (from leg to leg along its beam) sits at
+the way's middle and carries its span (dm) and the beam's direction (degrees counter-clockwise from
+east, 0-179). Trailing empty fields are left out. The kinds are listed in index.json.
 """
 import datetime, gzip, io, json, math, os, re, shutil, sys, tempfile, time, urllib.request
 import osmium
-from obstacle_heights import (TOWERS, POLES, POLE_UNKNOWN, LIFT_PYLON, WIND, WIND_FARMS,
+from obstacle_heights import (TOWERS, POLES, POLE_UNKNOWN, PORTALS, LIFT_PYLON, WIND, WIND_FARMS,
                               WIRE_MIN, WIRE_SRC, WIRE_URL, RAIL_WIRE)
 
 PBF_URL = "https://download.geofabrik.de/europe/bulgaria-latest.osm.pbf"
@@ -162,6 +164,7 @@ def read_osm(pbf):
     sup = {}      # support node id -> [lon, lat, kind, own height]
     pts = []      # other points: [sort key, lon, lat, kind, own height, name, type]
     lines = []    # [sort key, kind, kV, [(lon, lat)], name, type, node ids or None]
+    pways = {}    # portal ways: sort key -> (node ids, span m, the beam's direction in degrees)
     bways, brel, bad = {}, None, 0
     proc = (osmium.FileProcessor(pbf).with_locations()
             .with_filter(osmium.filter.KeyFilter("power", "man_made", "aerialway", "railway", "trolley_wire",
@@ -192,6 +195,15 @@ def read_osm(pbf):
             kind, ty = point_kind(t)
             if kind and nodes:   # an outline (a tower, a chimney, a portal ...): its centre
                 xy = [(n.lon, n.lat) for n in nodes]
+                if kind == "portal" and len(xy) > 1 and xy[0] != xy[-1]:
+                    # a portal way runs from leg to leg along the beam (the lines end on its inner nodes):
+                    # its middle, its span and the beam's direction
+                    (ax, ay), (bx, by) = xy[0], xy[-1]
+                    dx, dy = (bx - ax) * KX, (by - ay) * KY
+                    pways["w%d" % o.id] = ([n.ref for n in nodes], math.hypot(dx, dy),
+                                           math.degrees(math.atan2(dy, dx)) % 180)
+                    pts.append(["w%d" % o.id, (ax + bx) / 2, (ay + by) / 2, kind, num(t.get("height")), name_of(t), ty])
+                    continue
                 if len(xy) > 1 and xy[0] == xy[-1]:
                     xy = xy[:-1]
                 pts.append(["w%d" % o.id, sum(x for x, _ in xy) / len(xy), sum(y for _, y in xy) / len(xy), kind,
@@ -203,7 +215,7 @@ def read_osm(pbf):
         print("  %d way nodes without a location (outside the extract) skipped" % bad)
     if not brel:
         raise SystemExit("no border relation of Bulgaria (ISO3166-1=BG, admin_level=2) in the extract")
-    return sup, pts, lines, bways, brel
+    return sup, pts, lines, bways, brel, pways
 
 
 def border_rings(brel, bways, pbf):
@@ -275,11 +287,20 @@ def clip(coords, inside):
 
 # ---- heights -------------------------------------------------------------------------------
 
+def portal_height(v):
+    """A substation portal's typical height (metres; 0 = none) by the highest kV of the lines on it:
+    the 110 kV portal when the voltage is unknown, none for 20 kV and low voltage (owner 18.10)."""
+    c = vclass(v)
+    return PORTALS[c]["h"] if c in PORTALS else 0 if c else PORTALS[110]["h"]
+
+
 def support_height(kind, v, on_line, on_hv):
-    """A typical height for a tower / pole (metres; 0 = none). v = the highest kV of the lines
-    through it; on_hv = it carries a power=line (transmission), on_line = any power line."""
+    """A typical height for a tower / pole / portal (metres; 0 = none). v = the highest kV of the
+    lines through it; on_hv = it carries a power=line (transmission), on_line = any power line."""
+    if kind == "portal":
+        return portal_height(v)
     if kind not in ("tower", "pole", "upole"):
-        return 0                          # portals, catenary masts: no typical height
+        return 0                          # catenary masts: no typical height
     c = vclass(v)
     if c in TOWERS:
         return TOWERS[c]["h"]
@@ -558,7 +579,7 @@ def build(pbf, cache, out_dir):
     osm_ts = reader.header().get("osmosis_replication_timestamp") or ""
     reader.close()
     eso = read_eso(cache)   # before the long part: a source failure writes nothing
-    sup, pts, lines, bways, brel = read_osm(pbf)
+    sup, pts, lines, bways, brel, pways = read_osm(pbf)
     inside = Inside(border_rings(brel, bways, pbf))
     pts, doubles = drop_doubles(pts, sup)
 
@@ -577,14 +598,17 @@ def build(pbf, cache, out_dir):
     def count(key, n=1):
         stats[key] = stats.get(key, 0) + n
 
-    def add_point(key, x, y, kind, own, typical, v, name, ty):
+    def add_point(key, x, y, kind, own, typical, v, name, ty, span=0, angle=0):
         if not inside(x, y):
             return
         h = int(round(own * 10)) if own else -int(round(typical * 10)) if typical else 0
         count(kind)
         count("height: own" if own else "height: typical" if typical else "height: none")
+        if kind == "portal":
+            count("portal %s" % ("%g kV" % vclass(v) if v else "voltage unknown"))
         cells.setdefault(cell_of(x, y), {"l": [], "p": []})["p"].append(
-            (int(round(x * SCALE)), int(round(y * SCALE)), key, kind, h, kv_out(v), name, ty))
+            (int(round(x * SCALE)), int(round(y * SCALE)), key, kind, h, kv_out(v), name, ty,
+             int(round(span * 10)), int(round(angle)) % 180))
 
     def add_line(key, kind, v, coords, name, ty):
         n = 0
@@ -605,7 +629,7 @@ def build(pbf, cache, out_dir):
             orphans += 1
         add_point("n%d" % r, x, y, kind, own, support_height(kind, v, r in on_line, r in on_hv), v, "", "")
     for key, x, y, kind, own, name, ty in pts:
-        typical = 0
+        typical, v, span, angle = 0, 0.0, 0, 0
         if kind == "turbine":
             farm = FARM.get(key)
             farms_found += bool(farm)
@@ -617,7 +641,11 @@ def build(pbf, cache, out_dir):
                     own = None
         elif kind == "liftpylon":
             typical = LIFT_PYLON["h"]
-        add_point(key, x, y, kind, own, typical, 0, name, ty)
+        elif kind == "portal":   # a portal way: the voltage of the lines ending on its nodes
+            refs, span, angle = pways.get(key, ((), 0, 0))
+            v = max([vol.get(r, 0.0) for r in refs] or [0.0])
+            typical = portal_height(v)
+        add_point(key, x, y, kind, own, typical, v, name, ty, span, angle)
     for key, kind, v, coords, name, ty, _ in lines:
         add_line(key, kind, v, coords, name, ty)
     pieces, eso_date, eso_km = eso_pieces(eso, lines, inside)
@@ -633,8 +661,8 @@ def build(pbf, cache, out_dir):
                 flat += [bx - ax, by - ay]
             ls.append(trim([K[kind], v, flat, name, ty], [None, None, None, "", ""]))
         ps, px, py = [], 0, 0
-        for x, y, key, kind, h, v, name, ty in sorted(c["p"], key=lambda r: (r[0], r[1], r[2])):
-            ps.append(trim([x - px, y - py, K[kind], h, v, name, ty], [None, None, None, 0, 0, "", ""]))
+        for x, y, key, kind, h, v, name, ty, span, angle in sorted(c["p"], key=lambda r: (r[0], r[1], r[2])):
+            ps.append(trim([x - px, y - py, K[kind], h, v, name, ty, span, angle], [None, None, None, 0, 0, "", "", 0, 0]))
             px, py = x, y
         files["c%d_%d.json" % (ix, iy)] = dump({"lic": LIC, "l": ls, "p": ps})
 
@@ -644,6 +672,8 @@ def build(pbf, cache, out_dir):
         "cell": CELL, "x0": X0, "y0": Y0, "scale": SCALE, "kinds": KINDS,
         "towers": {str(k): {"h": t["h"], "range": t["range"], "low": t["low"]} for k, t in TOWERS.items()},
         "poles": {str(k): p["h"] for k, p in POLES.items()}, "poleUnknown": POLE_UNKNOWN,
+        "portals": {str(k): {"h": p["h"], "beam": p["beam"], "w": p["w"], "rods": p.get("rods", 0),
+                             "foreign": int(bool(p.get("foreign")))} for k, p in PORTALS.items()},
         "lift": {"h": LIFT_PYLON["h"], "range": LIFT_PYLON["range"]},
         "wind": {"h": WIND["h"], "range": WIND["range"]},
         "farms": {f["key"]: {"n": f["n"], "m": f["m"], "h": f["h"]} for f in WIND_FARMS},
@@ -677,6 +707,9 @@ def build(pbf, cache, out_dir):
     print("ESO pieces not in OSM: %d, %.0f km" % (len(pieces), eso_km))
     print("outlines dropped as doubles of a node: %d; towers on no mapped line: %d; wind-farm turbines found by id: %d of %d"
           % (doubles, orphans, farms_found, len(FARM)))
+    if pways:
+        spans = sorted(s for _, s, _ in pways.values())
+        print("portal ways (leg to leg): %d, median span %.1f m" % (len(spans), spans[len(spans) // 2]))
     if wind_own:
         print("turbines with their own OSM height (own m / typical m): " +
               ", ".join("%s %g/%g" % (k, o, t) for k, o, t in wind_own))

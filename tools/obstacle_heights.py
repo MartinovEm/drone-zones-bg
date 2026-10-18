@@ -40,6 +40,33 @@ POLES = {
 }
 POLE_UNKNOWN = 11   # owner 17.10.2026: a pole whose line has no voltage in OSM gets the 20 kV pole (the taller)
 
+# Substation portals (power=portal): the steel frames where a line ends in a substation's open
+# switchyard (ESO: „Порталите представляват П-образни конструкции, изпълнени от стоманорешетъчни
+# колони и ригели“), by the voltage of the line on them. "beam" = the height of the cross-beam the
+# wires hang from, "h" = the top (the columns' peaks above the beam, where a figure exists), "w" = one
+# bay (the span between two legs), "rods" = the top of the lightning rod / mast that SOME portals carry.
+# 110 and 400 kV from ESO's own documents (checked 18.10.2026). No Bulgarian figure for 220 kV, so a
+# Soviet type design is used (foreign); ESO's range for the line portals of all classes is 10-25 m high
+# and 9-22 m wide, so a 220 kV portal is drawn with the narrowest bay. A portal of unknown voltage takes
+# the 110 kV one; a 20 kV portal gets none (owner 18.10.2026).
+PORTALS = {
+    400: {"h": 25, "beam": 25, "w": 22,
+          "src": "ESO, ЦУ/2017/088 (п/ст Бургас, п/ст Варна-750): „изводните и помощните портали са с височина "
+                 "25 m“; ЦУ/2018/122 (п/ст Столник): ригелите на изводните портали са с „дължина 22 000mm (осово "
+                 "между колоните)“",
+          "u": "https://webapps.eso.bg/zop_profile/page3download.php?id=52927&faID=70926&fn=1&fname=%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F.pdf"},
+    220: {"h": 17, "beam": 17, "w": 9, "foreign": True,
+          "src": "no Bulgarian figure; Soviet type design 3.407.9-149 (portals ПС-220Я / Ш): „Высота, м: 17 (17,2)“; "
+                 "ESO's range for line portals (framework specification 2018): „височина: 10,00 m ÷ 25,00 m и "
+                 "широчина: 9,00 m ÷ 22,00 m“",
+          "u": "https://aldeks.ru/portalyi_oru/220_kv/"},
+    110: {"h": 12.5, "beam": 10, "w": 9, "rods": 16.5,
+          "src": "ESO, п/ст Габрово (2018): „стоманорешетъчна рамка с височина 10.00 м и два отвора 9.00 м“, „връх на "
+                 "колоната с височина 2500 мм“, „мълниеприемна мачта с дължина 4.00 м“; п/ст Търговище Индустрия "
+                 "(2025): „с височина до точката на окачване на проводниците h=10 m (изводни портали)“",
+          "u": "https://webapps.eso.bg/zop_profile/page3download.php?id=64513&faID=84649&fn=1&fname=%D0%9F%D1%80.1+-+%D0%A2%D0%B5%D1%85%D0%BD%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8+%D1%81%D0%BF%D0%B5%D1%86%D0%B8%D1%84%D0%B8%D0%BA%D0%B0%D1%86%D0%B8.pdf"},
+}
+
 LIFT_PYLON = {"h": 15, "range": "5–23",
               "src": "two lift projects in France (MRAe Occitanie 2024APO137, a chair lift: „8 pylônes d'une hauteur "
                      "de 5 à 23 mètres“; 2024APO77, a gondola: 6.5–23 m) — no Bulgarian figures found",

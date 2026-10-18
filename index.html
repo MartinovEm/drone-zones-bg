@@ -3751,8 +3751,9 @@ function obsDecode(key, c){
   out.dir = dir;
   var x = 0, y = 0;
   (c.p || []).forEach(function(r){ x += r[0]; y += r[1];
-    out.push({type: 'Feature', id: base + n++, geometry: {type: 'Point', coordinates: [x / S, y / S]},
-              properties: {k: K[r[2]], h: (r[3] || 0) / 10, v: r[4] || 0, n: r[5] || '', t: r[6] || ''}}); });
+    var pr = {k: K[r[2]], h: (r[3] || 0) / 10, v: r[4] || 0, n: r[5] || '', t: r[6] || ''};
+    if (r[7]){ pr.s = r[7] / 10; pr.a = r[8] || 0; }   // a portal mapped as a way: its span (m) + the beam's direction (°)
+    out.push({type: 'Feature', id: base + n++, geometry: {type: 'Point', coordinates: [x / S, y / S]}, properties: pr}); });
   return out; }
 // the cells on the screen (+ a quarter cell around it); when the view is tilted towards the horizon,
 // only the OBS_KEEP - 4 nearest to the centre
@@ -3799,6 +3800,20 @@ function obsShape(f, dir, out){
   } else if (p.k === 'pole' || p.k === 'upole'){ P(oct(0.55), 0, H, OBS_INK); P(arm(2.6, 0.5), H - 0.8, H - 0.4, OBS_INK); }
   else if (p.k === 'liftpylon'){ P(oct(0.7), 0, H, OBS_LIFT); P(arm(5, 0.6), H - 0.6, H, OBS_LIFT); }
   else if (p.k === 'turbine'){ var hub = H * 0.67; tiers(hub, [2.2, 1.9, 1.6, 1.3], OBS_WHITE); P(oct(0.5), hub, H, OBS_BLADE); }
+  else if (p.k === 'portal'){
+    // a substation portal (owner 18.10): a „П“ frame - a leg at both ends and one every bay, the beam the wires
+    // hang from (ESO), the legs up to the columns' peaks where a figure exists (110 kV). Along the OSM way (leg
+    // to leg); a portal mapped as a point stands across its line with one bay. Unknown voltage = 110 kV.
+    var pc = p.v >= 300 ? 400 : p.v >= 200 ? 220 : 110, PC = (OBS.idx.portals || {})[String(pc)] || {h: H, beam: H, w: 9};
+    var beam = PC.beam * H / (PC.h || H), bay = PC.w || 9, span = p.s || bay, nb = Math.max(1, Math.round(span / bay));
+    var lr = pc === 400 ? 0.9 : pc === 220 ? 0.7 : 0.5, bh = pc === 400 ? 1.6 : pc === 220 ? 1.2 : 0.9, bw = pc === 400 ? 1 : 0.7;
+    var ang = p.s ? p.a * Math.PI / 180 : th + Math.PI / 2, ux = Math.cos(ang), uy = Math.sin(ang);
+    var leg = function(d){ var cx = x + d * ux / mx, cy = y + d * uy / my, g = [];
+      for (var i = 0; i <= 8; i++){ var a = (i % 8) * Math.PI / 4 + Math.PI / 8; g.push([cx + lr * Math.cos(a) / mx, cy + lr * Math.sin(a) / my]); }
+      return g; };
+    for (var i = 0; i <= nb; i++) P(leg(-span / 2 + span * i / nb), 0, H, OBS_INK);
+    P([[1, 1], [1, -1], [-1, -1], [-1, 1], [1, 1]].map(function(s){ var ex = s[0] * ux * (span / 2 + lr) - s[1] * uy * bw / 2,
+      ey = s[0] * uy * (span / 2 + lr) + s[1] * ux * bw / 2; return [x + ex / mx, y + ey / my]; }), beam - bh, beam, OBS_INK); }
   else if (p.k === 'chimney') tiers(H, [3.5, 3.1, 2.7, 2.4], OBS_INK);
   else if (p.k === 'mtower' || p.k === 'ctower') tiers(H, [4, 3, 2, 1.2], OBS_INK);
   else tiers(H, [1.4, 1, 0.7, 0.4], OBS_INK); }
@@ -3892,7 +3907,7 @@ window.wxObsColor = function(p){ return (p.k === 'lift' || p.k === 'liftpylon') 
 window.wxObsName = function(p){ var L = obsEn() ? 'en' : 'bg', q = obsEn() ? ['"', '"'] : ['„', '“'];
   var s = p.k === 'lift' ? (OBS_LIFTS[L][p.t] || OBS_N[L].lift) : (OBS_N[L][p.k] || p.k);
   if (p.k === 'mtower' && OBS_TT[L][p.t]) s += ' (' + OBS_TT[L][p.t] + ')';
-  if (['line', 'minor', 'eso', 'tower', 'pole'].indexOf(p.k) >= 0 && +p.v) s += ' ' + obsNum(+p.v) + ' kV';
+  if (['line', 'minor', 'eso', 'tower', 'pole', 'portal'].indexOf(p.k) >= 0 && +p.v) s += ' ' + obsNum(+p.v) + ' kV';
   return s + (p.n ? ' ' + q[0] + p.n + q[1] : ''); };
 window.wxObsSub = function(p){ var en = obsEn(), h = +p.h || 0;
   if (p.k === 'eso') return en ? 'route by ESO, approximate' : 'трасе по ЕСО, приблизително';
@@ -3909,6 +3924,12 @@ function obsHeight(p){ var en = obsEn(), I = OBS.idx || {}, h = +p.h || 0, M = e
       (f ? (en ? 'typical for the ' + f.n + ' wind farm (' + f.m + ')' : 'типична за ВЕП „' + f.n + '“ (' + f.m + ')')
          : (en ? 'typical (' + r + ' m)' : 'типична (' + r + ' м)')); }
   if (p.k === 'liftpylon') return t + (en ? 'typical (' + (I.lift || {}).range + ' m)' : 'типична (' + (I.lift || {}).range + ' м)');
+  if (p.k === 'portal'){ var PP = (I.portals || {})[String(c)] || {};   // owner 18.10: the texts
+    if (!c) return t + (en ? 'the voltage is unknown, so a 110 kV portal is assumed.' : 'напрежението не е известно, приет е портал 110 kV.');
+    if (PP.foreign) return t + (en ? 'from a foreign type design; no Bulgarian figure for ' + c + ' kV.' : 'по чужд типов проект; за ' + c + ' kV в български документи няма число.');
+    return t + (en ? 'typical for a ' + c + ' kV portal (ESO)' : 'типична за портал ' + c + ' kV (ЕСО)') +
+      (PP.beam && PP.beam < -h ? (en ? '; the wires hang at ~' + obsNum(PP.beam) + ' m' : '; проводниците са окачени на ~' + obsNum(PP.beam) + ' м') : '') + '.' +
+      (PP.rods ? (en ? ' Some portals carry a lightning rod — up to ~' + obsNum(PP.rods) + ' m.' : ' Някои портали имат мълниеприемник — до ~' + obsNum(PP.rods) + ' м.') : ''); }
   if (tw) return t + (en ? 'typical for a ' + c + ' kV tower (' + tw.range + ' m); the lowest wire hangs at ~' + obsNum(tw.low) + ' m at the tower'
                          : 'типична за стълб ' + c + ' kV (' + tw.range + ' м); долният проводник е на ~' + obsNum(tw.low) + ' м при стълба');
   if (c === 20) return t + (en ? 'typical for a 20 kV pole' : 'типична за стълб 20 kV');
