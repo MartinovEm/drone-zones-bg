@@ -561,7 +561,7 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('gj', on);
   if (window.wxSetGj) window.wxSetGj(on); };
 // airspace + NOTAM toggles are CHIPS in the drawer (not on-map buttons)
-['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat', 'cbZzt:zzt:wxSetZzt', 'cbObs:obs:wxSetObs'].forEach(function(s){
+['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbAero:aero:wxSetAero', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat', 'cbZzt:zzt:wxSetZzt', 'cbObs:obs:wxSetObs'].forEach(function(s){
   var a = s.split(':'), el = document.getElementById(a[0]); if (!el) return;
   el.onclick = function(e){ e.stopPropagation(); var on = el.classList.toggle('on');
     try{ ST.set(a[1], on); }catch(_){} if (window[a[2]]) window[a[2]](on); };
@@ -1480,7 +1480,7 @@ WX_RESTORE_JS = r"""
   document.querySelectorAll('#wxwindh .wxhseg button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-h') === wh); });
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
-   ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['notam','cbNotam','wxSetNotam'],
+   ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['aero','cbAero','wxSetAero'], ['notam','cbNotam','wxSetNotam'],
    ['nat','cbNat','wxSetNat'], ['zzt','cbZzt','wxSetZzt'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){
     if (!ST.get(s[0], false)) return;
@@ -1634,7 +1634,7 @@ function liRemove(){ if (map.getLayer(LI)) map.removeLayer(LI); if (map.getSourc
 function stormRemove(){ if (map.getLayer(STM)) map.removeLayer(STM); if (map.getSource('wxstorm')) map.removeSource('wxstorm'); }
 // lightning is drawn just above the zones (owner 15.10: over the clouds AND the zones) but below
 // the layers added later without a slot (NOTAM pins, aircraft, activated zones)
-function liSlot(){ var top = map.getLayer('obs-sym2') ? 'obs-sym2' : map.getLayer('o-CONDITIONAL') ? 'o-CONDITIONAL' : null; // above the zones AND the obstacles
+function liSlot(){ var top = map.getLayer('obs-sym2') ? 'obs-sym2' : map.getLayer('aero-label') ? 'aero-label' : map.getLayer('o-CONDITIONAL') ? 'o-CONDITIONAL' : null; // above the zones, the airfields AND the obstacles
   return top ? wxAboveOf(top) : undefined; }
 function liFrames(){ return (rvOn && rvFrames.length) ? rvFrames.map(function(f){ return f.time * 1000; }) : null; }
 function liIcon(){ // a yellow bolt with a dark outline, drawn once at pixel ratio 2
@@ -2602,7 +2602,10 @@ function obsIcon(){ var normal = ['match', ['get', 'k'], 'turbine', 'obs-wind', 
 function obsDotOp(){ return window.wxMode === '3d' ? ['step', ['zoom'], 1, OBS_Z_3D, ['case', ['!=', ['get', 'h'], 0], 0, 1]] : 1; }
 function obsSlot(){ var ls = wxStyleLayers(), i; // just above the zones, below the lightning / thunderstorm bolts (liSlot)
   for (i = 0; i < ls.length; i++){ if (ls[i].id === 'wxli-layer' || ls[i].id === 'wxstorm-layer') return ls[i].id; }
-  return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
+  for (i = 0; i < ls.length; i++){ if (ls[i].id === 'o-CONDITIONAL'){ // above the zones AND the airfields (aero-*), which stay just above the zones
+    for (i++; i < ls.length && ls[i].id.indexOf('aero-') === 0; i++){}
+    return i < ls.length ? ls[i].id : undefined; } }
+  return undefined; }
 function obsLayers(){
   if (map.getLayer('obs-line')) return;
   var b = obsSlot(), Z = function(a, c){ return ['interpolate', ['linear'], ['zoom'], 11, a, 16, c]; };
@@ -2917,6 +2920,96 @@ window.wxObsDetail = function(p){ var en = obsEn(), I = OBS.idx || {}, sub = win
   if (p.k === 'rail' && I.rail) h += '<br>' + (en ? 'The contact wire hangs about ' + obsNum(I.rail.h) + ' m above the rails (' + obsNum(I.rail.lc) + ' m at level crossings).'
                                                   : 'Контактният проводник е на около ' + obsNum(I.rail.h) + ' м над релсите (' + obsNum(I.rail.lc) + ' м на прелезите).');
   if (wire) h += '<br><small>' + (en ? 'A line missing on the map does not mean there is none.' : 'Липсата на линия на картата не значи, че там няма.') + '</small>';
+  return h; };
+// ---- airfields, helipads and hospitals (ROADMAP 7, owner 19.10): ONE chip «Летища, площадки и болници» in
+// «Въздушно пространство», OFF by default (ST aero). Straight from the OpenFreeMap vector tiles the page already
+// loads for the 3D buildings (source 'ofm', OpenMapTiles schema, OpenStreetMap data): aerodromes = a dashed outline
+// (aeroway, from zoom 10) + a plane sign with the name and ICAO (aerodrome_label, from zoom 8: name, class, icao,
+// iata, ele); runways (aeroway, from 10); heliports / helipads (aeroway, an H; the tiles carry them from 14);
+// hospitals (poi subclass 'hospital' ONLY - the tiles' class 'hospital' also holds clinics and nursing homes; a red
+// cross, the tiles carry them from 14) + their grounds (landuse 'hospital', a red dashed outline from 12). Taxiways,
+// aprons and gates are left out. Every aerodrome the tiles carry is shown (private and agricultural strips too -
+// their kind is in the popup). Just above the zones, below the obstacles and the lightning (aeroBefore / obsSlot / liSlot).
+var AERO_IDS = ['aero-field', 'aero-hosp-area', 'aero-rwy-area', 'aero-rwy', 'aero-heli', 'aero-hosp', 'aero-label'];
+var AERO_CLICK = ['aero-label', 'aero-heli', 'aero-hosp', 'aero-rwy', 'aero-rwy-area'];
+var AERO_INK = '#283593', AERO_RED = '#c62828', AERO_RWY = '#455a64';
+var AERO_KIND = {
+  bg: {international: 'Международно летище', 'public': 'Обществено летище', regional: 'Регионално летище', military: 'Военно летище',
+       'private': 'Частно летище', other: 'Летище', heliport: 'Хеликоптерно летище', helipad: 'Хеликоптерна площадка', runway: 'Писта', hospital: 'Болница'},
+  en: {international: 'International airport', 'public': 'Public airport', regional: 'Regional airport', military: 'Military airfield',
+       'private': 'Private airfield', other: 'Airfield', heliport: 'Heliport', helipad: 'Helipad', runway: 'Runway', hospital: 'Hospital'}};
+function aeroEn(){ return (window.LANG || 'bg') === 'en'; }
+function aeroBefore(){ var ls = wxStyleLayers(), i; // the lowest obstacle / lightning layer, else just above the zones
+  for (i = 0; i < ls.length; i++){ var id = ls[i].id; if (id.indexOf('obs-') === 0 || id === 'wxli-layer' || id === 'wxstorm-layer') return id; }
+  return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
+function aeroIcons(){ var pr = 2;
+  function make(id, w, h, draw){ if (map.hasImage(id)) return;
+    var c = document.createElement('canvas'); c.width = w * pr; c.height = h * pr;
+    var x = c.getContext('2d'); x.scale(pr, pr); x.lineJoin = 'round'; x.lineCap = 'round'; draw(x);
+    map.addImage(id, {width: w * pr, height: h * pr, data: x.getImageData(0, 0, w * pr, h * pr).data}, {pixelRatio: pr}); }
+  // an aerodrome: a small aeroplane, dark blue with a white edge
+  make('aero-plane', 20, 20, function(x){
+    var p = function(){ x.beginPath(); x.moveTo(10, 2.5); x.lineTo(10, 17.5); x.moveTo(2.5, 10); x.lineTo(17.5, 10); x.moveTo(6.5, 16.5); x.lineTo(13.5, 16.5); };
+    p(); x.lineWidth = 4.6; x.strokeStyle = 'rgba(255,255,255,0.95)'; x.stroke();
+    p(); x.lineWidth = 2.2; x.strokeStyle = AERO_INK; x.stroke(); });
+  // a heliport / helipad: a white disc with a dark blue H
+  make('aero-h', 18, 18, function(x){
+    x.beginPath(); x.arc(9, 9, 7.6, 0, 7); x.fillStyle = '#fff'; x.fill(); x.lineWidth = 1.6; x.strokeStyle = AERO_INK; x.stroke();
+    x.fillStyle = AERO_INK; x.fillRect(5.6, 4.8, 1.8, 8.4); x.fillRect(10.6, 4.8, 1.8, 8.4); x.fillRect(5.6, 8.1, 6.8, 1.8); });
+  // a hospital: a red cross on a white square
+  make('aero-cross', 18, 18, function(x){
+    x.fillStyle = '#fff'; x.strokeStyle = AERO_RED; x.lineWidth = 1.4; x.beginPath(); x.rect(1.5, 1.5, 15, 15); x.fill(); x.stroke();
+    x.fillStyle = AERO_RED; x.fillRect(7.3, 4, 3.4, 10); x.fillRect(4, 7.3, 10, 3.4); }); }
+function aeroLayers(){
+  if (map.getLayer('aero-label') || !map.getSource('ofm')) return;
+  aeroIcons();
+  var b = aeroBefore(), L = function(o){ o.source = 'ofm'; map.addLayer(o, b); };
+  var K = function(c){ return ['==', ['get', 'class'], c]; }, G = function(t){ return ['==', ['geometry-type'], t]; };
+  var TXT = {'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-optional': true, 'text-max-width': 9};
+  var HALO = function(col){ return {'text-color': col, 'text-halo-color': '#fff', 'text-halo-width': 1.4}; };
+  L({id: 'aero-field', type: 'line', 'source-layer': 'aeroway', minzoom: 10, filter: ['all', K('aerodrome'), G('Polygon')], layout: {'line-join': 'round'},
+     paint: {'line-color': AERO_INK, 'line-opacity': 0.85, 'line-dasharray': [3, 2], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 15, 2]}});
+  L({id: 'aero-hosp-area', type: 'line', 'source-layer': 'landuse', minzoom: 12, filter: K('hospital'), layout: {'line-join': 'round'},
+     paint: {'line-color': AERO_RED, 'line-opacity': 0.7, 'line-dasharray': [2, 1.5], 'line-width': 1.2}});
+  L({id: 'aero-rwy-area', type: 'fill', 'source-layer': 'aeroway', minzoom: 10, filter: ['all', K('runway'), G('Polygon')],
+     paint: {'fill-color': AERO_RWY, 'fill-opacity': 0.75}});
+  L({id: 'aero-rwy', type: 'line', 'source-layer': 'aeroway', minzoom: 10, filter: ['all', K('runway'), G('LineString')],
+     paint: {'line-color': AERO_RWY, 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 10, 1.5, 16, 26]}});
+  L({id: 'aero-heli', type: 'symbol', 'source-layer': 'aeroway', minzoom: 12, filter: ['in', ['get', 'class'], ['literal', ['heliport', 'helipad']]],
+     layout: {'icon-image': 'aero-h', 'icon-size': ['interpolate', ['linear'], ['zoom'], 12, 0.8, 16, 1.1], 'icon-allow-overlap': true}});
+  L({id: 'aero-hosp', type: 'symbol', 'source-layer': 'poi', minzoom: 12, filter: ['all', K('hospital'), ['==', ['get', 'subclass'], 'hospital']],
+     layout: Object.assign({'icon-image': 'aero-cross', 'icon-size': 0.9, 'icon-allow-overlap': true, 'text-field': ['coalesce', ['get', 'name'], ''],
+       'text-anchor': 'left', 'text-offset': [0.9, 0]}, TXT), paint: HALO(AERO_RED)});
+  L({id: 'aero-label', type: 'symbol', 'source-layer': 'aerodrome_label', minzoom: 8,
+     layout: Object.assign({'icon-image': 'aero-plane', 'icon-size': ['interpolate', ['linear'], ['zoom'], 8, 0.75, 13, 1], 'icon-allow-overlap': true,
+       'symbol-sort-key': ['match', ['get', 'class'], 'international', 0, 'public', 1, 'regional', 2, 'military', 3, 4],
+       'text-field': ['concat', ['coalesce', ['get', 'name'], ''], ['case', ['has', 'icao'], ['concat', '\n', ['get', 'icao']], '']],
+       'text-anchor': 'top', 'text-offset': [0, 0.9]}, TXT), paint: HALO(AERO_INK)}); }
+window.wxSetAero = function(on){ window.wxAeroOn = on; var c = document.getElementById('cbAero');
+  if (on){ if (c) c.classList.add('loading');
+    whenReady(function(){ if (!window.wxAeroOn) return; aeroLayers();
+      map.once('idle', function(){ var c2 = document.getElementById('cbAero'); if (c2) c2.classList.remove('loading'); }); }); }
+  else { AERO_IDS.forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (c) c.classList.remove('loading');
+    if (window.wxPopupPrune) window.wxPopupPrune(); } };
+AERO_CLICK.forEach(function(id){
+  map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', id, function(){ map.getCanvas().style.cursor = ''; }); });
+// helpers for the SHARED click chooser in make_3d (items tagged _aero; _al = the layer the item came from)
+function aeroKind(p){ var K = AERO_KIND[aeroEn() ? 'en' : 'bg'], c = p['class'];
+  return p._al === 'aero-label' ? (K[c] || K.other) : p._al === 'aero-hosp' ? K.hospital : (K[c] || c || ''); }
+window.wxAeroColor = function(p){ return p._al === 'aero-hosp' ? AERO_RED : AERO_INK; };
+window.wxAeroName = function(p){ var k = aeroKind(p);
+  if (p._al === 'aero-label' || p._al === 'aero-hosp') return p.name || k;
+  return k + (p.ref ? ' ' + p.ref : ''); };
+window.wxAeroSub = function(p){ return ((p._al === 'aero-label' || p._al === 'aero-hosp') && p.name) ? aeroKind(p) : ''; };
+window.wxAeroDetail = function(p){ var en = aeroEn(), sub = window.wxAeroSub(p);
+  var h = '<b>' + esc(window.wxAeroName(p)) + '</b>' + (sub ? ' <span class="ptype">' + esc(sub) + '</span>' : '');
+  if (p._al === 'aero-label'){ var codes = [];
+    if (p.icao) codes.push('ICAO: ' + p.icao);
+    if (p.iata) codes.push('IATA: ' + p.iata);
+    if (codes.length) h += '<br>' + esc(codes.join(' · '));
+    if (p.ele != null && p.ele !== '' && isFinite(+p.ele)) h += '<br>' + (en ? 'Elevation: ' : 'Надморска височина: ') + Math.round(+p.ele) + (en ? ' m' : ' м'); }
   return h; };
 // ---- NOTAM layer (/notam relay over the FAA NMS-API): temporary drone-relevant
 // restrictions drawn ABOVE the zones. A lettered pin (P/R/D/M/!) at the centre + a

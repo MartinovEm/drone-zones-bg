@@ -201,6 +201,7 @@ var T = {
      clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
+     aeroShow:'Летища, площадки и болници',aeroNote:'Летища, писти, хеликоптерни площадки и болници · виждат се при приближаване · OpenStreetMap',
      secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntG:'GNSS смущения',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
      secNat:'Природа',natShow:'Натура 2000',natNote:'Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ',
      zztShow:'Защитени територии',zztNote:'Защитени територии: червен контур = изрична забрана за дронове или полети; пунктир = само в част от територията или от годината; зелено = не е открита изрична забрана · ИАОС / МОСВ',
@@ -213,6 +214,7 @@ var T = {
      clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
+     aeroShow:'Airfields, helipads and hospitals',aeroNote:'Airfields, runways, helipads and hospitals · shown when zoomed in · OpenStreetMap',
      secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntG:'GNSS interference',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
      secNat:'Nature',natShow:'Natura 2000',natNote:'Natura 2000 by itself does not ban drone flights · boundaries: EEA (simplified), names: MOEW',
      zztShow:'Protected areas',zztNote:'Protected areas: red outline = an explicit drone or flight ban; dashed = only in part of the area or of the year; green = no explicit ban found · ИАОС / MOEW',
@@ -263,7 +265,7 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
 // thicken the outline of the ONE item a popup shows (airspace, activated zone, protected territory or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
@@ -276,6 +278,8 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(window.wxNotamName(p)) + '</b> <span class="ptype">NOTAM · ' + esc(window.wxNotamSub(p)) + '</span>'; }
     else if (p._act){ dot = window.wxActColor(p);
       inner = '<b>' + esc(window.wxActName(p)) + '</b> <span class="ptype">' + esc(window.wxActSub(p)) + '</span>'; }
+    else if (p._aero){ dot = window.wxAeroColor(p); var es = window.wxAeroSub(p);
+      inner = '<b>' + esc(window.wxAeroName(p)) + '</b>' + (es ? ' <span class="ptype">' + esc(es) + '</span>' : ''); }
     else if (p._obs){ dot = window.wxObsColor(p);
       inner = '<b>' + esc(window.wxObsName(p)) + '</b> <span class="ptype">' + esc(window.wxObsSub(p)) + '</span>'; }
     else if (p._zzt){ dot = window.wxZztColor(p);
@@ -288,7 +292,7 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._aero ? window.wxAeroDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -317,6 +321,7 @@ function openZones(list, lngLat){ if (!list.length) return; curList = list; curP
 function featShown(p){
   if (p._nt) return !!map.getLayer('notam-pin');
   if (p._act) return !!map.getLayer('act-fill');
+  if (p._aero) return !!map.getLayer('aero-label');
   if (p._obs) return !!map.getLayer('obs-line');
   if (p._zzt) return !!map.getLayer('wxnat-t-fill');
   if (p._nat) return !!map.getLayer('wxnat-fill');
@@ -362,7 +367,7 @@ var map = new maplibregl.Map({
       sat: {type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Imagery &copy; Esri, Vantor, Earthstar Geographics'},
       lbl: {type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Labels &copy; Esri'},
       dem: {type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256, encoding: 'terrarium', maxzoom: 13, attribution: 'Terrain: USGS, NOAA &middot; Mapzen/AWS'},
-      ofm: {type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: 'Buildings &copy; OpenMapTiles &copy; OpenStreetMap contributors'},
+      ofm: {type: 'vector', url: 'https://tiles.openfreemap.org/planet', attribution: '&copy; OpenMapTiles &copy; OpenStreetMap contributors'},
       osm: {type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'},
       dg: {type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, maxzoom: 16, attribution: 'Dark Gray Canvas &copy; Esri, HERE, Garmin &middot; &copy; OpenStreetMap contributors'},
       mt_topo: {type: 'raster', tiles: ['https://api.maptiler.com/maps/topo-v2/256/{z}/{x}/{y}.png?key=' + MTKEY], tileSize: 256, maxzoom: 22, attribution: MT_ATTR},
@@ -683,6 +688,13 @@ map.on('load', function(){
     if (xl.length){ var xs = {};
       map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
         if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
+    // airfields, helipads, hospitals (when that layer is on): their signs and the runways; one item per kind + name + ref
+    var el2 = ['aero-label','aero-heli','aero-hosp','aero-rwy','aero-rwy-area'].filter(function(id){ return map.getLayer(id); });
+    if (el2.length){ var es = {}, eb = [[pt.x - 6, pt.y - 6], [pt.x + 6, pt.y + 6]];
+      map.queryRenderedFeatures(eb, {layers: el2}).forEach(function(f){ var q = f.properties, lid = f.layer && f.layer.id;
+        if (lid === 'aero-rwy-area') lid = 'aero-rwy';
+        var ek = lid + '|' + (q['class'] || '') + '|' + (q.name || '') + '|' + (q.ref || '');
+        if (!es[ek]){ es[ek] = 1; var p = {}; for (var k in q) p[k] = q[k]; p._aero = true; p._al = lid; p._ak = ek; list.push(p); } }); }
     // obstacles (when that layer is on): tall objects, towers / poles, then the wires - thin, so a wider box
     var ol = ['obs-sym','obs-sym2','obs-3d','obs-sup','obs-line','obs-eso','obs-minor','obs-lift','obs-rail'].filter(function(id){ return map.getLayer(id); });
     if (ol.length){ var os = {}, ob = [[pt.x - 8, pt.y - 8], [pt.x + 8, pt.y + 8]];

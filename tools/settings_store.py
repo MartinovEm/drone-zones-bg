@@ -12,7 +12,8 @@ startup and writes it on change:
 
 Current keys: fP/fA/fC (colour filter chips), cld/rad/fc/pln (clouds, radar,
 rain forecast, aircraft), fch (forecast slider hour), obs (the obstacles + the 3D
-buildings, default ON; the old bld key is no longer read),
+buildings, default ON; the old bld key is no longer read), aero (airfields,
+helipads and hospitals, default OFF),
 pitch/bearing (3D camera angle). The language stays under its pre-existing
 separate 'lang' key. A future setting (theme, basemap, ...) just picks a new
 key - no other wiring needed.

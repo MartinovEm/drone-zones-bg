@@ -439,11 +439,14 @@ AIRSPACE_SECTION = (
   '<span class="chip" id="cbAct"><span class="dot" style="background:#d0202a"></span><span data-i18n="actShow">Активирани зони</span></span>'
   '<span class="chip" id="cbAirC"><span class="dot" style="background:#2b6cb0"></span><span data-i18n="airCtrl">Контролирано</span></span>'
   '<span class="chip" id="cbAirS"><span class="dot" style="background:#d0202a"></span><span data-i18n="airSpec">Специални зони</span></span>'
+  # airfields, runways, helipads and hospitals from the OpenFreeMap tiles (OSM); OFF by default (owner 19.10)
+  '<span class="chip" id="cbAero"><span class="dot" style="background:#283593"></span><span data-i18n="aeroShow">Летища, площадки и болници</span></span>'
   '</div>'
   '<div class="airnote"><span class="airsw" style="background:#d0202a"></span><span data-i18n="airLegRPD">забранени / ограничени / опасни</span>'
   '<span class="airsw" style="background:#d81fbf;margin-left:6px"></span><span data-i18n="airMil">военни</span></div>'
   '<div class="flnote" data-i18n="airFL180">Показва се само до FL180 (18 000 ft)</div>'
   '<div class="flnote" data-i18n="actNote">Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА</div>'
+  '<div class="flnote" data-i18n="aeroNote">Летища, писти, хеликоптерни площадки и болници · виждат се при приближаване · OpenStreetMap</div>'
   # freshness stamp of the activated zones, filled by JS while that layer is ON
   '<div class="flnote" id="wxactfresh" style="display:none"></div>'
   '</div>')
