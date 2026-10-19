@@ -146,6 +146,7 @@ SHELL_CSS = r"""
  box-shadow:0 2px 12px rgba(0,0,0,.2);max-height:50vh;overflow:auto;width:min(300px,calc(100vw - 20px))}
 #sug li{padding:7px 9px;border-radius:7px;cursor:pointer}
 #sug li:hover,#sug li.active{background:var(--sug-hover)}
+#sug li.off{cursor:default}#sug li.off:hover{background:none}
 #sug .nm{font-weight:600}
 #sug .ctx{color:var(--muted);font-size:12px}
 #sug[hidden]{display:none}
