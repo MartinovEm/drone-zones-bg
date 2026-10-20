@@ -198,7 +198,7 @@ var T = {
      secObs:'Препятствия',obsShow:'Препятствия',obsNote:'Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D · виждат се при приближаване · „~“ = типична височина · липсата на линия на картата не значи, че там няма · OpenStreetMap, ЕСО ЕАД',
      kml:'KML за Google Earth',hint:'десен бутон = въртене/наклон',search:'Търсене на локация…',loc:'Къде съм',
      ddate:'синхронизация от __CHANGED__',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',coordOut:'извън картата. Първо се пише географската ширина, после дължината (напр. 42.69, 23.32).',
-     clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
+     clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',share:'Споделяне на изгледа',shareOk:'Връзката е копирана',shareAsk:'Връзка за споделяне:',myView:'Моят изглед',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
      aeroShow:'Летища, площадки и болници',aeroNote:'Летища, писти, хеликоптерни площадки и болници · виждат се при приближаване · OpenStreetMap',
@@ -211,7 +211,7 @@ var T = {
      secObs:'Obstacles',obsShow:'Obstacles',obsNote:'Power lines, towers, wind turbines, masts, lifts and the 3D buildings · shown when zoomed in · "~" = a typical height · a line missing on the map does not mean there is none · OpenStreetMap, ESO EAD',
      kml:'KML for Google Earth',hint:'right-drag = rotate/tilt',search:'Search for a place…',loc:'Where am I',
      ddate:'synced from __CHANGED__',src:'Zones source: Bulgarian CAA',here:'You are here',coordOut:'outside the map. Latitude comes first, then longitude (e.g. 42.69, 23.32).',
-     clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
+     clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',share:'Share this view',shareOk:'Link copied',shareAsk:'Link to share:',myView:'My view',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
      aeroShow:'Airfields, helipads and hospitals',aeroNote:'Airfields, runways, helipads and hospitals · shown when zoomed in · OpenStreetMap',
@@ -266,6 +266,9 @@ function popupHTML(p){ var t = T[LANG];
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
 function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+// a key that survives a reload (zone ID, NOTAM number, zone name + start, site code...) - names a
+// popup item inside a shared-view link (ROADMAP 8b); the feature indexes above do not
+function stKey(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + (p.n || '') + '|' + (p.s || '')) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + (p.n || p._aid)) : ('z' + p.id); }
 // thicken the outline of the ONE item a popup shows (airspace, activated zone, protected territory or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
@@ -678,7 +681,7 @@ document.getElementById('rst').onclick = function(){
   // the same merged page, so a plain reload returns to the 2D country-wide default.)
   try{ localStorage.removeItem('lang'); }catch(e){}
   ST.clear();
-  var base = location.href.replace(/#.*$/, '');
+  var base = location.href.replace(/[?#].*$/, ''); // a shared-view link (?v=) goes too
   if (location.href === base) location.reload(); else location.href = base;
 };
 
@@ -705,9 +708,10 @@ map.on('load', function(){
       filter: ['==', ['get','r'], r],
       paint: {'line-color': COL[r], 'line-width': 2.0, 'line-opacity': 1.0}});
   });
-  map.on('click', function(e){
-    if (window.wxRulerOn) return; // measure tool active: a click places a pin, not a zone popup
-    var tol = 4, pt = e.point, box = [[pt.x - tol, pt.y - tol], [pt.x + tol, pt.y + tol]];
+  // everything clickable at one screen point, in the chooser's order (a click, and a shared-view
+  // link that reopens the sender's popup at the same spot)
+  window.wxPickAt = function(pt){
+    var tol = 4, box = [[pt.x - tol, pt.y - tol], [pt.x + tol, pt.y + tol]];
     var layers = ['f-PROHIBITED','f-REQ_AUTHORISATION','f-CONDITIONAL'].filter(function(id){ return map.getLayer(id); });
     var fs = layers.length ? map.queryRenderedFeatures(box, {layers: layers}) : [];
     var seen = {}, list = [];
@@ -749,6 +753,10 @@ map.on('load', function(){
     if (al.length){ var as = {};
       map.queryRenderedFeatures(box, {layers: al}).forEach(function(f){ var aid = f.id;
         if (aid != null && !as[aid]){ as[aid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._air = true; p._aid = aid; p._al = f.layer && f.layer.id; list.push(p); } }); }
+    return list; };
+  map.on('click', function(e){
+    if (window.wxRulerOn) return; // measure tool active: a click places a pin, not a zone popup
+    var list = window.wxPickAt(e.point);
     if (!list.length) return;
     // tapping the SAME feature(s) the open popup already shows dismisses it (so a tap on the
     // same big zone just above the popup clears it instead of reopening a popup)
@@ -866,6 +874,9 @@ map.on('load', function(){
     pins.forEach(function(p){ p.marker.setDraggable(a); });
   }
   btn.onclick = function(e){ e.stopPropagation(); setActive(!on); };
+  // a shared-view link (ROADMAP 8b) reads the pins and puts them back - frozen, like the tool switched off
+  window.wxRulerGet = function(){ return coords(); };
+  window.wxRulerSet = function(c){ delAll(); (c || []).forEach(function(x){ addPin(x); }); pins.forEach(function(p){ p.marker.setDraggable(on); }); };
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && on) setActive(false); });
   // left click on empty map adds a pin (a click on a pin never reaches the map)
   map.on('click', function(e){ if (!on) return;
@@ -881,6 +892,61 @@ map.on('load', function(){
     cc.addEventListener('touchmove', function(e){ if (t){ var c = e.touches[0]; if (Math.abs(c.clientX-sx) > 10 || Math.abs(c.clientY-sy) > 10){ clearTimeout(t); t = null; } } }, {passive:true});
     cc.addEventListener('touchend', function(){ if (t){ clearTimeout(t); t = null; } });
   })();
+})();
+// ---- shared-view link (ROADMAP 8b) --------------------------------------------------
+// «Споделяне на изгледа» (menu, Tools) puts the whole view into one link: the camera (the
+// #lat/lng/zoom part + mode, tilt and turn in the record), the base map, every layer switch incl.
+// the weather ones, the forecast hour as an absolute time, the GPS day, the ruler pins, an open
+// zone popup and an open meteo card. The receiver sees exactly that, can change anything and share
+// it back, but nothing goes into his own saved settings (ST.shared); «↩ Моят изглед» (top of the
+// menu, only then) reopens his own view at the same spot (owner 20.10). A phone gets the system
+// share menu (Viber, WhatsApp, Messenger…), a computer a copied link.
+(function(){
+  var sb = document.getElementById('sharebtn'), mv = document.getElementById('myview');
+  function b64u(s){ var b = new TextEncoder().encode(s), x = ''; for (var i = 0; i < b.length; i++) x += String.fromCharCode(b[i]);
+    return btoa(x).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function r5(v){ return Math.round(v * 1e5) / 1e5; }
+  window.wxShareLink = function(){
+    var S = window.wxFcState, h = (S && S.hour) || 0;
+    var o = {v: 1, st: ST.all(), t: h ? Math.floor(Date.now() / 3600000) * 3600000 + h * 3600000 : 0};
+    if (!window.wxGjAuto && typeof window.wxGjDay === 'string') o.gd = window.wxGjDay; // an explicit GPS day ('' = live)
+    var r = window.wxRulerGet ? window.wxRulerGet() : [];
+    if (r.length) o.r = r.map(function(c){ return [r5(c[0]), r5(c[1])]; });
+    if (curPopup && curPopup.isOpen && curPopup.isOpen() && curList.length){ var ll = curPopup.getLngLat();
+      o.p = {ll: [r5(ll.lng), r5(ll.lat)], k: curList.map(stKey), s: curPick ? stKey(curPick) : null}; }
+    var wd = window.wxPanelDate ? window.wxPanelDate() : null; if (wd !== null) o.w = wd;
+    var c = map.getCenter();
+    return location.origin + location.pathname + '?v=' + b64u(JSON.stringify(o)) +
+      '#' + c.lat.toFixed(5) + '/' + c.lng.toFixed(5) + '/' + map.getZoom().toFixed(2); };
+  function copied(){ var l = document.getElementById('sharelbl'); if (!l) return; l.textContent = T[LANG].shareOk;
+    clearTimeout(copied.t); copied.t = setTimeout(function(){ l.textContent = T[LANG].share; }, 2000); }
+  if (sb) sb.onclick = function(e){ e.stopPropagation(); var u = window.wxShareLink();
+    if (navigator.share && window.matchMedia && matchMedia('(pointer: coarse)').matches){ navigator.share({title: document.title, url: u}).catch(function(){}); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(copied, function(){ window.prompt(T[LANG].shareAsk, u); });
+    else window.prompt(T[LANG].shareAsk, u); };
+  var SH = ST.shared; if (!SH) return;
+  if (mv){ mv.hidden = false; mv.onclick = function(){ location.href = location.pathname + location.hash; }; }
+  // the sender's open popup: the same items at the same spot, once their layers have loaded; an item
+  // gone from the data is left out, nothing left = no popup (owner 20.10)
+  function reopen(P){
+    var t0 = Date.now(), ll = new maplibregl.LngLat(P.ll[0], P.ll[1]), moved = false, over = false;
+    function tryOpen(){ if (over) return;
+      if (curPopup){ over = true; map.off('idle', tryOpen); return; } // the visitor has opened one himself
+      var cv = map.getCanvas(), q = map.project(ll);
+      if (!moved && (q.x < 0 || q.y < 0 || q.x > cv.clientWidth || q.y > cv.clientHeight)){ moved = true; map.jumpTo({center: ll}); return; } // a smaller screen: bring the spot into view
+      var have = {};
+      (window.wxPickAt ? window.wxPickAt(q) : []).forEach(function(p){ var k = stKey(p); if (!have[k]) have[k] = p; });
+      if (!P.k.every(function(k){ return have[k]; }) && Date.now() - t0 < 20000) return; // still loading: next idle
+      over = true; map.off('idle', tryOpen);
+      var keep = P.k.map(function(k){ return have[k]; }).filter(Boolean); if (!keep.length) return;
+      openZones(keep, ll);
+      var i = P.s && keep.length > 1 ? keep.indexOf(have[P.s]) : -1;
+      if (i >= 0){ curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); selShown(curList[i]); } }
+    map.on('idle', tryOpen); setTimeout(tryOpen, 20500); }
+  map.once('load', function(){
+    if (SH.r && SH.r.length && window.wxRulerSet) window.wxRulerSet(SH.r);
+    if (typeof SH.w === 'string' && window.wxPanelOpen) window.wxPanelOpen(SH.w);
+    if (SH.p && SH.p.ll && SH.p.k && SH.p.k.length) reopen(SH.p); });
 })();
 //__SHELL_JS__
 //__WX_JS__

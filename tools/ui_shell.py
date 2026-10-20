@@ -61,6 +61,9 @@ SHELL_CSS = r"""
 #panel[hidden]{display:none}
 .phead{display:flex;justify-content:flex-end;margin:-2px -4px 0 0}
 .pclose{border:0;background:transparent;font-size:17px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 6px}
+/* "↩ My view": top of the drawer, only while a shared-view link is open */
+#myview{margin-right:auto;border-color:var(--accent);font-weight:600}
+#myview[hidden]{display:none}
 .psec{padding:6px 0}
 .psec:first-of-type{padding-top:0}
 .psec+.psec{border-top:1px solid var(--border)}
@@ -375,7 +378,8 @@ def panel_html(zone_chips, extra_secs, buildings_chip="", foot=""):
     trailing note (e.g. the 3D rotate/tilt hint)."""
     return (
       '<div id="panel" hidden>'
-      '<div class="phead"><button class="pclose" id="panelclose" aria-label="close">✕</button></div>'
+      '<div class="phead"><button class="pbtn" id="myview" hidden>↩ <span data-i18n="myView">Моят изглед</span></button>'
+      '<button class="pclose" id="panelclose" aria-label="close">✕</button></div>'
       '<div class="psec"><div class="psh" data-i18n="secZones">Зони</div><div class="prow">'
       + zone_chips + buildings_chip + '</div></div>'
       + extra_secs +
@@ -397,6 +401,7 @@ def panel_html(zone_chips, extra_secs, buildings_chip="", foot=""):
       '<div class="psec"><div class="psh" data-i18n="secTools">Инструменти</div><div class="prow">'
       '<a class="pbtn" href="bgr_drone_zones.kml" download>⬇ <span data-i18n="kml">KML за Google Earth</span></a>'
       '<button class="pbtn" id="rst" title="">⟳ <span data-i18n="reset">Нулиране</span></button>'
+      '<button class="pbtn" id="sharebtn">\U0001F517 <span id="sharelbl" data-i18n="share">Споделяне на изгледа</span></button>'
       '</div></div>'
       + foot +
       '<div class="pfoot"><a href="https://github.com/MartinovEm/drone-zones-bg" target="_blank" rel="noopener" data-i18n="moreinfo">Повече информация и източници</a></div>'

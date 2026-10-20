@@ -395,6 +395,7 @@ function wxNotes(){
   return [t.nightNote, t.dewNote, t.capeNote, frz].map(function(s){ return '<div class="wxfoot wxnote">' + s + '</div>'; }).join('');
 }
 function wxRender(){
+  if (wxWantDate && wxData && wxData.daily && wxData.daily.time){ var wi = wxData.daily.time.indexOf(wxWantDate); wxDay = wi > 0 ? wi : 0; wxWantDate = null; } // a shared view's day
   var t = WXT[wxLang()];
   document.getElementById('wxfootlbl').textContent = t.foot;
   var bC = document.getElementById('wxcld'), bR = document.getElementById('wxrad');
@@ -534,6 +535,12 @@ window.wxLtgNote = function(){
 window.closeWxPanel = function(){ wxOpen = false; wxPanel.hidden = true; };
 wxChip.onclick = function(e){ e.stopPropagation(); wxOpen = !wxOpen; wxPanel.hidden = !wxOpen;
   if (wxOpen){ if (window.closePanel) window.closePanel(); if (window.collapseLoupe) window.collapseLoupe(); if (window.closeBmPanel) window.closeBmPanel(); wxRender(); } };
+// a shared-view link (ROADMAP 8b) reopens the card: the same place (the map centre comes with the
+// link) and the same day while it is still in the forecast (a day already gone -> today)
+var wxWantDate = null;
+window.wxPanelOpen = function(date){ wxWantDate = date || null; wxOpen = true; wxPanel.hidden = false; wxRender(); };
+window.wxPanelDate = function(){ if (!wxOpen) return null; // the open card's day as a date ('' = not loaded yet)
+  return (wxData && wxData.daily && wxData.daily.time && wxData.daily.time[wxDay]) || ''; };
 // weather map layers: the buttons only flip state; each map page provides
 // wxSetClouds/wxSetRain (see the per-map layer script)
 // every switch is saved in the shared settings store (ST) so it survives a
@@ -1477,6 +1484,7 @@ WX_RESTORE_JS = r"""
   // wind height (set before the layer turns on so the chip + engine use it)
   var wh = ST.get('windh', 10); if (window.wxWindState) window.wxWindState.h = wh;
   window.wxGjWin = (ST.get('gjWin', 12) === 24) ? 24 : 12; var _gjSaved = ST.get('gjDay', null); if (_gjSaved === ''){ window.wxGjDay = ''; window.wxGjAuto = false; } // only an explicit LIVE choice survives a reload; a picked past day is for this visit only (owner 04.10: a reload opens the newest ready day) - an old saved date is ignored -> auto
+  if (ST.shared && typeof ST.shared.gd === 'string'){ window.wxGjDay = ST.shared.gd; window.wxGjAuto = false; } // a shared view: the sender's GPS day ('' = live)
   document.querySelectorAll('#wxwindh .wxhseg button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-h') === wh); });
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
