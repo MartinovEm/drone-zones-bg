@@ -649,26 +649,50 @@ function doSearch(v){ var lg = (LANG === 'en' ? '&lang=en' : '');
 QI.addEventListener('input', function(){ clearTimeout(stmr); var v = QI.value.trim(); if (v.length < 2){ hideSug(); return; }
   var c = parseCoords(v); if (c){ sres = [coordRow(c)]; renderSug(); return; } // typed coordinates: no place search
   stmr = setTimeout(function(){ doSearch(v); }, 250); });
-QI.addEventListener('keydown', function(e){ if (SUG.hidden) return;
+QI.addEventListener('keydown', function(e){
+  if (e.key === 'Escape'){ hideSug(); if (window.collapseLoupe) window.collapseLoupe(); QI.blur(); return; } // ESC closes the whole search (owner 21.10); the text stays for a later Enter
+  // Enter with text still in the box but no list (after a pick, or the pin was removed): as if typed
+  // again - coordinates go straight there (outside the map: the note row), a place name lists again (owner 21.10)
+  if (SUG.hidden){ if (e.key !== 'Enter') return; var v = QI.value.trim(); if (v.length < 2) return; e.preventDefault();
+    var c = parseCoords(v); if (c){ sres = [coordRow(c)]; if (sres[0].properties._out) renderSug(); else pick(0); return; }
+    clearTimeout(stmr); doSearch(v); return; }
   if (e.key === 'ArrowDown'){ sidx = Math.min(sidx + 1, sres.length - 1); shi(); e.preventDefault(); }
   else if (e.key === 'ArrowUp'){ sidx = Math.max(sidx - 1, 0); shi(); e.preventDefault(); }
-  else if (e.key === 'Enter'){ pick(sidx >= 0 ? sidx : 0); e.preventDefault(); }
-  else if (e.key === 'Escape'){ hideSug(); } });
+  else if (e.key === 'Enter'){ pick(sidx >= 0 ? sidx : 0); e.preventDefault(); } });
+// ESC also closes an open search when the cursor is no longer in its box
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && document.getElementById('loupe').classList.contains('open')){ hideSug(); if (window.collapseLoupe) window.collapseLoupe(); } });
 function shi(){ Array.prototype.forEach.call(SUG.children, function(li, i){ li.classList.toggle('active', i === sidx); }); }
 function pick(i){ var f = sres[i]; if (!f || f.properties._out) return; var c = f.geometry.coordinates; QI.value = f.properties.name || QI.value; hideSug(); if (window.collapseLoupe) window.collapseLoupe(); goTo(c[0], c[1], f.properties.name); }
 document.addEventListener('click', function(e){ if (!document.getElementById('loupe').contains(e.target)) hideSug(); });
-var sMark = null;
-function goTo(lon, lat, name){ map.flyTo({center:[lon, lat], zoom:14}); if (sMark) sMark.remove();
-  sMark = new maplibregl.Marker({color:'#2b6cb0'}).setLngLat([lon, lat]).addTo(map);
-  if (name){ sMark.setPopup(new maplibregl.Popup({offset:25}).setText(name)); sMark.togglePopup(); } }
+// the search / „Къде съм“ pin: one at a time (a new one replaces it). A right-click (computer) or a
+// long-press (phone) on the pin removes it - like the ruler's pins; the × of its label only closes the
+// label, like every other popup (owner 21.10). A click on the map hides the label, a click on the pin
+// shows it again. sGoneAt: the finger lifted after a long-press must not reach the zone under the pin.
+var sMark = null, sGoneAt = 0;
+function sDrop(byUser){ if (sMark){ sMark.remove(); sMark = null; if (byUser) sGoneAt = Date.now(); } }
+function sPin(m, text, off){
+  sDrop(); sMark = m.addTo(map);
+  var el = m.getElement(), rx = 0, ry = 0, t = null, tx = 0, ty = 0;
+  el.addEventListener('mousedown', function(e){ if (e.button === 2){ rx = e.clientX; ry = e.clientY; } });
+  el.addEventListener('contextmenu', function(e){ e.preventDefault(); e.stopPropagation(); // never the ruler's "clear all"
+    if (Math.abs(e.clientX - rx) > 6 || Math.abs(e.clientY - ry) > 6) return; // a right-DRAG (rotate / tilt), not a click
+    if (sMark === m) sDrop(true); });
+  el.addEventListener('touchstart', function(e){ var c = e.touches[0]; tx = c.clientX; ty = c.clientY;
+    t = setTimeout(function(){ t = null; if (sMark === m) sDrop(true); }, 500); }, {passive: true});
+  el.addEventListener('touchmove', function(e){ var c = e.touches[0];
+    if (t && (Math.abs(c.clientX - tx) > 10 || Math.abs(c.clientY - ty) > 10)){ clearTimeout(t); t = null; } }, {passive: true});
+  el.addEventListener('touchend', function(){ if (t){ clearTimeout(t); t = null; } });
+  if (text){ m.setPopup(new maplibregl.Popup({offset: off}).setText(text)); m.togglePopup(); } }
+function goTo(lon, lat, name){ map.flyTo({center:[lon, lat], zoom:14});
+  sPin(new maplibregl.Marker({color:'#2b6cb0'}).setLngLat([lon, lat]), name, 25); }
 document.getElementById('loc').onclick = function(){ if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(function(p){ var lo = p.coords.longitude, la = p.coords.latitude;
-    map.flyTo({center:[lo, la], zoom:14}); if (sMark) sMark.remove();
+    map.flyTo({center:[lo, la], zoom:14});
+    QI.value = ''; hideSug(); // the search text no longer matches anything on the map (owner 21.10); a failed locate keeps it
     var dEl = document.createElement('div'); // "you are here" = our drone emblem, not a plain dot
     dEl.style.cssText = 'width:34px;height:34px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))';
     dEl.innerHTML = '<svg width="34" height="34" viewBox="0 0 48 48"><g fill="none" stroke="#2b6cb0" stroke-width="3.5" stroke-linecap="round"><path d="M14 14 34 34M34 14 14 34"/><circle cx="12" cy="12" r="7.5"/><circle cx="36" cy="12" r="7.5"/><circle cx="12" cy="36" r="7.5"/><circle cx="36" cy="36" r="7.5"/></g><rect x="18" y="18" width="12" height="12" rx="3" fill="#2b6cb0"/></svg>';
-    sMark = new maplibregl.Marker({element: dEl}).setLngLat([lo, la]).addTo(map);
-    sMark.setPopup(new maplibregl.Popup({offset:22}).setText(T[LANG].here)); sMark.togglePopup(); },
+    sPin(new maplibregl.Marker({element: dEl}).setLngLat([lo, la]), T[LANG].here, 22); },
     function(){ // denied, or blocked because the page is plain http (geolocation needs https/localhost)
       new maplibregl.Popup().setLngLat(map.getCenter())
         .setText(LANG === 'en' ? 'Location unavailable — allow location access (needs https).'
@@ -756,6 +780,9 @@ map.on('load', function(){
     return list; };
   map.on('click', function(e){
     if (window.wxRulerOn) return; // measure tool active: a click places a pin, not a zone popup
+    // a tap ON a pin (search, „Къде съм“, ruler) is for the pin (its label), not for the zone under it (owner 21.10)
+    var tg = e.originalEvent && e.originalEvent.target; if (tg && tg.closest && tg.closest('.maplibregl-marker')) return;
+    if (Date.now() - sGoneAt < 700) return; // the lift of a long-press that has just removed the pin
     var list = window.wxPickAt(e.point);
     if (!list.length) return;
     // tapping the SAME feature(s) the open popup already shows dismisses it (so a tap on the
