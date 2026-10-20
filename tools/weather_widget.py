@@ -127,6 +127,14 @@ WX_CSS = r"""
  .wxplnpop .leaflet-popup-content{max-width:58vw;font-size:11px;line-height:1.4;margin:8px 10px}
  .wxplnpop .maplibregl-popup-content{max-width:58vw;font-size:11px;line-height:1.4;padding:6px 9px}
 }
+/* a phone in LANDSCAPE (wide, but short): the card stays under the chip, so while it is open the
+   left buttons below it hide and it may take the screen's height - the desktop cap (100vh - 240px)
+   left it ~170 px on a phone, squeezed further by those buttons (owner 21.10). The portrait
+   bottom sheet above and the computer are unchanged. #leftui.wxopen is set while the card is open. */
+@media (min-width:641px) and (max-height:500px){
+ #leftui.wxopen>#menubtn,#leftui.wxopen>#loupe,#leftui.wxopen>#wxgj,#leftui.wxopen>#plnbtn,#leftui.wxopen>#ognbtn{display:none}
+ #wxpanel{max-height:calc(100vh - 68px)}
+}
 """
 
 WX_HTML = r"""<div id="wx">
@@ -533,6 +541,11 @@ window.wxLtgNote = function(){
 };
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ window.wxLtgNote(); });
 window.closeWxPanel = function(){ wxOpen = false; wxPanel.hidden = true; };
+// #leftui.wxopen while the card is open (the landscape CSS hides the left buttons below it); watched on
+// the card's own hidden attribute, so every way of opening / closing it is covered
+(function(){ var lu = document.getElementById('leftui'); if (!lu || !window.MutationObserver) return;
+  function sync(){ lu.classList.toggle('wxopen', !wxPanel.hidden); }
+  new MutationObserver(sync).observe(wxPanel, {attributes: true, attributeFilter: ['hidden']}); sync(); })();
 wxChip.onclick = function(e){ e.stopPropagation(); wxOpen = !wxOpen; wxPanel.hidden = !wxOpen;
   if (wxOpen){ if (window.closePanel) window.closePanel(); if (window.collapseLoupe) window.collapseLoupe(); if (window.closeBmPanel) window.closeBmPanel(); wxRender(); } };
 // a shared-view link (ROADMAP 8b) reopens the card: the same place (the map centre comes with the

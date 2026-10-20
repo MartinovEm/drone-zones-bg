@@ -200,12 +200,17 @@ SHELL_CSS = r"""
  #wxgjgrid button{width:22px;height:20px;font-size:10px}
  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group{transform:scale(.82);transform-origin:bottom right}
 }
-/* while the panel is open on phones, hide the rest of the left column */
+/* while the panel is open on phones, hide the rest of the left column — a phone in
+   EITHER orientation (narrow OR short, like the disclaimer below): in landscape the
+   left icons stayed under the open menu and squeezed it to ~2 rows (owner 21.10) */
+@media (max-width:640px), (max-height:500px){
+ #leftui.panelopen>#loupe,#leftui.panelopen>#wx,#leftui.panelopen>#wxgj,#leftui.panelopen>#plnbtn,#leftui.panelopen>#ognbtn{display:none}
+}
 @media (max-width:640px){
  /* while the panel is open on a phone it fills the screen — hide every other
-    floating control (left icons AND the top-right 2D/3D + language) so nothing
-    overlaps or dangles; closing the panel brings them all back */
- #leftui.panelopen>#loupe,#leftui.panelopen>#wx,#leftui.panelopen>#wxgj,#leftui.panelopen>#plnbtn,#leftui.panelopen>#ognbtn{display:none}
+    floating control (left icons above AND the top-right 2D/3D + language) so nothing
+    overlaps or dangles; closing the panel brings them all back. In landscape the
+    right column stays: the menu does not reach it there */
  #leftui.panelopen ~ #rightui{display:none}
  #panel{width:min(320px,calc(100vw - 20px))}
  .pill{height:34px}
