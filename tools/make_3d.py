@@ -6,6 +6,7 @@ from zone_i18n import AUTH_EN, en_text, FREEMAIL
 from weather_widget import WX_CSS, WX_HTML, WX_JS, WX_LAYERS_JS_3D
 from settings_store import ST_JS
 from rules_panel import RULES_CSS, RULES_HTML, RULES_JS
+from aip_extra import AIP_EXTRA_GJ
 from ui_shell import (SHELL_CSS, SHELL_JS, LOUPE_HTML, MENUBTN_HTML, PLNBTN_HTML,
                       OGNBTN_HTML, GJBTN_HTML, LANG_HTML, CTRHAIR_HTML, FSBTN_HTML, panel_html, ZONE_CHIPS,
                       OBSTACLES_SECTION, AIRSPACE_SECTION, NOTAM_SECTION, NATURE_SECTION)
@@ -196,6 +197,7 @@ html,body{height:100%;margin:0}
 //__ST_JS__
 var Z = {type: 'FeatureCollection', features: []}; // zones are fetched from zones.json once the map starts (keeps index.html small -> fast first paint / LCP)
 var BGOUT = __BGOUTLINE__; // BG border outline: "land" (per-basemap colour) + "danube" (blue); see tools/make_bg_outline.py
+var AIP_EXTRA = __AIPEXTRA__; // AIP structures missing in OpenAIP, merged into the airspace layer; see tools/aip_extra.py
 var T = {
  bg:{brand:'Дрон зони в България',menu:'Меню',fP:'Забранени',fA:'С разрешение',fC:'Условни',
      secObs:'Препятствия',obsShow:'Препятствия',obsNote:'Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D · виждат се при приближаване · „~“ = типична височина · липсата на линия на картата не значи, че там няма · OpenStreetMap, ЕСО ЕАД',
@@ -995,7 +997,7 @@ try:
         natpub = mv.group(1) if mv else ""
 except OSError:
     pass
-html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).replace("__DATESPAN__", datespan).replace("__CHANGED__", changed)
+html = (html.replace("__BGOUTLINE__", bgout).replace("__AIPEXTRA__", AIP_EXTRA_GJ).replace("__FAVICON__", favicon).replace("__DATESPAN__", datespan).replace("__CHANGED__", changed)
         .replace("//__ST_JS__", ST_JS)
         .replace("/*__SHELL_CSS__*/", SHELL_CSS).replace("//__SHELL_JS__", SHELL_JS)
         .replace("<!--__MENUBTN__-->", MENUBTN_HTML)

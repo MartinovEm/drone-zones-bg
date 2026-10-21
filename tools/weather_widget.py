@@ -2098,14 +2098,23 @@ var AIR_TL = {1:{bg:'Ограничена',en:'Restricted'},2:{bg:'Опасна'
 function airEnsure(cb){
   if (map.getSource('wxair')){ cb(); return; }
   fetch(window.wxAirUrl).then(function(r){ if (!r.ok) throw 0; return r.json(); }).then(function(gj){
-    window._airRaw = gj;
+    window._airRaw = airMergeAip(gj);
     if (!map.getSource('wxair')){ var d = airGvaData(); window._airGvaSig = d.sig;
       map.addSource('wxair', {type:'geojson', data:d.fc, generateId:true,
-        attribution:'Airspace &copy; <a href="https://www.openaip.net/" target="_blank" rel="noopener">openAIP</a> (CC BY-NC 4.0); BULATSA zone contours: <a href="https://uas.caa.bg/" target="_blank" rel="noopener">CAA uas.caa.bg</a>'}); }
+        attribution:'Airspace &copy; <a href="https://www.openaip.net/" target="_blank" rel="noopener">openAIP</a> (CC BY-NC 4.0); BULATSA zone contours: <a href="https://uas.caa.bg/" target="_blank" rel="noopener">CAA uas.caa.bg</a>; zones missing in openAIP: AIP of the Republic of Bulgaria'}); }
     cb();
   }).catch(function(){ wxBtnIdle('cbAirC'); wxBtnIdle('cbAirS'); // relay/source down: draw nothing rather than something stale...
     clearTimeout(window._airRt); window._airRt = setTimeout(function(){ // ...then re-attempt the FETCH (never draws stale); stops once toggled off
       if (window.wxAirCOn) window.wxSetAirC(true); if (window.wxAirSOn) window.wxSetAirS(true); }, 15000); });
+}
+// The AIP structures OpenAIP does not have (tools/aip_extra.py, inlined as AIP_EXTRA) join the
+// OpenAIP picture; ONE zone per name - an AIP entry wins over an OpenAIP zone of the same name
+// (owner 21.10: the official source). The CAA swap (airGvaData) then applies to both alike.
+function airMergeAip(gj){
+  var ours = (typeof AIP_EXTRA !== 'undefined' && AIP_EXTRA.features) || [], seen = {}, key = function(f){
+    return String(((f && f.properties) || {}).n || '').replace(/\s+/g, '').toUpperCase(); };
+  ours.forEach(function(f){ seen[key(f)] = 1; });
+  return {type:'FeatureCollection', features:((gj && gj.features) || []).filter(function(f){ return !seen[key(f)]; }).concat(ours)};
 }
 function airDropSourceMaybe(){ if (!map.getLayer('air-ctrl') && !map.getLayer('air-spec') && map.getSource('wxair')){ map.removeSource('wxair'); window._airGvaSig = null; } } // each group's labels are removed with its outline
 // The OpenAIP picture with the CAA's contour + heights in place of the same-name zones the
@@ -2189,8 +2198,11 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
   window.wxAirDetail = function(p){ var L = (window.LANG || 'bg');
     return '<b>' + esc(p.n) + '</b><br>' + window.wxAirSub(p) + '<br>' + esc(p.lo) + ' – ' + esc(p.up) +
       (p.nx ? ('<br><small>' + (L === 'en' ? 'by NOTAM' : 'по NOTAM') + '</small>') : '') +
-      // the CAA's contour + heights swapped in (airGvaData)
-      (+p.gva === 1 ? ('<br><small>' + (L === 'en' ? 'Contour and heights: CAA (uas.caa.bg)' : 'Контур и височини: ГД ГВА (uas.caa.bg)') + '</small>') : ''); };
+      // where the shape comes from: the CAA's contour + heights swapped in (airGvaData), else the
+      // AIP (an entry of tools/aip_extra.py, with its page + amendment), else OpenAIP (owner 21.10)
+      '<br><small>' + (+p.gva === 1 ? (L === 'en' ? 'Contour and heights: CAA (uas.caa.bg)' : 'Контур и височини: ГД ГВА (uas.caa.bg)')
+        : p.aip ? (L === 'en' ? 'Source: AIP of the Republic of Bulgaria (' : 'Източник: AIP на Република България (') + esc(p.aip) + ')'
+        : (L === 'en' ? 'Source: OpenAIP' : 'Източник: OpenAIP')) + '</small>'; };
   // thicken the CLICKED airspace outline (feature-state 'sel' -> AIR_LW); one at a time
   window._airSel = null;
   window.wxAirSelect = function(aid){
