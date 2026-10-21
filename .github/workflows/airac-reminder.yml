@@ -1,0 +1,29 @@
+# AIRAC reminder (ROADMAP A10, owner 21.10.2026). tools/aip_extra.py holds airspace structures
+# copied by hand from the AIP of the Republic of Bulgaria; the AIP sits behind the B-FLIP login,
+# so nothing here downloads it. AIP amendments take effect only on AIRAC dates, every 28 days.
+# On each AIRAC date this run FAILS on purpose with a reminder, so GitHub e-mails the repository
+# owner: he downloads ENR 5.1 + ENR 5.2 from B-FLIP and the entries are checked against them.
+# Every other day it passes. The cycle is anchored to a known AIRAC date: 3 SEP 2026 (the
+# effective date of AIRAC AMDT 06/26 of the AIP).
+name: AIRAC reminder
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: AIRAC date? (check the AIP zones in tools/aip_extra.py)
+        run: |
+          set -e
+          anchor=$(date -u -d '2026-09-03' +%s)
+          today=$(date -u -d "$(date -u +%F)" +%s)
+          r=$(( ( ( (today - anchor) / 86400 ) % 28 + 28 ) % 28 ))
+          if [ "$r" -eq 0 ]; then
+            echo "AIRAC date $(date -u +%F): download AIP ENR 5.1 and ENR 5.2 from B-FLIP and check the zones in tools/aip_extra.py against them."
+            exit 1
+          fi
+          echo "Not an AIRAC date; the next one is $(date -u -d "+$(( 28 - r )) days" +%F)."
