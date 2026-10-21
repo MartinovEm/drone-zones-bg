@@ -5,6 +5,7 @@ import json, math, re, sys, os, urllib.parse
 from zone_i18n import AUTH_EN, en_text, FREEMAIL
 from weather_widget import WX_CSS, WX_HTML, WX_JS, WX_LAYERS_JS_3D
 from settings_store import ST_JS
+from rules_panel import RULES_CSS, RULES_HTML, RULES_JS
 from ui_shell import (SHELL_CSS, SHELL_JS, LOUPE_HTML, MENUBTN_HTML, PLNBTN_HTML,
                       OGNBTN_HTML, GJBTN_HTML, LANG_HTML, CTRHAIR_HTML, FSBTN_HTML, panel_html, ZONE_CHIPS,
                       OBSTACLES_SECTION, AIRSPACE_SECTION, NOTAM_SECTION, NATURE_SECTION)
@@ -153,6 +154,7 @@ html,body{height:100%;margin:0}
 }
 /*__SHELL_CSS__*/
 /*__WX_CSS__*/
+/*__RULES_CSS__*/
 </style></head><body>
 <div id="leftui">
  <!--__WX_HTML__-->
@@ -189,6 +191,7 @@ html,body{height:100%;margin:0}
  </div>
 </div>
 <div id="info"><button id="infotoggle" type="button" aria-label="info" title="">!</button><div class="infobody"><div class="ihint" data-i18n="clickhint">Клик върху зона за повече информация</div><span class="src" data-i18n="src">Източник Зони: ГД ГВА</span> (<a href="https://uas.caa.bg" target="_blank" rel="noopener">uas.caa.bg</a>)__DATESPAN__<br><span data-i18n-html="disc">Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).</span></div></div>
+<!--__RULES__-->
 <script>
 //__ST_JS__
 var Z = {type: 'FeatureCollection', features: []}; // zones are fetched from zones.json once the map starts (keeps index.html small -> fast first paint / LCP)
@@ -198,7 +201,7 @@ var T = {
      secObs:'Препятствия',obsShow:'Препятствия',obsNote:'Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D · виждат се при приближаване · „~“ = типична височина · липсата на линия на картата не значи, че там няма · OpenStreetMap, ЕСО ЕАД',
      kml:'KML за Google Earth',hint:'десен бутон = въртене/наклон',search:'Търсене на локация…',loc:'Къде съм',
      ddate:'синхронизация от __CHANGED__',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',coordOut:'извън картата. Първо се пише географската ширина, после дължината (напр. 42.69, 23.32).',
-     clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',share:'Споделяне на изгледа',shareOk:'Връзката е копирана',shareAsk:'Връзка за споделяне:',myView:'Моят изглед',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
+     clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',share:'Споделяне на изгледа',shareOk:'Връзката е копирана',shareAsk:'Връзка за споделяне:',myView:'Моят изглед',rules:'Правила',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
      aeroShow:'Летища, площадки и болници',aeroNote:'Летища, писти, хеликоптерни площадки и болници · виждат се при приближаване · OpenStreetMap',
@@ -211,7 +214,7 @@ var T = {
      secObs:'Obstacles',obsShow:'Obstacles',obsNote:'Power lines, towers, wind turbines, masts, lifts and the 3D buildings · shown when zoomed in · "~" = a typical height · a line missing on the map does not mean there is none · OpenStreetMap, ESO EAD',
      kml:'KML for Google Earth',hint:'right-drag = rotate/tilt',search:'Search for a place…',loc:'Where am I',
      ddate:'synced from __CHANGED__',src:'Zones source: Bulgarian CAA',here:'You are here',coordOut:'outside the map. Latitude comes first, then longitude (e.g. 42.69, 23.32).',
-     clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',share:'Share this view',shareOk:'Link copied',shareAsk:'Link to share:',myView:'My view',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
+     clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',share:'Share this view',shareOk:'Link copied',shareAsk:'Link to share:',myView:'My view',rules:'Rules',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
      aeroShow:'Airfields, helipads and hospitals',aeroNote:'Airfields, runways, helipads and hospitals · shown when zoomed in · OpenStreetMap',
@@ -976,6 +979,7 @@ map.on('load', function(){
     if (SH.p && SH.p.ll && SH.p.k && SH.p.k.length) reopen(SH.p); });
 })();
 //__SHELL_JS__
+//__RULES_JS__
 //__WX_JS__
 //__WX_LAYERS_JS__
 </script>
@@ -1004,7 +1008,8 @@ html = (html.replace("__BGOUTLINE__", bgout).replace("__FAVICON__", favicon).rep
         .replace("<!--__LANG__-->", LANG_HTML)
         .replace("/*__WX_CSS__*/", WX_CSS).replace("<!--__WX_HTML__-->", WX_HTML)
         .replace("//__WX_JS__", WX_JS).replace("//__WX_LAYERS_JS__", WX_LAYERS_JS_3D)
-        .replace("__NATPUB__", natpub))
+        .replace("__NATPUB__", natpub)
+        .replace("/*__RULES_CSS__*/", RULES_CSS).replace("<!--__RULES__-->", RULES_HTML).replace("//__RULES_JS__", RULES_JS))
 os.makedirs(outdir, exist_ok=True)
 # The whole app is ONE page, written as index.html (2D and 3D both live here; opens
 # in flat 2D mode by default). The old Leaflet index.html and the separate 3d.html

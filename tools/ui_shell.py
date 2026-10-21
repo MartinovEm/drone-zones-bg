@@ -407,6 +407,8 @@ def panel_html(zone_chips, extra_secs, buildings_chip="", foot=""):
       '<a class="pbtn" href="bgr_drone_zones.kml" download>⬇ <span data-i18n="kml">KML за Google Earth</span></a>'
       '<button class="pbtn" id="rst" title="">⟳ <span data-i18n="reset">Нулиране</span></button>'
       '<button class="pbtn" id="sharebtn">\U0001F517 <span id="sharelbl" data-i18n="share">Споделяне на изгледа</span></button>'
+      # the drone rules in short + links to the official texts (ROADMAP A9; the pop-up is in rules_panel.py)
+      '<button class="pbtn" id="rulesbtn" type="button">\U0001F4DC <span data-i18n="rules">Правила</span></button>'
       '</div></div>'
       + foot +
       '<div class="pfoot"><a href="https://github.com/MartinovEm/drone-zones-bg" target="_blank" rel="noopener" data-i18n="moreinfo">Повече информация и източници</a></div>'
