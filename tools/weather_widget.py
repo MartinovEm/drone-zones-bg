@@ -223,12 +223,12 @@ var WX_BBOX = {w:22.3, s:41.2, e:28.7, n:44.2}; // fetch only inside Bulgaria (s
 var wxData = null, wxDay = 0, wxCell = '', wxAt = 0, wxNames = {}, wxTimer = null, wxOpen = false, wxRetry = null, wxRetryMs = 7000, wxErr = null;
 // place names persist across page loads (they never change), so the chip fills
 // instantly on a 2D<->3D switch instead of waiting on Photon again
-try{ wxNames = JSON.parse(localStorage.getItem('wxnm')) || {}; }catch(e){}
+try{ wxNames = JSON.parse(localStorage.getItem('wxnm2')) || {}; }catch(e){} // '2': names per ~1 km square since 22.10 (were ~5 km)
 var wxEl = document.getElementById('wx'), wxChip = document.getElementById('wxchip'),
     wxPanel = document.getElementById('wxpanel'), wxBody = document.getElementById('wxbody'),
     wxPlaceEl = document.getElementById('wxplace');
 function wxLang(){ return (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'bg'; }
-function wxCellOf(c){ return (Math.round(c.lat / 0.05) * 0.05).toFixed(2) + ',' + (Math.round(c.lng / 0.05) * 0.05).toFixed(2); } // ~5 km cell key from a center; the place name uses THIS, not the weather-fetch wxCell (which the retry resets to '')
+function wxCellOf(c){ return (Math.round(c.lat / 0.01) * 0.01).toFixed(2) + ',' + (Math.round(c.lng / 0.01) * 0.01).toFixed(2); } // ~1 km cell key from a center; the place name uses THIS, not the weather-fetch wxCell (which the retry resets to '')
 function wxEsc(s){ return (s + '').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function wxIco(code, day){
   if (code === 0) return day ? '☀️' : '🌙';
@@ -466,7 +466,7 @@ function wxPlaceName(){
       var nm = (p.osm_value === 'city' || p.osm_value === 'town' || p.osm_value === 'village' || p.osm_value === 'hamlet') ? p.name : '';
       var out = nm || p.city || p.county || p.state || p.name || (c.lat.toFixed(2) + ', ' + c.lng.toFixed(2));
       if (p.state && out !== p.state) out += ', ' + p.state;
-      wxNames[key] = out; try{ localStorage.setItem('wxnm', JSON.stringify(wxNames)); }catch(e){}
+      wxNames[key] = out; try{ localStorage.setItem('wxnm2', JSON.stringify(wxNames)); }catch(e){}
       wxPlaceEl.textContent = out; wxChipHTML();
     }).catch(function(){ wxPlaceEl.textContent = c.lat.toFixed(2) + ', ' + c.lng.toFixed(2); });
 }
@@ -484,7 +484,7 @@ function wxFetch(){
   var c = map.getCenter();
   if (c.lng < WX_BBOX.w || c.lng > WX_BBOX.e || c.lat < WX_BBOX.s || c.lat > WX_BBOX.n) return; // keep last data outside BG
   var cell = (Math.round(c.lat / 0.05) * 0.05).toFixed(2) + ',' + (Math.round(c.lng / 0.05) * 0.05).toFixed(2);
-  if (cell === wxCell && wxData && (Date.now() - wxAt) < 900000) return; // same ~5 km cell, fresh (<15 min)
+  if (cell === wxCell && wxData && (Date.now() - wxAt) < 900000){ wxPlaceName(); return; } // same ~5 km weather cell, fresh: only the name may change
   // instant paint from a persisted cache for this cell: the 2D<->3D switch carries
   // the map center, so the new page's cell matches and the chip fills with no network
   if (!wxData || wxCell !== cell){
