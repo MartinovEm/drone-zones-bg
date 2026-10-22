@@ -2201,6 +2201,10 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
   window.wxAirDetail = function(p){ var L = (window.LANG || 'bg');
     return '<b>' + esc(p.n) + '</b><br>' + window.wxAirSub(p) + '<br>' + esc(p.lo) + ' – ' + esc(p.up) +
       (p.nx ? ('<br><small>' + (L === 'en' ? 'by NOTAM' : 'по NOTAM') + '</small>') : '') +
+      // the AIP's anti-hail danger areas: its remark on the season and the activation (owner-approved text, 22.10)
+      ((typeof AIP_HAIL !== 'undefined' && AIP_HAIL.indexOf(String(p.n || '').replace(/\s+/g, '').toUpperCase()) >= 0) ? '<br><small>' + (L === 'en'
+        ? 'Per the AIP of the Republic of Bulgaria (ENR 5.1): anti-hail activity, season 1 Apr – 30 Oct. The time of activity is not announced in advance. The season dates are announced by NOTAM. When active, overflying is permitted at or above FL 240.'
+        : 'По AIP на Република България (ENR 5.1): противоградова защита, сезон 01.04 – 30.10. Кога се активира, не се обявява предварително. Датите на сезона се обявяват с NOTAM. При активиране прелитането е разрешено на или над FL 240.') + '</small>' : '') +
       // where the shape comes from: the CAA's contour + heights swapped in (airGvaData), else the
       // AIP (an entry of tools/aip_extra.py, with its page + amendment), else OpenAIP (owner 21.10)
       '<br><small>' + (+p.gva === 1 ? (L === 'en' ? 'Contour and heights: CAA (uas.caa.bg)' : 'Контур и височини: ГД ГВА (uas.caa.bg)')

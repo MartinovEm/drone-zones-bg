@@ -60,3 +60,17 @@ def geojson():
         for n, t, lo, up, page, amdt, lat in AIP_ZONES]}
 
 AIP_EXTRA_GJ = json.dumps(geojson(), separators=(",", ":"))
+
+# The anti-hail danger areas of AIP ENR 5.1 section 4.1 („Опасни зони (противоградова защита)“,
+# GND – 23700 FT AMSL, 01 APR – 30 OCT; read 22.10.2026 from the owner's download). OpenAIP carries
+# all 41 under the same names, so only the names are kept: the map adds the AIP's remark on the
+# season and the activation to these zones' popups (owner 22.10). Re-check them at every AIRAC.
+AIP_ANTIHAIL = [
+    "LBD10A", "LBD10B", "LBD10C1", "LBD10D2", "LBD11A1", "LBD11B", "LBD11C2", "LBD11D1",
+    "LBD12A2", "LBD12B1", "LBD12C2", "LBD12D4", "LBD13A2", "LBD13B4", "LBD13C2", "LBD13D2",
+    "LBD14A", "LBD14B", "LBD15A1", "LBD15C1", "LBD15D1", "LBD16A1", "LBD16B1", "LBD16C",
+    "LBD16D", "LBD17A", "LBD17B1", "LBD17C1", "LBD17D", "LBD18A1", "LBD18B2", "LBD18C2",
+    "LBD18D1", "LBD19A1", "LBD19B1", "LBD19C1", "LBD19D1", "LBD20A1", "LBD20B1", "LBD20C1",
+    "LBD20D2",
+]
+AIP_ANTIHAIL_JS = json.dumps(AIP_ANTIHAIL, separators=(",", ":"))
