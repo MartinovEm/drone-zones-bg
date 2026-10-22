@@ -260,6 +260,7 @@ SHELL_CSS = r"""
    Tokens flip here; the few UI bits that hard-code light colours are overridden
    below. Crosshair + scale bar follow the BASEMAP (.wx2d), not the theme. */
 :root[data-theme="dark"]{
+ color-scheme:dark; /* the browser's own parts follow the theme too - e.g. the menu's scrollbar is no longer white */
  --glass-bg:rgba(32,36,42,.92); --glass-strong:rgba(32,36,42,.97); --glass-weak:rgba(32,36,42,.72);
  --fg:#e8e8ea; --muted:#9aa1ab; --border:rgba(255,255,255,.15);
  --accent:#4a90d9; --accent-fg:#fff; --shadow:0 2px 14px rgba(0,0,0,.55);
