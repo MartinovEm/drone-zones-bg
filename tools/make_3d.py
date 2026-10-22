@@ -281,6 +281,11 @@ function selShown(p){
   if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null);
   if (window.wxZztSelect) window.wxZztSelect(p && p._zzt ? p.i : null);
   if (window.wxNatSelect) window.wxNatSelect(p && p._nat ? p.c : null); }
+// the item to outline while a popup shows its LIST: the ONE airspace or activated zone in it - an airspace
+// zone is reachable only by its NAME, so a click on the name outlines that zone at once even when poles,
+// wires or other zones put a list up; the same for an activated zone under the click (owner 22.10)
+function listSel(list){ if (list.length === 1) return list[0];
+  var a = list.filter(function(p){ return p._air || p._act; }); return a.length === 1 ? a[0] : null; }
 function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LANG].zonesHere + '</div>';
   list.forEach(function(p, i){ var dot, inner;
     if (p._nt){ dot = window.wxNotamColor(p.l);
@@ -309,7 +314,7 @@ function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getEl
   el._zwired = true;
   el.addEventListener('click', function(ev){
     var t = ev.target, back = t.closest ? t.closest('.zback') : null;
-    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); selShown(null); return; }
+    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); selShown(listSel(curList)); return; }
     var pick = t.closest ? t.closest('.zpick') : null;
     if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); selShown(curList[i]); }
   });
@@ -324,7 +329,7 @@ function setPopupContent(html){ if (curPopup){ curPopup.setHTML(html); wirePopup
 function openZones(list, lngLat){ if (!list.length) return; curList = list; curPick = null;
   curRender = (list.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   showPopup(curRender(), lngLat);
-  selShown(list.length === 1 ? list[0] : null); }
+  selShown(listSel(list)); }
 // is a popup item's layer still on the map? (zones: category visibility; NOTAM/airspace
 // layers are removed when switched off; airspace remembers which label layer it came from)
 function featShown(p){
@@ -346,7 +351,7 @@ window.wxPopupPrune = function(){
   curList = keep;
   if (!(curPick && keep.indexOf(curPick) >= 0)) curPick = null;
   if (keep.length === 1) curPick = null;
-  var shown = curPick || (keep.length === 1 ? keep[0] : null);
+  var shown = curPick || listSel(keep);
   curRender = curPick ? function(){ return detailHTML(curPick, true); }
     : (keep.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   setPopupContent(curRender());
@@ -790,7 +795,7 @@ map.on('load', function(){
     var tg = e.originalEvent && e.originalEvent.target; if (tg && tg.closest && tg.closest('.maplibregl-marker')) return;
     if (Date.now() - sGoneAt < 700) return; // the lift of a long-press that has just removed the pin
     var list = window.wxPickAt(e.point);
-    if (!list.length) return;
+    if (!list.length){ selShown(null); return; } // a click on empty map always clears an outline, even one whose popup is already gone
     // tapping the SAME feature(s) the open popup already shows dismisses it (so a tap on the
     // same big zone just above the popup clears it instead of reopening a popup)
     if (curPopup && curList.length && listSig(list) === listSig(curList)){ curPopup.remove(); curPopup = null; return; }

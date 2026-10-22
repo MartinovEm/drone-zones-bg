@@ -2157,6 +2157,13 @@ function airGvaTick(on){
 // by zoom on its own, so it never becomes a wall of text. Text coloured like the outline.
 var AIR_LBL_LAYOUT = {'text-field':['get','n'], 'text-size':11, 'text-font':['Noto Sans Regular'], 'text-max-width':9};
 var AIR_LW = ['case', ['boolean', ['feature-state', 'sel'], false], 3.8, 1.3]; // clicked airspace outline thickens ~3x (feature-state 'sel')
+// After every change of a clicked outline (airspace, activated zones, Natura 2000, protected territories):
+// in 3D MapLibre 4.7.1 draws the lines and fills into cached textures of the terrain tiles, and a
+// feature-state change fires no 'data' event, so that cache was not freed - the outline stayed thin
+// after a click, or thick after closing, until a zoom (owner 22.10). Free it and draw a new frame.
+window.wxSelRedraw = function(){
+  try { var tc = map.terrain && map.terrain.sourceCache; if (tc && tc.freeRtt) tc.freeRtt(); } catch(e){}
+  map.triggerRepaint(); };
 // filter of a group (outlines AND labels), minus the zones the activated-zones layer draws as
 // ACTIVE right now (window._actSup, filled while that layer is on): each such zone is drawn
 // once, by that layer, and its label - so its popup entry, reachable only via the label -
@@ -2215,7 +2222,8 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
   window.wxAirSelect = function(aid){
     if (window._airSel != null && map.getSource('wxair')) map.setFeatureState({source:'wxair', id:window._airSel}, {sel:false});
     window._airSel = null;
-    if (aid != null && map.getSource('wxair')){ window._airSel = aid; map.setFeatureState({source:'wxair', id:aid}, {sel:true}); } };
+    if (aid != null && map.getSource('wxair')){ window._airSel = aid; map.setFeatureState({source:'wxair', id:aid}, {sel:true}); }
+    window.wxSelRedraw(); };
   // hover cue: the NAME is the click target (the thin outline is NOT clickable)
   ['air-ctrl-labels','air-spec-labels'].forEach(function(id){
     map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
@@ -2393,7 +2401,8 @@ window._actSel = null;
 window.wxActSelect = function(key){
   if (window._actSel != null && map.getSource('wxact')) map.setFeatureState({source:'wxact', id:window._actSel}, {sel:false});
   window._actSel = null;
-  if (key != null && map.getSource('wxact')){ window._actSel = key; map.setFeatureState({source:'wxact', id:key}, {sel:true}); } };
+  if (key != null && map.getSource('wxact')){ window._actSel = key; map.setFeatureState({source:'wxact', id:key}, {sel:true}); }
+  window.wxSelRedraw(); };
 // a BG/EN switch re-labels the zones on the map
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ window._actSig = ''; if (window.wxActOn) actPaint(); });
 ['act-fill','act-label'].forEach(function(id){
@@ -2488,7 +2497,8 @@ window._natSel = null;
 window.wxNatSelect = function(code){
   if (window._natSel != null && map.getSource('wxnat')) map.setFeatureState({source: 'wxnat', id: window._natSel}, {sel: false});
   window._natSel = null;
-  if (code != null && map.getSource('wxnat')){ window._natSel = code; map.setFeatureState({source: 'wxnat', id: code}, {sel: true}); } };
+  if (code != null && map.getSource('wxnat')){ window._natSel = code; map.setFeatureState({source: 'wxnat', id: code}, {sel: true}); }
+  window.wxSelRedraw(); };
 map.on('mouseenter', 'wxnat-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'wxnat-fill', function(){ map.getCanvas().style.cursor = ''; });
 // ---- protected territories (owner 16.10): parks, reserves, protected sites, natural landmarks
@@ -2573,7 +2583,8 @@ window._zztSel = null;
 window.wxZztSelect = function(id){
   if (window._zztSel != null && map.getSource('wxzzt')) map.setFeatureState({source: 'wxzzt', id: window._zztSel}, {sel: false});
   window._zztSel = null;
-  if (id != null && map.getSource('wxzzt')){ window._zztSel = id; map.setFeatureState({source: 'wxzzt', id: id}, {sel: true}); } };
+  if (id != null && map.getSource('wxzzt')){ window._zztSel = id; map.setFeatureState({source: 'wxzzt', id: id}, {sel: true}); }
+  window.wxSelRedraw(); };
 map.on('mouseenter', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = ''; });
 // ---- obstacles (owner 17.10): power lines and their towers / poles, ESO's lines that OSM lacks, wind

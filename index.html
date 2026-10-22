@@ -707,6 +707,11 @@ function selShown(p){
   if (window.wxActSelect) window.wxActSelect(p && p._act ? p._xid : null);
   if (window.wxZztSelect) window.wxZztSelect(p && p._zzt ? p.i : null);
   if (window.wxNatSelect) window.wxNatSelect(p && p._nat ? p.c : null); }
+// the item to outline while a popup shows its LIST: the ONE airspace or activated zone in it - an airspace
+// zone is reachable only by its NAME, so a click on the name outlines that zone at once even when poles,
+// wires or other zones put a list up; the same for an activated zone under the click (owner 22.10)
+function listSel(list){ if (list.length === 1) return list[0];
+  var a = list.filter(function(p){ return p._air || p._act; }); return a.length === 1 ? a[0] : null; }
 function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LANG].zonesHere + '</div>';
   list.forEach(function(p, i){ var dot, inner;
     if (p._nt){ dot = window.wxNotamColor(p.l);
@@ -735,7 +740,7 @@ function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getEl
   el._zwired = true;
   el.addEventListener('click', function(ev){
     var t = ev.target, back = t.closest ? t.closest('.zback') : null;
-    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); selShown(null); return; }
+    if (back){ ev.stopPropagation(); curPick = null; curRender = function(){ return listHTML(curList); }; setPopupContent(curRender()); selShown(listSel(curList)); return; }
     var pick = t.closest ? t.closest('.zpick') : null;
     if (pick){ ev.stopPropagation(); var i = +pick.getAttribute('data-i'); curPick = curList[i]; curRender = function(){ return detailHTML(curList[i], true); }; setPopupContent(curRender()); selShown(curList[i]); }
   });
@@ -750,7 +755,7 @@ function setPopupContent(html){ if (curPopup){ curPopup.setHTML(html); wirePopup
 function openZones(list, lngLat){ if (!list.length) return; curList = list; curPick = null;
   curRender = (list.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   showPopup(curRender(), lngLat);
-  selShown(list.length === 1 ? list[0] : null); }
+  selShown(listSel(list)); }
 // is a popup item's layer still on the map? (zones: category visibility; NOTAM/airspace
 // layers are removed when switched off; airspace remembers which label layer it came from)
 function featShown(p){
@@ -772,7 +777,7 @@ window.wxPopupPrune = function(){
   curList = keep;
   if (!(curPick && keep.indexOf(curPick) >= 0)) curPick = null;
   if (keep.length === 1) curPick = null;
-  var shown = curPick || (keep.length === 1 ? keep[0] : null);
+  var shown = curPick || listSel(keep);
   curRender = curPick ? function(){ return detailHTML(curPick, true); }
     : (keep.length === 1) ? function(){ return detailHTML(curList[0], false); } : function(){ return listHTML(curList); };
   setPopupContent(curRender());
@@ -1216,7 +1221,7 @@ map.on('load', function(){
     var tg = e.originalEvent && e.originalEvent.target; if (tg && tg.closest && tg.closest('.maplibregl-marker')) return;
     if (Date.now() - sGoneAt < 700) return; // the lift of a long-press that has just removed the pin
     var list = window.wxPickAt(e.point);
-    if (!list.length) return;
+    if (!list.length){ selShown(null); return; } // a click on empty map always clears an outline, even one whose popup is already gone
     // tapping the SAME feature(s) the open popup already shows dismisses it (so a tap on the
     // same big zone just above the popup clears it instead of reopening a popup)
     if (curPopup && curList.length && listSig(list) === listSig(curList)){ curPopup.remove(); curPopup = null; return; }
@@ -3472,6 +3477,13 @@ function airGvaTick(on){
 // by zoom on its own, so it never becomes a wall of text. Text coloured like the outline.
 var AIR_LBL_LAYOUT = {'text-field':['get','n'], 'text-size':11, 'text-font':['Noto Sans Regular'], 'text-max-width':9};
 var AIR_LW = ['case', ['boolean', ['feature-state', 'sel'], false], 3.8, 1.3]; // clicked airspace outline thickens ~3x (feature-state 'sel')
+// After every change of a clicked outline (airspace, activated zones, Natura 2000, protected territories):
+// in 3D MapLibre 4.7.1 draws the lines and fills into cached textures of the terrain tiles, and a
+// feature-state change fires no 'data' event, so that cache was not freed - the outline stayed thin
+// after a click, or thick after closing, until a zoom (owner 22.10). Free it and draw a new frame.
+window.wxSelRedraw = function(){
+  try { var tc = map.terrain && map.terrain.sourceCache; if (tc && tc.freeRtt) tc.freeRtt(); } catch(e){}
+  map.triggerRepaint(); };
 // filter of a group (outlines AND labels), minus the zones the activated-zones layer draws as
 // ACTIVE right now (window._actSup, filled while that layer is on): each such zone is drawn
 // once, by that layer, and its label - so its popup entry, reachable only via the label -
@@ -3530,7 +3542,8 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
   window.wxAirSelect = function(aid){
     if (window._airSel != null && map.getSource('wxair')) map.setFeatureState({source:'wxair', id:window._airSel}, {sel:false});
     window._airSel = null;
-    if (aid != null && map.getSource('wxair')){ window._airSel = aid; map.setFeatureState({source:'wxair', id:aid}, {sel:true}); } };
+    if (aid != null && map.getSource('wxair')){ window._airSel = aid; map.setFeatureState({source:'wxair', id:aid}, {sel:true}); }
+    window.wxSelRedraw(); };
   // hover cue: the NAME is the click target (the thin outline is NOT clickable)
   ['air-ctrl-labels','air-spec-labels'].forEach(function(id){
     map.on('mouseenter', id, function(){ map.getCanvas().style.cursor = 'pointer'; });
@@ -3708,7 +3721,8 @@ window._actSel = null;
 window.wxActSelect = function(key){
   if (window._actSel != null && map.getSource('wxact')) map.setFeatureState({source:'wxact', id:window._actSel}, {sel:false});
   window._actSel = null;
-  if (key != null && map.getSource('wxact')){ window._actSel = key; map.setFeatureState({source:'wxact', id:key}, {sel:true}); } };
+  if (key != null && map.getSource('wxact')){ window._actSel = key; map.setFeatureState({source:'wxact', id:key}, {sel:true}); }
+  window.wxSelRedraw(); };
 // a BG/EN switch re-labels the zones on the map
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ window._actSig = ''; if (window.wxActOn) actPaint(); });
 ['act-fill','act-label'].forEach(function(id){
@@ -3803,7 +3817,8 @@ window._natSel = null;
 window.wxNatSelect = function(code){
   if (window._natSel != null && map.getSource('wxnat')) map.setFeatureState({source: 'wxnat', id: window._natSel}, {sel: false});
   window._natSel = null;
-  if (code != null && map.getSource('wxnat')){ window._natSel = code; map.setFeatureState({source: 'wxnat', id: code}, {sel: true}); } };
+  if (code != null && map.getSource('wxnat')){ window._natSel = code; map.setFeatureState({source: 'wxnat', id: code}, {sel: true}); }
+  window.wxSelRedraw(); };
 map.on('mouseenter', 'wxnat-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'wxnat-fill', function(){ map.getCanvas().style.cursor = ''; });
 // ---- protected territories (owner 16.10): parks, reserves, protected sites, natural landmarks
@@ -3888,7 +3903,8 @@ window._zztSel = null;
 window.wxZztSelect = function(id){
   if (window._zztSel != null && map.getSource('wxzzt')) map.setFeatureState({source: 'wxzzt', id: window._zztSel}, {sel: false});
   window._zztSel = null;
-  if (id != null && map.getSource('wxzzt')){ window._zztSel = id; map.setFeatureState({source: 'wxzzt', id: id}, {sel: true}); } };
+  if (id != null && map.getSource('wxzzt')){ window._zztSel = id; map.setFeatureState({source: 'wxzzt', id: id}, {sel: true}); }
+  window.wxSelRedraw(); };
 map.on('mouseenter', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = ''; });
 // ---- obstacles (owner 17.10): power lines and their towers / poles, ESO's lines that OSM lacks, wind
