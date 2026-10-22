@@ -395,12 +395,13 @@ html,body{height:100%;margin:0}
 #wxrvnote{width:0;min-width:100%;color:#888;font-size:10px}
 #wxrvnote[hidden]{display:none}
 /* lightning (☁ at "now") / model thunderstorms (☁ ahead) note under the slider */
-#wxltg{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
+#wxltg,#wxwarnnote{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
  box-shadow:0 1px 6px rgba(0,0,0,.18);font-size:11px;color:#333;line-height:1.4;width:fit-content;max-width:calc(100vw - 20px)}
-#wxltg[hidden]{display:none}
+#wxltg[hidden],#wxwarnnote[hidden]{display:none}
 #wxltg .wxltgbad{color:#c62828;font-weight:600}
+.wxwsq{display:inline-block;width:.85em;height:.85em;border-radius:2px;vertical-align:-.08em;box-shadow:0 0 0 1px rgba(0,0,0,.35)} /* a warning's level in its popup */
 .wxpale{opacity:.45} /* the pale ⚡ in the thunderstorm key = the one-model bolts on the map */
-:root[data-theme="dark"] #wxltg{background:var(--glass-strong);color:var(--fg)}
+:root[data-theme="dark"] #wxltg,:root[data-theme="dark"] #wxwarnnote{background:var(--glass-strong);color:var(--fg)}
 #wxwindh{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#333}
 #wxwindh[hidden]{display:none}
 .wxhlbl{color:#555}
@@ -461,7 +462,7 @@ html,body{height:100%;margin:0}
  #wxframe{font-size:10px;padding:2px 5px}
  #wxlegend{font-size:10px;gap:6px;padding:4px 7px}
  #wxfcbar{font-size:10px;padding:4px 7px}
- #wxltg{font-size:10px;padding:4px 7px}
+ #wxltg,#wxwarnnote{font-size:10px;padding:4px 7px}
  #wxpanel{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;
   font-size:11px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
   border-radius:14px 14px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.3)}
@@ -527,6 +528,7 @@ html[lang="en"] #rules .rl-bg,html:not([lang="en"]) #rules .rl-en{display:none}
    <button class="wxlbtn" id="wxrad" aria-label="rain">🌧</button>
    <button class="wxlbtn" id="wxwind" aria-label="wind"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg></button>
    <button class="wxlbtn" id="wxsnow" aria-label="snow">❄️</button>
+   <button class="wxlbtn" id="wxwarn" aria-label="weather warnings">⚠️</button>
    <span id="wxframe" hidden></span>
   </div>
   <div id="wxwindh" hidden><span class="wxhlbl" data-wxl="height"></span><span class="wxhseg"><button data-h="10" class="on">10 m</button><button data-h="120">120 m</button></span></div>
@@ -548,6 +550,7 @@ html[lang="en"] #rules .rl-bg,html:not([lang="en"]) #rules .rl-en{display:none}
    <span class="wxlg"><i style="background:#4a1a8a"></i><span data-wxl="snHvy"></span></span>
   </div>
   <div id="wxltg" hidden></div>
+  <div id="wxwarnnote" hidden></div>
   <div id="wxbody"></div>
   <div class="wxfoot"><span id="wxfootlbl"></span> <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></div>
  </div>
@@ -588,7 +591,7 @@ html[lang="en"] #rules .rl-bg,html:not([lang="en"]) #rules .rl-en{display:none}
   <div id="wxgjgrid"></div>
  </div>
 </div>
-<div id="info"><button id="infotoggle" type="button" aria-label="info" title="">!</button><div class="infobody"><div class="ihint" data-i18n="clickhint">Клик върху зона за повече информация</div><span class="src" data-i18n="src">Източник Зони: ГД ГВА</span> (<a href="https://uas.caa.bg" target="_blank" rel="noopener">uas.caa.bg</a>) · <span data-i18n="ddate">синхронизация от 2026-10-14</span><br><span data-i18n-html="disc">Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).</span></div></div>
+<div id="info"><button id="infotoggle" type="button" aria-label="info" title="">!</button><div class="infobody"><div class="ihint" data-i18n="clickhint">Клик върху зона за повече информация</div><span class="src" data-i18n="src">Източник Зони: ГД ГВА</span> (<a href="https://uas.caa.bg" target="_blank" rel="noopener">uas.caa.bg</a>) · <span data-i18n="ddate">синхронизация от 2026-10-14</span><br><span data-i18n-html="disc">Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).</span><span id="warndisc" hidden><br><span data-i18n-html="warnDisc"></span></span></div></div>
 <div id="rules" hidden role="dialog" aria-modal="true" aria-labelledby="rulesh"><div class="rlbox"><div class="rlhead"><h2 id="rulesh"><span class="rl-bg">Правила за полети с дрон</span><span class="rl-en">Drone flying rules</span></h2><button class="pclose" id="rulesclose" type="button" aria-label="close">✕</button></div><div class="rlbody"><div class="rl-bg"><p class="rlnote">Кратко неофициално резюме. Важи само официалният текст – връзките водят към него. Сверено с официалните текстове на 21.10.2026.</p><details><summary>1. Регистрация на оператор</summary><ul><li>Регистрацията в ГД ГВА е задължителна, ако дронът е 250 г или повече, или има камера (или друг сензор за лични данни) и не е играчка. В „специфична“ категория – винаги.</li><li>Регистрацията, обучението и изпитите са в uas.caa.bg. Нужен е КЕП (ГД ГВА посочва и безплатен мобилен КЕП).</li><li>Такса за регистрация: 10,23 € (за развлечение) или 20,45 € (професионална дейност).</li><li>Номерът на оператора се поставя на всеки дрон. Ако пилотът е под 18 г., се регистрира родител или попечител.</li><li>Предстои (още не е закон): EASA предлага прагът да падне на 100 г.</li></ul><p class="rlsrc">Източник: <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#art_14" target="_blank" rel="noopener">Регламент 2019/947, чл. 14</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Наредба № Н-6</a> · <a href="https://www.caa.bg/bg/category/899/29604" target="_blank" rel="noopener">ГД ГВА: кога се изисква регистрация</a> · <a href="https://www.caa.bg/bg/category/899/29602" target="_blank" rel="noopener">ГД ГВА: КЕП</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=246145" target="_blank" rel="noopener">Тарифа, ДВ бр. 91/2026</a> · <a href="https://uas.caa.bg" target="_blank" rel="noopener">uas.caa.bg</a> · <a href="https://www.easa.europa.eu/en/document-library/opinions/opinion-no-062026" target="_blank" rel="noopener">EASA: предложение 06/2026</a></p></details><details><summary>2. Свидетелство за правоспособност на дистанционно управляващ пилот</summary><ul><li>A1/A3: онлайн обучение и онлайн изпит – 40 въпроса, нужни са 75 %. Такса за изпита: 10,23 €.</li><li>A2: след A1/A3 – самостоятелна практика, декларация и допълнителен изпит (поне 30 въпроса, 75 %). Такса: 20,45 €.</li><li>Свидетелството важи 5 години и се носи при полет (не е нужно за дрон C0 или дрон под 250 г без клас).</li><li>Минимална възраст: 16 г. Без минимум – за дрон-играчка клас C0, за самоделен дрон под 250 г и при полет под прекия надзор на дистанционно управляващ пилот със свидетелство.</li></ul><p class="rlsrc">Източник: <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#art_9" target="_blank" rel="noopener">Регламент 2019/947, чл. 9</a> · <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Регламент 2019/947, приложение</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Наредба № Н-6</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=246145" target="_blank" rel="noopener">Тарифа, ДВ бр. 91/2026</a></p></details><details><summary>3. Основни правила („неограничена“ категория)</summary><ul><li>Дронът е под 25 кг.</li><li>Полетът е винаги в пряка видимост.</li><li>Височина – до 120 м от най-близката точка на земята.</li><li>Без полети над групи хора.</li><li>Без опасни товари и без пускане на предмети.</li><li>Нощем на дрона свети зелена мигаща светлина.</li><li>Без полети близо до или в зона на спасителна операция, освен с разрешение.</li></ul><p class="rlsrc">Източник: <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#art_4" target="_blank" rel="noopener">Регламент 2019/947, чл. 4</a> · <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Регламент 2019/947, приложение</a></p></details><details><summary>4. Подкатегории A1, A2, A3</summary><ul><li>A1: дронове под 250 г и C1. Дрон под 250 г може да прелита над отделни хора, но никога над групи. C1 не прелита над хора.</li><li>A2: дрон C2, на поне 30 м от неучастващи хора (5 м в режим на ниска скорост).</li><li>A3: C2, C3, C4, самоделни и стари дронове под 25 кг – далеч от хора и на поне 150 м от жилищни, търговски, промишлени и развлекателни зони.</li></ul><p class="rlsrc">Източник: <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Регламент 2019/947, приложение</a></p></details><details><summary>5. Класове, самоделни и стари дронове</summary><ul><li>C0–C4 са за „неограничена“ категория; C5 и C6 – за стандартните сценарии („специфична“ категория).</li><li>Дрон без клас, пуснат на пазара преди 01.01.2024: под 250 г – A1; под 25 кг – A3.</li><li>Самоделен (частно сглобен) дрон: под 250 г и под 19 m/s – A1; под 25 кг – A3.</li></ul><p class="rlsrc">Източник: <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#art_20" target="_blank" rel="noopener">Регламент 2019/947, чл. 20</a> · <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0945-20250624" target="_blank" rel="noopener">Регламент 2019/945</a></p></details><details><summary>6. FPV (с очила)</summary><ul><li>В „неограничена“ категория дронът трябва да е в пряка видимост. Полет с FPV очила е възможен само с наблюдател до пилота, който гледа дрона (позиция на EASA).</li><li>Състезанията със зрители не са в „неограничена“ категория – нужно е разрешение.</li></ul><p class="rlsrc">Източник: <a href="https://www.easa.europa.eu/en/faq/116511" target="_blank" rel="noopener">EASA: полет с очила</a> · <a href="https://www.easa.europa.eu/en/faq/140037" target="_blank" rel="noopener">EASA: FPV</a> · <a href="https://www.easa.europa.eu/en/faq/116510" target="_blank" rel="noopener">EASA: състезания</a></p></details><details><summary>7. Remote ID <span class="rlsub">(дронът излъчва номера на оператора)</span></summary><ul><li>Задължително за класове C1, C2 и C3 – включено и с актуален номер на оператора.</li><li>Не се изисква за C0, C4, самоделни и стари дронове.</li></ul><p class="rlsrc">Източник: <a href="https://eur-lex.europa.eu/legal-content/BG/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Регламент 2019/947, приложение</a> · <a href="https://www.easa.europa.eu/en/faq/116467" target="_blank" rel="noopener">EASA: задължения на оператора</a></p></details><details><summary>8. Зони и разрешения</summary><ul><li>Всяка зона на ГД ГВА има свои условия. На картата: слоевете «Зони», «Активирани зони» и «NOTAM».</li><li>Без разрешение не се лети в забранени и ограничени зони, в активирани зони и в охраняемите граници на летищата.</li><li>При нарушение дронът може да бъде принуден да кацне; щетите са за сметка на нарушителя.</li><li>Разрешение се иска от ГД ГВА със заявление. Въпроси: uas@caa.bg, 0897 013 264 и 02 937 1096 (вторник и четвъртък, 16:00–17:30).</li></ul><p class="rlsrc">Източник: <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=237772" target="_blank" rel="noopener">ЗГВ, чл. 62б (ДВ бр. 87/2025)</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Наредба № Н-6, чл. 55–57</a> · <a href="https://www.caa.bg/sites/default/files/uploads/%D0%97%D0%B0%D1%8F%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%91%D0%9B%D0%A1%20%D0%B7%D0%BE%D0%BD%D0%B8%20%D0%B8%20%D1%80%D0%B5%D0%B7%D0%B5%D1%80%D0%B2%D0%B8%D1%80%D0%B0%D0%BD%D0%B5%20%D0%BD%D0%B0%20%D0%92%D0%9F%2004.2026.pdf" target="_blank" rel="noopener">Заявление (ГД ГВА)</a> · <a href="https://www.caa.bg/bg/category/633" target="_blank" rel="noopener">ГД ГВА: дронове</a></p></details><details><summary>9. Наказания</summary><ul><li>Полет без разрешение или в нарушение на правилата: глоба от 1 533,88 до 5 112,92 € (3 000–10 000 лв.).</li><li>Застрашаване на самолет в полет: затвор от 3 до 10 години.</li><li>Смущаване на авиационните радиосредства: глоба от 511,29 до 5 112,92 € (1 000–10 000 лв.).</li></ul><p class="rlsrc">Източник: <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-04/%D0%97%D0%93%D0%92%D1%8A%D0%B7%D0%B4_1972.2026032.pdf" target="_blank" rel="noopener">ЗГВ, чл. 143–144</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=237772" target="_blank" rel="noopener">Наказателен кодекс, чл. 114е (ДВ бр. 87/2025)</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=224950" target="_blank" rel="noopener">Закон за въвеждане на еврото</a></p></details><details><summary>10. Застраховка</summary><ul><li>Задължителна за професионална дейност и за всеки дрон от 20 кг нагоре.</li><li>За развлечение с дрон под 20 кг не е задължителна.</li></ul><p class="rlsrc">Източник: <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-04/%D0%97%D0%93%D0%92%D1%8A%D0%B7%D0%B4_1972.2026032.pdf" target="_blank" rel="noopener">ЗГВ, чл. 19а</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Наредба № Н-6, чл. 29 и 37</a> · <a href="https://www.caa.bg/bg/category/899/29605" target="_blank" rel="noopener">ГД ГВА: въпроси и отговори</a></p></details><details><summary>11. Радио (видео и управление)</summary><ul><li>Без разрешително: 5,8 GHz – до 25 mW; 2,4 GHz – до 10 mW (100 mW за широколентови системи); 868 MHz – до 25 mW с ограничено време за предаване (869,4–869,65 MHz – до 500 mW, до 10 % от времето).</li><li>915–919,4 MHz – само за устройства в мрежи за данни. 1,2 и 1,3 GHz не са свободни.</li><li>Забранени са допълнителен усилвател и промяна на параметрите, зададени от производителя.</li><li>С разрешително за радиолюбител (клас 1): 5650–5850 MHz до 5 W.</li><li>Забранено е смущаването на авиационните радиосредства.</li></ul><p class="rlsrc">Източник: <a href="https://crc.bg/bg/statii/2587/pravila-za-svobodno-izpolzvane-na-radiochestotniq-spektar" target="_blank" rel="noopener">КРС: Правила за свободно използване</a> · <a href="https://crc.bg/bg/statii/2480/prilojenie-2-ustroystva-s-malak-obseg-na-deystvie" target="_blank" rel="noopener">КРС: Приложение 2</a> · <a href="https://docdb.cept.org/download/4980" target="_blank" rel="noopener">CEPT ERC/REC 70-03</a> · <a href="https://crc.bg/files/2025%20%D0%9F%D0%A0%D0%90%D0%92%D0%9D%D0%90/Pravila_radiolubiteli.pdf" target="_blank" rel="noopener">КРС: Правила за радиолюбители</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=237772" target="_blank" rel="noopener">ЗГВ, чл. 63 (ДВ бр. 87/2025)</a></p></details><details><summary>12. Природа</summary><ul><li>Законът за защитените територии няма изрична забрана за дронове.</li><li>В резерватите е забранена всяка дейност, която законът не изброява като разрешена.</li><li>За парковете важат заповедта за обявяване и планът за управление.</li><li>На картата: слоевете «Натура 2000» и «Защитени територии».</li></ul><p class="rlsrc">Източник: <a href="https://www.lex.bg/laws/ldoc/2134445060" target="_blank" rel="noopener">Закон за защитените територии (неофициален текст, lex.bg)</a></p></details><details><summary>13. Преди полет (по EASA)</summary><ul><li>Свидетелство за съответната подкатегория.</li><li>Актуална информация за зоните по пътя.</li><li>Проверка за препятствия и хора наоколо.</li><li>Изправни дрон и дистанционно; тегло в границите на подкатегорията.</li><li>Номер на оператора на дрона и в Remote ID; актуални карти в дрона.</li></ul><p class="rlsrc">Източник: <a href="https://www.easa.europa.eu/en/faq/116468" target="_blank" rel="noopener">EASA: задължения на пилота</a> · <a href="https://www.easa.europa.eu/en/faq/116467" target="_blank" rel="noopener">EASA: задължения на оператора</a></p></details></div><div class="rl-en"><p class="rlnote">A short unofficial summary. Only the official text applies — the links lead to it (Bulgarian sources are in Bulgarian). Checked against the official texts on 21.10.2026.</p><details><summary>1. Operator registration</summary><ul><li>Registration with the Bulgarian CAA is required if the drone weighs 250 g or more, or has a camera (or another sensor that can capture personal data) and is not a toy. In the "specific" category — always.</li><li>Registration, training and exams are done at uas.caa.bg. A qualified electronic signature is required (the CAA also points to a free mobile one).</li><li>Registration fee: €10.23 (recreational) or €20.45 (professional activity).</li><li>The operator number is displayed on every drone. If the pilot is under 18, a parent or guardian registers.</li><li>Coming (not yet law): EASA proposes lowering the threshold to 100 g.</li></ul><p class="rlsrc">Source: <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#art_14" target="_blank" rel="noopener">Regulation 2019/947, Art. 14</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Ordinance No N-6</a> · <a href="https://www.caa.bg/bg/category/899/29604" target="_blank" rel="noopener">CAA: when registration is required</a> · <a href="https://www.caa.bg/bg/category/899/29602" target="_blank" rel="noopener">CAA: electronic signature</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=246145" target="_blank" rel="noopener">Fee tariff, State Gazette No 91/2026</a> · <a href="https://uas.caa.bg" target="_blank" rel="noopener">uas.caa.bg</a> · <a href="https://www.easa.europa.eu/en/document-library/opinions/opinion-no-062026" target="_blank" rel="noopener">EASA: Opinion 06/2026</a></p></details><details><summary>2. Remote pilot certificate</summary><ul><li>A1/A3: online training and an online exam of 40 questions; 75% is needed. Exam fee: €10.23.</li><li>A2: after A1/A3 — self-practical training, a declaration and an additional exam (at least 30 questions, 75%). Fee: €20.45.</li><li>The certificate is valid for 5 years and is carried during the flight (not needed for a C0 drone or a drone under 250 g without a class).</li><li>Minimum age: 16. No minimum for a class C0 toy drone, a privately built drone under 250 g, or flying under the direct supervision of a certified remote pilot.</li></ul><p class="rlsrc">Source: <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#art_9" target="_blank" rel="noopener">Regulation 2019/947, Art. 9</a> · <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Regulation 2019/947, Annex</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Ordinance No N-6</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=246145" target="_blank" rel="noopener">Fee tariff, State Gazette No 91/2026</a></p></details><details><summary>3. Basic rules ("open" category)</summary><ul><li>The drone weighs under 25 kg.</li><li>Always within visual line of sight.</li><li>Up to 120 m from the closest point of the ground.</li><li>No flying over assemblies of people.</li><li>No dangerous goods and no dropping of objects.</li><li>At night, a green flashing light is on.</li><li>No flying close to or inside an emergency response area without permission.</li></ul><p class="rlsrc">Source: <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#art_4" target="_blank" rel="noopener">Regulation 2019/947, Art. 4</a> · <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Regulation 2019/947, Annex</a></p></details><details><summary>4. Subcategories A1, A2, A3</summary><ul><li>A1: drones under 250 g and C1. A drone under 250 g may fly over individual people, but never over assemblies. C1 does not fly over people.</li><li>A2: a C2 drone, at least 30 m from people not involved in the flight (5 m in low-speed mode).</li><li>A3: C2, C3, C4, privately built and legacy drones under 25 kg — far from people and at least 150 m from residential, commercial, industrial or recreational areas.</li></ul><p class="rlsrc">Source: <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Regulation 2019/947, Annex</a></p></details><details><summary>5. Classes, privately built and legacy drones</summary><ul><li>C0–C4 are for the "open" category; C5 and C6 for the standard scenarios ("specific" category).</li><li>A drone without a class placed on the market before 1 January 2024: under 250 g — A1; under 25 kg — A3.</li><li>A privately built drone: under 250 g and under 19 m/s — A1; under 25 kg — A3.</li></ul><p class="rlsrc">Source: <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#art_20" target="_blank" rel="noopener">Regulation 2019/947, Art. 20</a> · <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0945-20250624" target="_blank" rel="noopener">Regulation 2019/945</a></p></details><details><summary>6. FPV (goggles)</summary><ul><li>In the "open" category the drone must be within visual line of sight. Flying with FPV goggles is possible only with an observer next to the pilot who watches the drone (EASA's position).</li><li>Races with spectators are not in the "open" category — an authorisation is needed.</li></ul><p class="rlsrc">Source: <a href="https://www.easa.europa.eu/en/faq/116511" target="_blank" rel="noopener">EASA: flying with goggles</a> · <a href="https://www.easa.europa.eu/en/faq/140037" target="_blank" rel="noopener">EASA: FPV</a> · <a href="https://www.easa.europa.eu/en/faq/116510" target="_blank" rel="noopener">EASA: races</a></p></details><details><summary>7. Remote ID <span class="rlsub">(the drone broadcasts the operator number)</span></summary><ul><li>Required for classes C1, C2 and C3 — switched on and with the current operator number.</li><li>Not required for C0, C4, privately built and legacy drones.</li></ul><p class="rlsrc">Source: <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:02019R0947-20250501#anx_1" target="_blank" rel="noopener">Regulation 2019/947, Annex</a> · <a href="https://www.easa.europa.eu/en/faq/116467" target="_blank" rel="noopener">EASA: operator duties</a></p></details><details><summary>8. Zones and permissions</summary><ul><li>Each CAA zone has its own conditions. On the map: the «Zones», «Activated zones» and «NOTAM» layers.</li><li>No flying without permission in prohibited and restricted zones, in activated zones and inside the guarded boundaries of airports.</li><li>In case of a violation the drone may be forced to land; the damage is borne by the violator.</li><li>Permission is requested from the CAA with an application. Questions: uas@caa.bg, +359 897 013 264 and +359 2 937 1096 (Tuesday and Thursday, 16:00–17:30).</li></ul><p class="rlsrc">Source: <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=237772" target="_blank" rel="noopener">Civil Aviation Act, Art. 62b (State Gazette No 87/2025)</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Ordinance No N-6, Art. 55–57</a> · <a href="https://www.caa.bg/sites/default/files/uploads/%D0%97%D0%B0%D1%8F%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%91%D0%9B%D0%A1%20%D0%B7%D0%BE%D0%BD%D0%B8%20%D0%B8%20%D1%80%D0%B5%D0%B7%D0%B5%D1%80%D0%B2%D0%B8%D1%80%D0%B0%D0%BD%D0%B5%20%D0%BD%D0%B0%20%D0%92%D0%9F%2004.2026.pdf" target="_blank" rel="noopener">Application form (CAA)</a> · <a href="https://www.caa.bg/bg/category/633" target="_blank" rel="noopener">CAA: drones</a></p></details><details><summary>9. Penalties</summary><ul><li>Flying without permission or in breach of the rules: a fine of €1,533.88 to €5,112.92 (BGN 3,000–10,000).</li><li>Endangering an aircraft in flight: 3 to 10 years in prison.</li><li>Interfering with aviation radio systems: a fine of €511.29 to €5,112.92 (BGN 1,000–10,000).</li></ul><p class="rlsrc">Source: <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-04/%D0%97%D0%93%D0%92%D1%8A%D0%B7%D0%B4_1972.2026032.pdf" target="_blank" rel="noopener">Civil Aviation Act, Art. 143–144</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=237772" target="_blank" rel="noopener">Criminal Code, Art. 114e (State Gazette No 87/2025)</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=224950" target="_blank" rel="noopener">Act on the Introduction of the Euro</a></p></details><details><summary>10. Insurance</summary><ul><li>Required for professional activity and for every drone of 20 kg or more.</li><li>Not required for recreational flying with a drone under 20 kg.</li></ul><p class="rlsrc">Source: <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-04/%D0%97%D0%93%D0%92%D1%8A%D0%B7%D0%B4_1972.2026032.pdf" target="_blank" rel="noopener">Civil Aviation Act, Art. 19a</a> · <a href="https://www.caa.bg/sites/default/files/upload/documents/2026-01/%D0%9D%D0%A0_2023_664891.2025114.pdf" target="_blank" rel="noopener">Ordinance No N-6, Art. 29 and 37</a> · <a href="https://www.caa.bg/bg/category/899/29605" target="_blank" rel="noopener">CAA: questions and answers</a></p></details><details><summary>11. Radio (video and control)</summary><ul><li>Without a licence: 5.8 GHz — up to 25 mW; 2.4 GHz — up to 10 mW (100 mW for wideband systems); 868 MHz — up to 25 mW with a limited transmit time (869.4–869.65 MHz — up to 500 mW, at most 10% of the time).</li><li>915–919.4 MHz is only for devices in data networks. 1.2 and 1.3 GHz are not free to use.</li><li>Extra amplifiers and changing the parameters set by the manufacturer are prohibited.</li><li>With a radio amateur licence (class 1): 5650–5850 MHz up to 5 W.</li><li>Interfering with aviation radio systems is prohibited.</li></ul><p class="rlsrc">Source: <a href="https://crc.bg/bg/statii/2587/pravila-za-svobodno-izpolzvane-na-radiochestotniq-spektar" target="_blank" rel="noopener">CRC: rules for free use of the radio spectrum</a> · <a href="https://crc.bg/bg/statii/2480/prilojenie-2-ustroystva-s-malak-obseg-na-deystvie" target="_blank" rel="noopener">CRC: Annex 2</a> · <a href="https://docdb.cept.org/download/4980" target="_blank" rel="noopener">CEPT ERC/REC 70-03</a> · <a href="https://crc.bg/files/2025%20%D0%9F%D0%A0%D0%90%D0%92%D0%9D%D0%90/Pravila_radiolubiteli.pdf" target="_blank" rel="noopener">CRC: radio amateur rules</a> · <a href="https://dv.parliament.bg/DVWeb/showMaterialDV.jsp?idMat=237772" target="_blank" rel="noopener">Civil Aviation Act, Art. 63 (State Gazette No 87/2025)</a></p></details><details><summary>12. Nature</summary><ul><li>The Protected Areas Act has no explicit drone ban.</li><li>In reserves every activity not listed as allowed by the law is prohibited.</li><li>For parks, the designation order and the management plan apply.</li><li>On the map: the «Natura 2000» and «Protected areas» layers.</li></ul><p class="rlsrc">Source: <a href="https://www.lex.bg/laws/ldoc/2134445060" target="_blank" rel="noopener">Protected Areas Act (unofficial text, lex.bg)</a></p></details><details><summary>13. Before the flight (per EASA)</summary><ul><li>A certificate for the relevant subcategory.</li><li>Up-to-date information on the zones along the route.</li><li>A check for obstacles and people around.</li><li>A working drone and remote control; a weight within the subcategory limits.</li><li>The operator number on the drone and in Remote ID; up-to-date maps in the drone.</li></ul><p class="rlsrc">Source: <a href="https://www.easa.europa.eu/en/faq/116468" target="_blank" rel="noopener">EASA: remote pilot duties</a> · <a href="https://www.easa.europa.eu/en/faq/116467" target="_blank" rel="noopener">EASA: operator duties</a></p></details></div></div></div></div>
 <script>
 
@@ -638,6 +641,7 @@ var T = {
      secNat:'Природа',natShow:'Натура 2000',natNote:'Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ',
      zztShow:'Защитени територии',zztNote:'Защитени територии: червен контур = изрична забрана за дронове или полети; пунктир = само в част от територията или от годината; зелено = не е открита изрична забрана · ИАОС / МОСВ',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
+     warnDisc:'Метеопредупреждения (НИМХ, Meteoalarm): възможни са закъснения спрямо <a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">meteoalarm.org</a>. Най-новите предупреждения на националните метеорологични служби са на meteoalarm.org.',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
  en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',
      secObs:'Obstacles',obsShow:'Obstacles',obsNote:'Power lines, towers, wind turbines, masts, lifts and the 3D buildings · shown when zoomed in · "~" = a typical height · a line missing on the map does not mean there is none · OpenStreetMap, ESO EAD',
@@ -651,6 +655,7 @@ var T = {
      secNat:'Nature',natShow:'Natura 2000',natNote:'Natura 2000 by itself does not ban drone flights · boundaries: EEA (simplified), names: MOEW',
      zztShow:'Protected areas',zztNote:'Protected areas: red outline = an explicit drone or flight ban; dashed = only in part of the area or of the year; green = no explicit ban found · ИАОС / MOEW',
      disc:'Unofficial visualization. Before flying, check the official source and <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, active zones).',
+     warnDisc:'Weather warnings (NIMH, Meteoalarm): Time delays between this website and the <a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">www.meteoalarm.org</a> website are possible. For the most up-to-date awareness information as published by the participating National Meteorological and Hydrological Services, please refer to www.meteoalarm.org.',
      tP:'PROHIBITED',tA:'AUTHORISATION REQUIRED',tC:'CONDITIONAL'}
 };
 var RSN = {PRIVACY:{bg:'лични данни',en:'privacy'},SENSITIVE:{bg:'чувствителен обект',en:'sensitive site'},AIR_TRAFFIC:{bg:'въздушен трафик',en:'air traffic'},FOREIGN_TERRITORY:{bg:'чужда територия',en:'foreign territory'},NATURE:{bg:'природа',en:'nature'}};
@@ -697,10 +702,10 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._wr ? ('w' + p.nuts) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
 // a key that survives a reload (zone ID, NOTAM number, zone name + start, site code...) - names a
 // popup item inside a shared-view link (ROADMAP 8b); the feature indexes above do not
-function stKey(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + (p.n || '') + '|' + (p.s || '')) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._air ? ('a' + (p.n || p._aid)) : ('z' + p.id); }
+function stKey(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + (p.n || '') + '|' + (p.s || '')) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._wr ? ('w' + p.nuts) : p._air ? ('a' + (p.n || p._aid)) : ('z' + p.id); }
 // thicken the outline of the ONE item a popup shows (airspace, activated zone, protected territory or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
@@ -726,13 +731,15 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(window.wxZztName(p)) + '</b> <span class="ptype">' + esc(window.wxZztSub(p)) + '</span>'; }
     else if (p._nat){ dot = window.wxNatColor(p);
       inner = '<b>' + esc(window.wxNatName(p)) + '</b> <span class="ptype">' + esc(window.wxNatSub(p)) + '</span>'; }
+    else if (p._wr){ dot = window.wxWarnColor(p);
+      inner = '<b>' + esc(window.wxWarnName(p)) + '</b> <span class="ptype">' + esc(window.wxWarnSub(p)) + '</span>'; }
     else if (p._air){ dot = window.wxAirColor(p);
       inner = '<b>' + esc(window.wxAirName(p)) + '</b> <span class="ptype">' + esc(window.wxAirSub(p)) + '</span>'; }
     else { dot = COL[p.r];
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._aero ? window.wxAeroDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._aero ? window.wxAeroDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._wr ? window.wxWarnDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -765,6 +772,7 @@ function featShown(p){
   if (p._obs) return !!map.getLayer('obs-line');
   if (p._zzt) return !!map.getLayer('wxnat-t-fill');
   if (p._nat) return !!map.getLayer('wxnat-fill');
+  if (p._wr) return !!map.getLayer('warn-fill');
   if (p._air) return !!(p._al && map.getLayer(p._al));
   var id = 'f-' + p.r; return !!map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'; }
 // A layer was switched OFF: drop its items from the open popup. Nothing left -> close it;
@@ -1209,6 +1217,11 @@ map.on('load', function(){
     if (ul.length){ var us = {};
       map.queryRenderedFeatures(box, {layers: ul}).forEach(function(f){ var c = f.properties.c;
         if (c && !us[c]){ us[c] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._nat = true; list.push(p); } }); }
+    // official weather warnings (when that layer is on) - anywhere inside a coloured oblast; information, after the nature layers
+    var wl = ['warn-fill'].filter(function(id){ return map.getLayer(id); });
+    if (wl.length){ var ws = {};
+      map.queryRenderedFeatures(box, {layers: wl}).forEach(function(f){ var c = f.properties.nuts;
+        if (c && !ws[c]){ ws[c] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._wr = true; list.push(p); } }); }
     // airspace joins LAST (order: drone-zones > NOTAM > airspace); reachable ONLY via its NAME label (owner's choice)
     var al = ['air-ctrl-labels','air-spec-labels'].filter(function(id){ return map.getLayer(id); });
     if (al.length){ var as = {};
@@ -1557,6 +1570,11 @@ var WXT = {
      stormKey:'⛈ Възможни бури: жълта ⚡ — по-вероятно (показват я поне 2 от 3 различни прогнозни модела), бледа <span class="wxpale">⚡</span> — по-малко вероятно (показва я само един модел).',
      stormNone:'⛈ Без бури по прогнозата за този час',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
      bWind:'Вятър — частиците текат по вятъра (модел Open-Meteo)',height:'Височина',bSnow:'Прогноза за сняг +72 ч (модел Open-Meteo, в см)',
+     bWarn:'Предупреждения за опасно време — НИМХ (Meteoalarm), днес и утре',
+     warnIss:'⚠️ Предупреждения на НИМХ (Meteoalarm), издадени на {d} в {t}.',warnNone:'⚠️ Няма предупреждения на НИМХ за този час.',
+     warnFar:'⚠️ Предупреждения има само за днес и утре.',warnErr:'⚠️ Предупрежденията временно не се зареждат.',
+     warnLvl:{2:'Жълто',3:'Оранжево',4:'Червено'},warnWord:'предупреждение',warnSrc:'НИМХ',warnTz:'бълг. време',warnIssued:'издадено',
+     warnModel:'За цялата област и периода; моделът може да се различава.',warnSource:'Източник:',
      bOgn:'Нисък трафик — планери/парапланери/лека авиация (OGN/FLARM; само където има приемник)',
      fcNote:'моделът може да пропуска локални валежи',
      drz:'ръмеж',lgt:'слаб',mod:'умерен',hvy:'силен',str:'буря',hail:'град',snTrace:'следа',snLgt:'слаб',snMod:'умерен',snStr:'силен',snHvy:'обилен',snowRow:'сняг см',
@@ -1577,6 +1595,11 @@ var WXT = {
      stormKey:'⛈ Possible thunderstorms: yellow ⚡ — more likely (at least 2 of 3 different forecast models show it), pale <span class="wxpale">⚡</span> — less likely (only one model shows it).',
      stormNone:'⛈ No thunderstorms in the forecast for this hour',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
      bWind:'Wind — particles flow with the wind (Open-Meteo model)',height:'Height',bSnow:'Snow forecast +72 h (Open-Meteo model, in cm)',
+     bWarn:'Severe weather warnings — NIMH (Meteoalarm), today and tomorrow',
+     warnIss:'⚠️ NIMH warnings (Meteoalarm), issued {d} {t}.',warnNone:'⚠️ No NIMH warnings for this hour.',
+     warnFar:'⚠️ Warnings cover only today and tomorrow.',warnErr:'⚠️ Warnings are temporarily unavailable.',
+     warnLvl:{2:'Yellow',3:'Orange',4:'Red'},warnWord:'warning',warnSrc:'NIMH',warnTz:'Bulgarian time',warnIssued:'issued',
+     warnModel:'Whole province, whole period; the model may differ.',warnSource:'Source:',
      bOgn:'Low-level traffic — gliders/paragliders/light aircraft (OGN/FLARM; only where a receiver hears them)',
      fcNote:'the model can miss local showers',
      drz:'drizzle',lgt:'light',mod:'moderate',hvy:'heavy',str:'storm',hail:'hail',snTrace:'trace',snLgt:'light',snMod:'moderate',snStr:'heavy',snHvy:'very heavy',snowRow:'snow cm',
@@ -1594,6 +1617,7 @@ var wxEl = document.getElementById('wx'), wxChip = document.getElementById('wxch
     wxPanel = document.getElementById('wxpanel'), wxBody = document.getElementById('wxbody'),
     wxPlaceEl = document.getElementById('wxplace');
 function wxLang(){ return (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'bg'; }
+window.WXT = WXT; window.wxLang = wxLang; // the layer scripts (outside this closure) read the warnings' texts through these
 function wxCellOf(c){ return (Math.round(c.lat / 0.01) * 0.01).toFixed(2) + ',' + (Math.round(c.lng / 0.01) * 0.01).toFixed(2); } // ~1 km cell key from a center; the place name uses THIS, not the weather-fetch wxCell (which the retry resets to '')
 function wxEsc(s){ return (s + '').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function wxIco(code, day){
@@ -1779,6 +1803,7 @@ function wxRender(){
   if (bP) bP.title = t.bPln;
   var bW = document.getElementById('wxwind'); if (bW) bW.title = t.bWind;
   var bS = document.getElementById('wxsnow'); if (bS) bS.title = t.bSnow;
+  var bWr = document.getElementById('wxwarn'); if (bWr) bWr.title = t.bWarn;
   var bO = document.getElementById('ognbtn'); if (bO) bO.title = t.bOgn;
   var bG = document.getElementById('wxgj'); if (bG) bG.title = t.bGj;
   var fN = document.getElementById('wxfcnote');
@@ -1941,6 +1966,12 @@ document.getElementById('wxsnow').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('snow', on);
   wxSyncFcBar();
   if (window.wxSetSnow) window.wxSetSnow(on); };
+// official weather warnings (NIMH via Meteoalarm): per oblast, for the slider's hour - today and
+// tomorrow only; they share the +hours slider
+document.getElementById('wxwarn').onclick = function(e){ e.stopPropagation();
+  var on = this.classList.toggle('on'); ST.set('warn', on);
+  wxSyncFcBar();
+  if (window.wxSetWarn) window.wxSetWarn(on); };
 // GPS interference is a live-window layer (our /gpsown cells, last 12 h);
 // independent of the +hours forecast slider
 document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
@@ -1955,8 +1986,8 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
 // the +hours slider is SHARED by the rain forecast and the wind layer, so it
 // shows whenever either is on and both read the same hour
 function wxSyncFcBar(){ var bar = document.getElementById('wxfcbar');
-  var sn = document.getElementById('wxsnow'), cl = document.getElementById('wxcld'), rn = document.getElementById('wxrad');
-  var show = (rn && rn.classList.contains('on')) || document.getElementById('wxwind').classList.contains('on') || (sn && sn.classList.contains('on')) || (cl && cl.classList.contains('on'));
+  var sn = document.getElementById('wxsnow'), cl = document.getElementById('wxcld'), rn = document.getElementById('wxrad'), wr = document.getElementById('wxwarn');
+  var show = (rn && rn.classList.contains('on')) || document.getElementById('wxwind').classList.contains('on') || (sn && sn.classList.contains('on')) || (cl && cl.classList.contains('on')) || (wr && wr.classList.contains('on'));
   bar.hidden = !show; if (show && window.wxFcLabel) window.wxFcLabel(); }
 window.wxSyncFcBar = wxSyncFcBar;
 // wind particle layer: independent of the rain layers; the height sub-toggle and
@@ -1978,6 +2009,7 @@ document.getElementById('wxfcsl').oninput = function(){
   if (document.getElementById('wxrad').classList.contains('on') && window.wxRainApply) window.wxRainApply();
   var _sn = document.getElementById('wxsnow'); if (_sn && _sn.classList.contains('on') && window.wxSnowApply) window.wxSnowApply();
   var _cl = document.getElementById('wxcld'); if (_cl && _cl.classList.contains('on') && window.wxCloudApply) window.wxCloudApply(); // clouds: satellite at 0, model ahead
+  if (window.wxWarnPaint) window.wxWarnPaint(); // warnings: the oblasts valid at the new hour
   if (window.wxFcLabel) window.wxFcLabel();
   wxChipHTML(); }; // wind chip follows the slider too (wind reads the hour live each frame)
 // desktop: mouse wheel over the slider steps the hour by 1 (touch drags natively)
@@ -3200,6 +3232,104 @@ window.wxSetSnow = function(on){ window.wxSnowOn = on;
   }
   if (window.wxSyncFcBar) window.wxSyncFcBar(); // the slider bar is shared with rain-forecast + wind
 };
+// ---- official weather WARNINGS (NIMH via Meteoalarm; relay /warnings, owner 22.10) ----
+// The oblasts with a yellow / orange / red warning valid at the slider's hour are filled in
+// Meteoalarm's colours; green = no warning = nothing drawn (owner). The borders are OSM's
+// (data/bg_oblasts.json, built by tools/make_oblasts.py), matched to the warnings by NUTS3
+// code. NIMH's texts are shown unchanged; Meteoalarm's Terms + Style Guide ask for the level
+// in the title, NIMH as the source, the start / end with the time zone, the time of issue, a
+// link, and never a copy older than 10 min. While the layer is on the page asks the relay
+// every 3 min and repaints every minute; the feed reaches only to the end of tomorrow.
+window.wxWarnUrl = 'https://full-narwhal-4777.martinovem.deno.net/warnings';
+var WARN_HEX = {2:'#ffda22', 3:'#ff9300', 4:'#ff0000'}; // Meteoalarm Style Guide v1.0
+var WARN_COL = ['match', ['get','lvl'], 4, WARN_HEX[4], 3, WARN_HEX[3], WARN_HEX[2]];
+var WARN_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+window.wxWarn = {on:false, data:null, dataAt:0, err:false, fetchedAt:0, shapes:null, shown:[], sig:'', timer:null};
+function warnTime(){ return Date.now() + ((window.wxFcState && window.wxFcState.hour) || 0) * 3600000; }
+// 00:00 Bulgarian time the day after tomorrow = where Meteoalarm's feed ends
+function warnHorizon(){ var a = actParts(Date.now()), dm = a.d.split('.'), u = Date.UTC(+a.y, +dm[1] - 1, +dm[0] + 2);
+  return u - parseInt(actParts(u).hm, 10) * 3600000; } // Sofia's clock at 00:00 UTC = its offset (2 or 3 h)
+function warnDate(t){ var dm = actParts(t).d.split('.'); return actEn() ? (+dm[0] + ' ' + WARN_MON[+dm[1] - 1]) : (dm[0] + '.' + dm[1]); }
+function warnWhen(t){ return warnDate(t) + ' ' + actParts(t).hm; }
+function warnTxt(s){ return esc(s || '').replace(/\n/g, '<br>'); }
+// the picture at the slider's hour: the highest level per oblast among the warnings valid then
+function warnPaint(){
+  var W = window.wxWarn, src = map.getSource('wxwarn'), T = warnTime(), lv = {}, act = [];
+  if (W.data && Date.now() - W.dataAt > 600000){ W.data = null; W.err = true; } // never show a copy over 10 min old
+  if (W.data && T < warnHorizon()) (W.data.warnings || []).forEach(function(w){
+    if (!(Date.parse(w.on) <= T && T < Date.parse(w.ex))) return;
+    act.push(w);
+    (w.areas || []).forEach(function(a){ if (!lv[a.c] || w.lvl > lv[a.c]) lv[a.c] = w.lvl; }); });
+  W.shown = act;
+  if (src){ var fs = (W.shapes ? W.shapes.features : []).filter(function(f){ return lv[f.properties.nuts]; }).map(function(f){
+      var q = f.properties; return {type:'Feature', geometry:f.geometry, properties:{nuts:q.nuts, bg:q.bg, en:q.en, lvl:lv[q.nuts]}}; });
+    var sig = fs.map(function(f){ return f.properties.nuts + f.properties.lvl; }).join();
+    if (sig !== W.sig){ W.sig = sig; src.setData({type:'FeatureCollection', features:fs}); } }
+  warnNote(act, T); }
+function warnNote(act, T){ var el = document.getElementById('wxwarnnote'), W = window.wxWarn, t = window.WXT[window.wxLang()];
+  if (!el) return;
+  if (!W.on){ el.hidden = true; return; }
+  el.hidden = false;
+  if (!W.data || !W.shapes) el.textContent = W.err ? t.warnErr : '…';
+  else if (T >= warnHorizon()) el.textContent = t.warnFar;
+  else if (!act.length) el.textContent = t.warnNone;
+  else { var s = Math.max.apply(null, act.map(function(w){ return Date.parse(w.sent) || 0; }));
+    el.textContent = t.warnIss.replace('{d}', warnDate(s)).replace('{t}', actParts(s).hm); } }
+// ONE fetch of /warnings; the copy's true age comes from the relay's X-Warn-Age-Ms
+function warnFetch(cb){ var W = window.wxWarn; W.fetchedAt = Date.now();
+  fetch(window.wxWarnUrl, {cache:'no-store'}).then(function(r){ if (!r.ok) throw 0;
+    var age = parseInt(r.headers.get('X-Warn-Age-Ms') || '0', 10) || 0;
+    return r.json().then(function(d){ return {d:d, age:age}; }); })
+  .then(function(x){ W.data = x.d; W.dataAt = Date.now() - x.age; W.err = false; cb(); })
+  .catch(function(){ W.err = true; cb(); }); } // an old copy stays until it is 10 min old (warnPaint)
+function warnShapes(cb){ var W = window.wxWarn; if (W.shapes){ cb(); return; }
+  fetch('data/bg_oblasts.json').then(function(r){ if (!r.ok) throw 0; return r.json(); })
+  .then(function(gj){ W.shapes = gj; cb(); }).catch(function(){ W.err = true; cb(); }); }
+window.wxSetWarn = function(on){ var W = window.wxWarn; W.on = on; clearInterval(W.timer); W.timer = null;
+  var dc = document.getElementById('warndisc'); if (dc) dc.hidden = !on; // Meteoalarm's delay disclaimer in the „!“ box
+  if (on){
+    wxBtnBusy('wxwarn', 'wxwarn'); warnNote([], 0);
+    warnShapes(function(){ warnFetch(function(){ if (!W.on) return;
+      whenReady(function(){ if (!W.on) return;
+        var en = actEn();
+        if (!map.getSource('wxwarn')) map.addSource('wxwarn', {type:'geojson', data:{type:'FeatureCollection', features:[]},
+          attribution:(en ? 'Warnings: ' : 'Предупреждения: ') + '<a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">' + (en ? 'NIMH (Meteoalarm)' : 'НИМХ (Meteoalarm)') + '</a>'});
+        var bf = wxBefore(); // the weather band: below the GPS layer and the zones
+        if (!map.getLayer('warn-fill')) map.addLayer({id:'warn-fill', type:'fill', source:'wxwarn', paint:{'fill-color':WARN_COL, 'fill-opacity':0.3}}, bf);
+        if (!map.getLayer('warn-line')) map.addLayer({id:'warn-line', type:'line', source:'wxwarn', paint:{'line-color':WARN_COL, 'line-width':1.5}}, bf);
+        W.sig = ''; warnPaint(); }); }); });
+    W.timer = setInterval(function(){ if (!W.on) return;
+      if (Date.now() - W.fetchedAt >= 180000) warnFetch(warnPaint); else warnPaint(); }, 60000); // repaint every minute, ask every 3 min
+  } else {
+    wxBtnIdle('wxwarn');
+    ['warn-line','warn-fill'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wxwarn')) map.removeSource('wxwarn');
+    W.sig = ''; warnNote([], 0);
+    if (window.wxPopupPrune) window.wxPopupPrune(); }
+  if (window.wxSyncFcBar) window.wxSyncFcBar(); };
+window.wxWarnPaint = function(){ if (window.wxWarn.on) warnPaint(); };
+// helpers for the SHARED click chooser in make_3d (items tagged _wr)
+function warnFor(nuts){ return (window.wxWarn.shown || []).filter(function(w){ return (w.areas || []).some(function(a){ return a.c === nuts; }); }); }
+window.wxWarnColor = function(p){ return WARN_HEX[+p.lvl] || WARN_HEX[2]; };
+// NIMH's own name of the oblast (from the warning), else the borders file's
+window.wxWarnName = function(p){ var en = actEn(), ws = warnFor(p.nuts);
+  for (var i = 0; i < ws.length; i++){ var a = ws[i].areas.filter(function(x){ return x.c === p.nuts; })[0], n = a && (en ? a.en : a.bg); if (n) return n; }
+  return (en ? p.en : p.bg) || ''; };
+window.wxWarnSub = function(p){ var t = window.WXT[window.wxLang()]; return t.warnLvl[+p.lvl] + ' ' + t.warnWord + ' · ' + t.warnSrc; };
+window.wxWarnDetail = function(p){ var t = window.WXT[window.wxLang()], en = actEn(), seen = {}, h = '<b>' + esc(window.wxWarnName(p)) + '</b>';
+  var ws = warnFor(p.nuts).slice().sort(function(a, b){ return b.lvl - a.lvl || Date.parse(a.on) - Date.parse(b.on); });
+  ws.forEach(function(w){ var x = (en ? w.en : w.bg) || w.en || w.bg || {};
+    var k = [w.lvl, x.hl, x.ds, x.in, w.on, w.ex].join('|'); if (seen[k]) return; seen[k] = 1; // the same text and hours: shown once
+    // the level's square in the map's own colour (an emoji square is drawn in the system's shades: Windows' 🟨 looked orange)
+    h += '<br><span class="wxwsq" style="background:' + WARN_HEX[w.lvl] + '"></span> <b>' + t.warnLvl[w.lvl] + ': ' + warnTxt(x.hl) + '</b>' +
+      (x.ds ? '<br>' + warnTxt(x.ds) : '') + (x.in ? '<br>' + warnTxt(x.in) : '') +
+      '<br>' + warnWhen(Date.parse(w.on)) + ' – ' + warnWhen(Date.parse(w.ex)) + ' (' + t.warnTz + ') · ' + t.warnIssued + ' ' + warnWhen(Date.parse(w.sent)); });
+  if (!ws.length) h += '<br>' + t.warnNone;
+  return h + '<br><small>' + t.warnModel + '</small><br><small>' + t.warnSource + ' ' + t.warnSrc + ' (Meteoalarm) · ' +
+    '<a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">meteoalarm.org</a></small>'; };
+map.on('mouseenter', 'warn-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
+map.on('mouseleave', 'warn-fill', function(){ map.getCanvas().style.cursor = ''; });
+(window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ if (window.wxWarn.on) warnPaint(); }); // the note follows a BG/EN switch
 // ---- GPS interference (/gpsown - OUR OWN cells from the relayed ADS-B data) -----
 // Live 12 h window, independent of the forecast slider. Banded by the relay
 // (Wilson lower bound): grey = too few aircraft to judge, green < 2%, yellow
@@ -4819,7 +4949,7 @@ window.wxSetOgn = function(on){ ognOn = on;
   if (ST.shared && typeof ST.shared.gd === 'string'){ window.wxGjDay = ST.shared.gd; window.wxGjAuto = false; } // a shared view: the sender's GPS day ('' = live)
   document.querySelectorAll('#wxwindh .wxhseg button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-h') === wh); });
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
-   ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
+   ['snow','wxsnow','wxSetSnow'], ['warn','wxwarn','wxSetWarn'], ['gj','wxgj','wxSetGj'],
    ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['aero','cbAero','wxSetAero'], ['notam','cbNotam','wxSetNotam'],
    ['nat','cbNat','wxSetNat'], ['zzt','cbZzt','wxSetZzt'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){

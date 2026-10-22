@@ -42,12 +42,13 @@ WX_CSS = r"""
 #wxrvnote{width:0;min-width:100%;color:#888;font-size:10px}
 #wxrvnote[hidden]{display:none}
 /* lightning (☁ at "now") / model thunderstorms (☁ ahead) note under the slider */
-#wxltg{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
+#wxltg,#wxwarnnote{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
  box-shadow:0 1px 6px rgba(0,0,0,.18);font-size:11px;color:#333;line-height:1.4;width:fit-content;max-width:calc(100vw - 20px)}
-#wxltg[hidden]{display:none}
+#wxltg[hidden],#wxwarnnote[hidden]{display:none}
 #wxltg .wxltgbad{color:#c62828;font-weight:600}
+.wxwsq{display:inline-block;width:.85em;height:.85em;border-radius:2px;vertical-align:-.08em;box-shadow:0 0 0 1px rgba(0,0,0,.35)} /* a warning's level in its popup */
 .wxpale{opacity:.45} /* the pale ⚡ in the thunderstorm key = the one-model bolts on the map */
-:root[data-theme="dark"] #wxltg{background:var(--glass-strong);color:var(--fg)}
+:root[data-theme="dark"] #wxltg,:root[data-theme="dark"] #wxwarnnote{background:var(--glass-strong);color:var(--fg)}
 #wxwindh{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#333}
 #wxwindh[hidden]{display:none}
 .wxhlbl{color:#555}
@@ -108,7 +109,7 @@ WX_CSS = r"""
  #wxframe{font-size:10px;padding:2px 5px}
  #wxlegend{font-size:10px;gap:6px;padding:4px 7px}
  #wxfcbar{font-size:10px;padding:4px 7px}
- #wxltg{font-size:10px;padding:4px 7px}
+ #wxltg,#wxwarnnote{font-size:10px;padding:4px 7px}
  #wxpanel{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;
   font-size:11px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
   border-radius:14px 14px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.3)}
@@ -146,6 +147,7 @@ WX_HTML = r"""<div id="wx">
    <button class="wxlbtn" id="wxrad" aria-label="rain">🌧</button>
    <button class="wxlbtn" id="wxwind" aria-label="wind"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg></button>
    <button class="wxlbtn" id="wxsnow" aria-label="snow">❄️</button>
+   <button class="wxlbtn" id="wxwarn" aria-label="weather warnings">⚠️</button>
    <span id="wxframe" hidden></span>
   </div>
   <div id="wxwindh" hidden><span class="wxhlbl" data-wxl="height"></span><span class="wxhseg"><button data-h="10" class="on">10 m</button><button data-h="120">120 m</button></span></div>
@@ -167,6 +169,7 @@ WX_HTML = r"""<div id="wx">
    <span class="wxlg"><i style="background:#4a1a8a"></i><span data-wxl="snHvy"></span></span>
   </div>
   <div id="wxltg" hidden></div>
+  <div id="wxwarnnote" hidden></div>
   <div id="wxbody"></div>
   <div class="wxfoot"><span id="wxfootlbl"></span> <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></div>
  </div>
@@ -191,6 +194,11 @@ var WXT = {
      stormKey:'⛈ Възможни бури: жълта ⚡ — по-вероятно (показват я поне 2 от 3 различни прогнозни модела), бледа <span class="wxpale">⚡</span> — по-малко вероятно (показва я само един модел).',
      stormNone:'⛈ Без бури по прогнозата за този час',bRad:'Дъжд — радар сега, модел напред (плъзгач)',bPln:'Самолети на живо (adsb.fi / adsb.lol)',
      bWind:'Вятър — частиците текат по вятъра (модел Open-Meteo)',height:'Височина',bSnow:'Прогноза за сняг +72 ч (модел Open-Meteo, в см)',
+     bWarn:'Предупреждения за опасно време — НИМХ (Meteoalarm), днес и утре',
+     warnIss:'⚠️ Предупреждения на НИМХ (Meteoalarm), издадени на {d} в {t}.',warnNone:'⚠️ Няма предупреждения на НИМХ за този час.',
+     warnFar:'⚠️ Предупреждения има само за днес и утре.',warnErr:'⚠️ Предупрежденията временно не се зареждат.',
+     warnLvl:{2:'Жълто',3:'Оранжево',4:'Червено'},warnWord:'предупреждение',warnSrc:'НИМХ',warnTz:'бълг. време',warnIssued:'издадено',
+     warnModel:'За цялата област и периода; моделът може да се различава.',warnSource:'Източник:',
      bOgn:'Нисък трафик — планери/парапланери/лека авиация (OGN/FLARM; само където има приемник)',
      fcNote:'моделът може да пропуска локални валежи',
      drz:'ръмеж',lgt:'слаб',mod:'умерен',hvy:'силен',str:'буря',hail:'град',snTrace:'следа',snLgt:'слаб',snMod:'умерен',snStr:'силен',snHvy:'обилен',snowRow:'сняг см',
@@ -211,6 +219,11 @@ var WXT = {
      stormKey:'⛈ Possible thunderstorms: yellow ⚡ — more likely (at least 2 of 3 different forecast models show it), pale <span class="wxpale">⚡</span> — less likely (only one model shows it).',
      stormNone:'⛈ No thunderstorms in the forecast for this hour',bRad:'Rain — radar now, model ahead (slider)',bPln:'Live aircraft (adsb.fi / adsb.lol)',
      bWind:'Wind — particles flow with the wind (Open-Meteo model)',height:'Height',bSnow:'Snow forecast +72 h (Open-Meteo model, in cm)',
+     bWarn:'Severe weather warnings — NIMH (Meteoalarm), today and tomorrow',
+     warnIss:'⚠️ NIMH warnings (Meteoalarm), issued {d} {t}.',warnNone:'⚠️ No NIMH warnings for this hour.',
+     warnFar:'⚠️ Warnings cover only today and tomorrow.',warnErr:'⚠️ Warnings are temporarily unavailable.',
+     warnLvl:{2:'Yellow',3:'Orange',4:'Red'},warnWord:'warning',warnSrc:'NIMH',warnTz:'Bulgarian time',warnIssued:'issued',
+     warnModel:'Whole province, whole period; the model may differ.',warnSource:'Source:',
      bOgn:'Low-level traffic — gliders/paragliders/light aircraft (OGN/FLARM; only where a receiver hears them)',
      fcNote:'the model can miss local showers',
      drz:'drizzle',lgt:'light',mod:'moderate',hvy:'heavy',str:'storm',hail:'hail',snTrace:'trace',snLgt:'light',snMod:'moderate',snStr:'heavy',snHvy:'very heavy',snowRow:'snow cm',
@@ -228,6 +241,7 @@ var wxEl = document.getElementById('wx'), wxChip = document.getElementById('wxch
     wxPanel = document.getElementById('wxpanel'), wxBody = document.getElementById('wxbody'),
     wxPlaceEl = document.getElementById('wxplace');
 function wxLang(){ return (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'bg'; }
+window.WXT = WXT; window.wxLang = wxLang; // the layer scripts (outside this closure) read the warnings' texts through these
 function wxCellOf(c){ return (Math.round(c.lat / 0.01) * 0.01).toFixed(2) + ',' + (Math.round(c.lng / 0.01) * 0.01).toFixed(2); } // ~1 km cell key from a center; the place name uses THIS, not the weather-fetch wxCell (which the retry resets to '')
 function wxEsc(s){ return (s + '').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function wxIco(code, day){
@@ -413,6 +427,7 @@ function wxRender(){
   if (bP) bP.title = t.bPln;
   var bW = document.getElementById('wxwind'); if (bW) bW.title = t.bWind;
   var bS = document.getElementById('wxsnow'); if (bS) bS.title = t.bSnow;
+  var bWr = document.getElementById('wxwarn'); if (bWr) bWr.title = t.bWarn;
   var bO = document.getElementById('ognbtn'); if (bO) bO.title = t.bOgn;
   var bG = document.getElementById('wxgj'); if (bG) bG.title = t.bGj;
   var fN = document.getElementById('wxfcnote');
@@ -575,6 +590,12 @@ document.getElementById('wxsnow').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('snow', on);
   wxSyncFcBar();
   if (window.wxSetSnow) window.wxSetSnow(on); };
+// official weather warnings (NIMH via Meteoalarm): per oblast, for the slider's hour - today and
+// tomorrow only; they share the +hours slider
+document.getElementById('wxwarn').onclick = function(e){ e.stopPropagation();
+  var on = this.classList.toggle('on'); ST.set('warn', on);
+  wxSyncFcBar();
+  if (window.wxSetWarn) window.wxSetWarn(on); };
 // GPS interference is a live-window layer (our /gpsown cells, last 12 h);
 // independent of the +hours forecast slider
 document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
@@ -589,8 +610,8 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
 // the +hours slider is SHARED by the rain forecast and the wind layer, so it
 // shows whenever either is on and both read the same hour
 function wxSyncFcBar(){ var bar = document.getElementById('wxfcbar');
-  var sn = document.getElementById('wxsnow'), cl = document.getElementById('wxcld'), rn = document.getElementById('wxrad');
-  var show = (rn && rn.classList.contains('on')) || document.getElementById('wxwind').classList.contains('on') || (sn && sn.classList.contains('on')) || (cl && cl.classList.contains('on'));
+  var sn = document.getElementById('wxsnow'), cl = document.getElementById('wxcld'), rn = document.getElementById('wxrad'), wr = document.getElementById('wxwarn');
+  var show = (rn && rn.classList.contains('on')) || document.getElementById('wxwind').classList.contains('on') || (sn && sn.classList.contains('on')) || (cl && cl.classList.contains('on')) || (wr && wr.classList.contains('on'));
   bar.hidden = !show; if (show && window.wxFcLabel) window.wxFcLabel(); }
 window.wxSyncFcBar = wxSyncFcBar;
 // wind particle layer: independent of the rain layers; the height sub-toggle and
@@ -612,6 +633,7 @@ document.getElementById('wxfcsl').oninput = function(){
   if (document.getElementById('wxrad').classList.contains('on') && window.wxRainApply) window.wxRainApply();
   var _sn = document.getElementById('wxsnow'); if (_sn && _sn.classList.contains('on') && window.wxSnowApply) window.wxSnowApply();
   var _cl = document.getElementById('wxcld'); if (_cl && _cl.classList.contains('on') && window.wxCloudApply) window.wxCloudApply(); // clouds: satellite at 0, model ahead
+  if (window.wxWarnPaint) window.wxWarnPaint(); // warnings: the oblasts valid at the new hour
   if (window.wxFcLabel) window.wxFcLabel();
   wxChipHTML(); }; // wind chip follows the slider too (wind reads the hour live each frame)
 // desktop: mouse wheel over the slider steps the hour by 1 (touch drags natively)
@@ -1503,7 +1525,7 @@ WX_RESTORE_JS = r"""
   if (ST.shared && typeof ST.shared.gd === 'string'){ window.wxGjDay = ST.shared.gd; window.wxGjAuto = false; } // a shared view: the sender's GPS day ('' = live)
   document.querySelectorAll('#wxwindh .wxhseg button').forEach(function(x){ x.classList.toggle('on', +x.getAttribute('data-h') === wh); });
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
-   ['snow','wxsnow','wxSetSnow'], ['gj','wxgj','wxSetGj'],
+   ['snow','wxsnow','wxSetSnow'], ['warn','wxwarn','wxSetWarn'], ['gj','wxgj','wxSetGj'],
    ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['aero','cbAero','wxSetAero'], ['notam','cbNotam','wxSetNotam'],
    ['nat','cbNat','wxSetNat'], ['zzt','cbZzt','wxSetZzt'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){
@@ -1880,6 +1902,104 @@ window.wxSetSnow = function(on){ window.wxSnowOn = on;
   }
   if (window.wxSyncFcBar) window.wxSyncFcBar(); // the slider bar is shared with rain-forecast + wind
 };
+// ---- official weather WARNINGS (NIMH via Meteoalarm; relay /warnings, owner 22.10) ----
+// The oblasts with a yellow / orange / red warning valid at the slider's hour are filled in
+// Meteoalarm's colours; green = no warning = nothing drawn (owner). The borders are OSM's
+// (data/bg_oblasts.json, built by tools/make_oblasts.py), matched to the warnings by NUTS3
+// code. NIMH's texts are shown unchanged; Meteoalarm's Terms + Style Guide ask for the level
+// in the title, NIMH as the source, the start / end with the time zone, the time of issue, a
+// link, and never a copy older than 10 min. While the layer is on the page asks the relay
+// every 3 min and repaints every minute; the feed reaches only to the end of tomorrow.
+window.wxWarnUrl = 'https://full-narwhal-4777.martinovem.deno.net/warnings';
+var WARN_HEX = {2:'#ffda22', 3:'#ff9300', 4:'#ff0000'}; // Meteoalarm Style Guide v1.0
+var WARN_COL = ['match', ['get','lvl'], 4, WARN_HEX[4], 3, WARN_HEX[3], WARN_HEX[2]];
+var WARN_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+window.wxWarn = {on:false, data:null, dataAt:0, err:false, fetchedAt:0, shapes:null, shown:[], sig:'', timer:null};
+function warnTime(){ return Date.now() + ((window.wxFcState && window.wxFcState.hour) || 0) * 3600000; }
+// 00:00 Bulgarian time the day after tomorrow = where Meteoalarm's feed ends
+function warnHorizon(){ var a = actParts(Date.now()), dm = a.d.split('.'), u = Date.UTC(+a.y, +dm[1] - 1, +dm[0] + 2);
+  return u - parseInt(actParts(u).hm, 10) * 3600000; } // Sofia's clock at 00:00 UTC = its offset (2 or 3 h)
+function warnDate(t){ var dm = actParts(t).d.split('.'); return actEn() ? (+dm[0] + ' ' + WARN_MON[+dm[1] - 1]) : (dm[0] + '.' + dm[1]); }
+function warnWhen(t){ return warnDate(t) + ' ' + actParts(t).hm; }
+function warnTxt(s){ return esc(s || '').replace(/\n/g, '<br>'); }
+// the picture at the slider's hour: the highest level per oblast among the warnings valid then
+function warnPaint(){
+  var W = window.wxWarn, src = map.getSource('wxwarn'), T = warnTime(), lv = {}, act = [];
+  if (W.data && Date.now() - W.dataAt > 600000){ W.data = null; W.err = true; } // never show a copy over 10 min old
+  if (W.data && T < warnHorizon()) (W.data.warnings || []).forEach(function(w){
+    if (!(Date.parse(w.on) <= T && T < Date.parse(w.ex))) return;
+    act.push(w);
+    (w.areas || []).forEach(function(a){ if (!lv[a.c] || w.lvl > lv[a.c]) lv[a.c] = w.lvl; }); });
+  W.shown = act;
+  if (src){ var fs = (W.shapes ? W.shapes.features : []).filter(function(f){ return lv[f.properties.nuts]; }).map(function(f){
+      var q = f.properties; return {type:'Feature', geometry:f.geometry, properties:{nuts:q.nuts, bg:q.bg, en:q.en, lvl:lv[q.nuts]}}; });
+    var sig = fs.map(function(f){ return f.properties.nuts + f.properties.lvl; }).join();
+    if (sig !== W.sig){ W.sig = sig; src.setData({type:'FeatureCollection', features:fs}); } }
+  warnNote(act, T); }
+function warnNote(act, T){ var el = document.getElementById('wxwarnnote'), W = window.wxWarn, t = window.WXT[window.wxLang()];
+  if (!el) return;
+  if (!W.on){ el.hidden = true; return; }
+  el.hidden = false;
+  if (!W.data || !W.shapes) el.textContent = W.err ? t.warnErr : '…';
+  else if (T >= warnHorizon()) el.textContent = t.warnFar;
+  else if (!act.length) el.textContent = t.warnNone;
+  else { var s = Math.max.apply(null, act.map(function(w){ return Date.parse(w.sent) || 0; }));
+    el.textContent = t.warnIss.replace('{d}', warnDate(s)).replace('{t}', actParts(s).hm); } }
+// ONE fetch of /warnings; the copy's true age comes from the relay's X-Warn-Age-Ms
+function warnFetch(cb){ var W = window.wxWarn; W.fetchedAt = Date.now();
+  fetch(window.wxWarnUrl, {cache:'no-store'}).then(function(r){ if (!r.ok) throw 0;
+    var age = parseInt(r.headers.get('X-Warn-Age-Ms') || '0', 10) || 0;
+    return r.json().then(function(d){ return {d:d, age:age}; }); })
+  .then(function(x){ W.data = x.d; W.dataAt = Date.now() - x.age; W.err = false; cb(); })
+  .catch(function(){ W.err = true; cb(); }); } // an old copy stays until it is 10 min old (warnPaint)
+function warnShapes(cb){ var W = window.wxWarn; if (W.shapes){ cb(); return; }
+  fetch('data/bg_oblasts.json').then(function(r){ if (!r.ok) throw 0; return r.json(); })
+  .then(function(gj){ W.shapes = gj; cb(); }).catch(function(){ W.err = true; cb(); }); }
+window.wxSetWarn = function(on){ var W = window.wxWarn; W.on = on; clearInterval(W.timer); W.timer = null;
+  var dc = document.getElementById('warndisc'); if (dc) dc.hidden = !on; // Meteoalarm's delay disclaimer in the „!“ box
+  if (on){
+    wxBtnBusy('wxwarn', 'wxwarn'); warnNote([], 0);
+    warnShapes(function(){ warnFetch(function(){ if (!W.on) return;
+      whenReady(function(){ if (!W.on) return;
+        var en = actEn();
+        if (!map.getSource('wxwarn')) map.addSource('wxwarn', {type:'geojson', data:{type:'FeatureCollection', features:[]},
+          attribution:(en ? 'Warnings: ' : 'Предупреждения: ') + '<a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">' + (en ? 'NIMH (Meteoalarm)' : 'НИМХ (Meteoalarm)') + '</a>'});
+        var bf = wxBefore(); // the weather band: below the GPS layer and the zones
+        if (!map.getLayer('warn-fill')) map.addLayer({id:'warn-fill', type:'fill', source:'wxwarn', paint:{'fill-color':WARN_COL, 'fill-opacity':0.3}}, bf);
+        if (!map.getLayer('warn-line')) map.addLayer({id:'warn-line', type:'line', source:'wxwarn', paint:{'line-color':WARN_COL, 'line-width':1.5}}, bf);
+        W.sig = ''; warnPaint(); }); }); });
+    W.timer = setInterval(function(){ if (!W.on) return;
+      if (Date.now() - W.fetchedAt >= 180000) warnFetch(warnPaint); else warnPaint(); }, 60000); // repaint every minute, ask every 3 min
+  } else {
+    wxBtnIdle('wxwarn');
+    ['warn-line','warn-fill'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+    if (map.getSource('wxwarn')) map.removeSource('wxwarn');
+    W.sig = ''; warnNote([], 0);
+    if (window.wxPopupPrune) window.wxPopupPrune(); }
+  if (window.wxSyncFcBar) window.wxSyncFcBar(); };
+window.wxWarnPaint = function(){ if (window.wxWarn.on) warnPaint(); };
+// helpers for the SHARED click chooser in make_3d (items tagged _wr)
+function warnFor(nuts){ return (window.wxWarn.shown || []).filter(function(w){ return (w.areas || []).some(function(a){ return a.c === nuts; }); }); }
+window.wxWarnColor = function(p){ return WARN_HEX[+p.lvl] || WARN_HEX[2]; };
+// NIMH's own name of the oblast (from the warning), else the borders file's
+window.wxWarnName = function(p){ var en = actEn(), ws = warnFor(p.nuts);
+  for (var i = 0; i < ws.length; i++){ var a = ws[i].areas.filter(function(x){ return x.c === p.nuts; })[0], n = a && (en ? a.en : a.bg); if (n) return n; }
+  return (en ? p.en : p.bg) || ''; };
+window.wxWarnSub = function(p){ var t = window.WXT[window.wxLang()]; return t.warnLvl[+p.lvl] + ' ' + t.warnWord + ' · ' + t.warnSrc; };
+window.wxWarnDetail = function(p){ var t = window.WXT[window.wxLang()], en = actEn(), seen = {}, h = '<b>' + esc(window.wxWarnName(p)) + '</b>';
+  var ws = warnFor(p.nuts).slice().sort(function(a, b){ return b.lvl - a.lvl || Date.parse(a.on) - Date.parse(b.on); });
+  ws.forEach(function(w){ var x = (en ? w.en : w.bg) || w.en || w.bg || {};
+    var k = [w.lvl, x.hl, x.ds, x.in, w.on, w.ex].join('|'); if (seen[k]) return; seen[k] = 1; // the same text and hours: shown once
+    // the level's square in the map's own colour (an emoji square is drawn in the system's shades: Windows' 🟨 looked orange)
+    h += '<br><span class="wxwsq" style="background:' + WARN_HEX[w.lvl] + '"></span> <b>' + t.warnLvl[w.lvl] + ': ' + warnTxt(x.hl) + '</b>' +
+      (x.ds ? '<br>' + warnTxt(x.ds) : '') + (x.in ? '<br>' + warnTxt(x.in) : '') +
+      '<br>' + warnWhen(Date.parse(w.on)) + ' – ' + warnWhen(Date.parse(w.ex)) + ' (' + t.warnTz + ') · ' + t.warnIssued + ' ' + warnWhen(Date.parse(w.sent)); });
+  if (!ws.length) h += '<br>' + t.warnNone;
+  return h + '<br><small>' + t.warnModel + '</small><br><small>' + t.warnSource + ' ' + t.warnSrc + ' (Meteoalarm) · ' +
+    '<a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">meteoalarm.org</a></small>'; };
+map.on('mouseenter', 'warn-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
+map.on('mouseleave', 'warn-fill', function(){ map.getCanvas().style.cursor = ''; });
+(window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ if (window.wxWarn.on) warnPaint(); }); // the note follows a BG/EN switch
 // ---- GPS interference (/gpsown - OUR OWN cells from the relayed ADS-B data) -----
 // Live 12 h window, independent of the forecast slider. Banded by the relay
 // (Wilson lower bound): grey = too few aircraft to judge, green < 2%, yellow
