@@ -5,6 +5,8 @@
 # certificate blip at Deno's edge mailed a false alarm), so only a real outage alarms. If a source is unreachable, errors, blocks us (403/429), or
 # has changed shape so our code would break, that step fails -> the whole run goes red
 # -> GitHub e-mails the repository owner about the failed run automatically.
+# A layer with TWO sources (OGN: live.glidernet.org + the relay's /ogn backup) alarms only
+# when BOTH fail; one of them down is a ::warning on the run page, no e-mail (owner 22.10).
 #
 # It does NOT alarm on "nothing to show" (an empty sky, no gliders at a quiet hour):
 # those are legitimate. Checks run from GitHub's runner IP, so this catches a source
@@ -127,17 +129,35 @@ jobs:
           [ "$code" = "200" ] || { echo "Photon did not answer 200"; exit 1; }
           python3 -c 'import json; d=json.load(open("body.json")); assert d.get("type")=="FeatureCollection" and isinstance(d.get("features"),list) and d["features"], "no search results"; print("search returned", len(d["features"]), "feature(s)")'
 
-      - name: OGN gliders (live.glidernet.org)
+      - name: OGN low traffic (live.glidernet.org, backup = relay /ogn)
         if: ${{ !cancelled() }}
         run: |
-          # Must be reachable and valid XML. Zero gliders is legitimate at quiet hours or
-          # in winter, so we do NOT alarm on an empty list — only on unreachable/bad format.
-          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -o body.xml -w '%{http_code}' "https://live.glidernet.org/lxml.php?a=0&b=49&c=36&d=33.5&e=17") || code=000
-          echo "HTTP $code"
-          [ "$code" = "200" ] || { echo "OGN did not answer 200"; exit 1; }
-          grep -qi '<marker' body.xml || head -c 40 body.xml | grep -qi '<?xml' \
-            || { echo "OGN response is not the expected XML (format changed or blocked):"; head -c 300 body.xml; exit 1; }
-          echo "OGN XML ok"
+          # Two sources for one layer: the map asks live.glidernet.org and, when that fails,
+          # our relay, which reads the OGN network itself. Only BOTH down is an alarm; one
+          # down is a warning on the run page, no e-mail (owner 22.10). Zero aircraft is
+          # legitimate at quiet hours or in winter - only no answer or a bad format count.
+          lxml=ok; relay=ok
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 30 -o lxml.xml -w '%{http_code}' "https://live.glidernet.org/lxml.php?a=0&b=49&c=36&d=33.5&e=17") || code=000
+          echo "live.glidernet.org: HTTP $code"
+          if [ "$code" != "200" ]; then lxml="HTTP $code"
+          elif ! { grep -qi '<marker' lxml.xml || head -c 40 lxml.xml | grep -qi '<?xml'; }; then lxml="not the expected XML: $(head -c 120 lxml.xml | tr -d '\r\n')"; fi
+          # the relay's first request opens its OGN connection and gets 503 while it warms
+          # up, so curl asks again after 15 s
+          hdr=$(mktemp)
+          code=$(curl -sS --retry 3 --retry-delay 15 --retry-all-errors -m 30 -D "$hdr" -o relay.xml -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/ogn") || code=000
+          echo "relay /ogn: HTTP $code"
+          age=$(grep -i '^x-ogn-age-ms:' "$hdr" | tail -n 1 | tr -dc '0-9' || true)
+          if [ "$code" != "200" ]; then relay="HTTP $code $(grep -i 'x-relay-err' "$hdr" | tail -n 1 | tr -d '\r\n')"
+          elif ! { head -c 60 relay.xml | grep -q '<?xml' && grep -q '<markers>' relay.xml; }; then relay="not the lxml XML: $(head -c 120 relay.xml | tr -d '\r\n')"
+          elif [ -n "$age" ] && [ "$age" -gt 120000 ]; then relay="no line from OGN for $age ms - its connection is stuck"; fi
+          echo "aircraft: live.glidernet.org $(grep -c '<m ' lxml.xml 2>/dev/null || true), relay $(grep -c '<m a=' relay.xml 2>/dev/null || true); the relay's last line from OGN ${age:-?} ms ago"
+          if [ "$lxml" != ok ] && [ "$relay" != ok ]; then
+            echo "BOTH OGN sources are down, the low-traffic layer is empty - live.glidernet.org: $lxml; relay: $relay"
+            exit 1
+          fi
+          [ "$lxml" = ok ] || echo "::warning title=OGN live.glidernet.org down::$lxml - the map uses the relay's backup"
+          [ "$relay" = ok ] || echo "::warning title=OGN backup relay down::$relay - the map still has live.glidernet.org"
+          echo "OGN ok - live.glidernet.org: $lxml; relay: $relay"
 
       - name: GPS-interference feed (relay /gpsown - our own layer)
         if: ${{ !cancelled() }}

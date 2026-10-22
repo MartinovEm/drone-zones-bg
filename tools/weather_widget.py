@@ -1380,6 +1380,9 @@ window.wxPlaneInfo = function(a){
 // low-level traffic never cuts dead inside the frame. One request; OGN traffic is
 // light, so a bigger box is still a small response.
 window.wxOgnUrl = 'https://live.glidernet.org/lxml.php?a=0&b=49&c=36&d=33.5&e=17';
+// backup while live.glidernet.org is down: our relay reads the same OGN network itself
+// (same box, the DDB privacy choices kept) and answers in the same lxml format
+window.wxOgnRelay = 'https://full-narwhal-4777.martinovem.deno.net/ogn';
 // aircraft type code (marker column 10, 0-15) -> icon kind + name (FLARM/OGN enum)
 window.wxOgnTypes = {
   1:{k:'gld',bg:'планер',en:'glider'}, 2:{k:'pwr',bg:'влекач',en:'tow plane'},
@@ -3415,10 +3418,21 @@ function ognFollowPopup(fc){ // move the popup with its OGN object as it flies
 // retranslate the open 3D aircraft/OGN popup on a BG/EN switch
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ if (plnData) plnFollowPopup(plnFC(plnData)); });
 (window.wxLangRefresh = window.wxLangRefresh || []).push(function(){ if (ognLast) ognFollowPopup(ognFC(ognLast)); });
+var ognViaRelay = 0, ognBusy = false; // until ognViaRelay ask the relay directly; one poll at a time
+function ognGet(u, ms){ // text with a time limit, so a hanging site can't stall the 10 s poll
+  var ac = window.AbortController ? new AbortController() : null, t = ac ? setTimeout(function(){ ac.abort(); }, ms) : 0;
+  return fetch(u, ac ? {signal: ac.signal} : {}).then(function(r){ clearTimeout(t); if (!r.ok) throw new Error('ogn ' + r.status); return r.text(); },
+    function(e){ clearTimeout(t); throw e; });
+}
 function ognLoad(){
-  if (document.hidden) return;
-  fetch(window.wxOgnUrl).then(function(r){ if (!r.ok) throw new Error('ogn ' + r.status); return r.text(); })
+  if (document.hidden || ognBusy) return;
+  ognBusy = true;
+  // live.glidernet.org first; if it fails, the same markers from the relay at once, and
+  // straight from the relay for the next 5 min before live.glidernet.org is tried again
+  (Date.now() < ognViaRelay ? ognGet(window.wxOgnRelay, 15000)
+    : ognGet(window.wxOgnUrl, 8000).catch(function(){ ognViaRelay = Date.now() + 300000; return ognGet(window.wxOgnRelay, 15000); }))
   .then(function(txt){
+    ognBusy = false;
     if (!ognOn) return; ognFresh = Date.now();
     var list = window.wxOgnParse(txt); ognLast = list;
     whenReady(function(){
@@ -3445,6 +3459,7 @@ function ognLoad(){
       });
     });
   }).catch(function(){
+    ognBusy = false;
     if (ognOn && ognFresh && Date.now() - ognFresh > 90000){ // honest empty sky after ~90 s
       var s = map.getSource('wxogn'); if (s) s.setData({type: 'FeatureCollection', features: []}); ognFresh = 0;
     }
