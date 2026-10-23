@@ -1,0 +1,23 @@
+# Weekly check of the official texts behind the „Правила“ pop-up (ROADMAP 9, owner 23.10.2026).
+# tools/rules_watch.py fetches each watched source once and compares it with the fingerprints in
+# tools/rules_sources.json: a changed text or a dead link FAILS the run, so GitHub e-mails the
+# repository owner, and the log names what changed; a source that does not answer is a ::warning
+# only. The run stays red every Monday until the change is re-checked by hand, the panel updated
+# if needed (its texts and date need the owner's „да“) and the fingerprints refreshed:
+# python tools/rules_watch.py --update, then commit tools/rules_sources.json.
+name: Rules sources watch
+on:
+  schedule:
+    - cron: "23 5 * * 1"   # Mondays 05:23 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compare the official texts with the last check
+        run: python tools/rules_watch.py
