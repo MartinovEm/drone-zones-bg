@@ -231,3 +231,41 @@ jobs:
           age=$(grep -i '^x-act-age-ms:' "$hdr" | tr -d '\r' | awk '{print $2}')
           echo "activated-zones age: ${age:-?} ms"
           [ -n "$age" ] && [ "$age" -lt 5400000 ] || { echo "activated-zone data is STALE (> 90 min since the last good CAA answer) or the age header is missing"; exit 1; }
+
+      - name: Weather warnings (relay /warnings over Meteoalarm's Bulgaria feed)
+        if: ${{ !cancelled() }}
+        run: |
+          # The map's ⚠️ layer = NIMH's warnings, read through the relay (Meteoalarm's feed sends no
+          # CORS header). ZERO warnings is a normal day - no alarm. Alarm when the relay does not
+          # answer 200 with a warnings list (a 502 = it holds no copy under 10 min old: Meteoalarm
+          # down, or its feed changed at the top). The feed itself is read only to catch a change
+          # INSIDE it: its alerts (~80 on 22.10, most of them green) must still carry the level
+          # (awareness_level) and the oblast code (NUTS3) the relay parses, or the map would show
+          # "no warnings" for good. The feed unreadable from GitHub while the relay works is a
+          # ::warning only - the layer works (owner 22.10: e-mail only when a layer has no working source).
+          set -e
+          hdr=$(mktemp)
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 60 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "https://full-narwhal-4777.martinovem.deno.net/warnings") || code=000
+          echo "relay HTTP $code"
+          [ "$code" = "200" ] || { echo "warnings relay did not answer 200; X-Relay-Err follows:"; grep -i 'x-relay-err' "$hdr" || true; exit 1; }
+          python3 -c "import json; d=json.load(open('body.json', encoding='utf-8')); w=d.get('warnings'); assert isinstance(w, list), 'no warnings list'; print(len(w), 'warnings (yellow or higher) served')"
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 60 -o feed.json -w '%{http_code}' -H "Accept: application/json" "https://feeds.meteoalarm.org/api/v1/warnings/feeds-bulgaria") || code=000
+          echo "Meteoalarm feed HTTP $code"
+          if [ "$code" != "200" ]; then echo "::warning title=Meteoalarm feed not reachable from GitHub::HTTP $code - the relay answered, so the map's warnings work"; exit 0; fi
+          python3 -c "
+          import json, sys
+          try:
+              d = json.load(open('feed.json', encoding='utf-8'))
+          except Exception as e:
+              print('::warning title=Meteoalarm feed not JSON from GitHub::' + str(e)[:120] + ' - the relay answered, so the map works'); sys.exit(0)
+          w = d.get('warnings') if isinstance(d, dict) else None
+          assert isinstance(w, list), 'the feed has no warnings list any more (its format changed)'
+          def parsed(x):
+              infos = ((x or {}).get('alert') or {}).get('info') or []
+              lvl = any(p.get('valueName') == 'awareness_level' for i in infos for p in (i.get('parameter') or []))
+              nuts = any(g.get('valueName') == 'NUTS3' for i in infos for a in (i.get('area') or []) for g in (a.get('geocode') or []))
+              return lvl and nuts
+          n = sum(1 for x in w if parsed(x))
+          print(len(w), 'feed alerts,', n, 'with a level and an oblast code')
+          assert not w or n > 0, 'the feed alerts carry no awareness_level / NUTS3 any more - the relay would show no warnings'
+          "
