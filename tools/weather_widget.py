@@ -41,14 +41,20 @@ WX_CSS = r"""
 #wxfcnote{width:0;min-width:100%;color:#888;font-size:10px}
 #wxrvnote{width:0;min-width:100%;color:#888;font-size:10px}
 #wxrvnote[hidden]{display:none}
-/* lightning (☁ at "now") / model thunderstorms (☁ ahead) note under the slider */
-#wxltg,#wxwarnnote{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
+/* lightning (☁ at "now") / model thunderstorms (☁ ahead) note under the slider; #wxloadnote = why a
+   weather button still pulses (its data failed to load, the page retries) */
+#wxltg,#wxwarnnote,#wxloadnote{display:block;margin-top:6px;background:rgba(255,255,255,.92);border-radius:10px;padding:5px 9px;
  box-shadow:0 1px 6px rgba(0,0,0,.18);font-size:11px;color:#333;line-height:1.4;width:fit-content;max-width:calc(100vw - 20px)}
-#wxltg[hidden],#wxwarnnote[hidden]{display:none}
+#wxltg[hidden],#wxwarnnote[hidden],#wxloadnote[hidden]{display:none}
+/* the same note for a map button (✈ / OGN / 🛰): a small label beside it, placed by JS (ldPlace) */
+.wxbtnnote{position:fixed;z-index:1100;transform:translateY(-50%);pointer-events:none;background:rgba(255,255,255,.92);
+ border-radius:10px;padding:5px 9px;box-shadow:0 1px 6px rgba(0,0,0,.18);font:11px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;
+ color:#333;width:max-content;max-width:calc(100vw - 70px)}
+.wxbtnnote[hidden]{display:none}
 #wxltg .wxltgbad{color:#c62828;font-weight:600}
 .wxwsq{display:inline-block;width:.85em;height:.85em;border-radius:2px;vertical-align:-.08em;box-shadow:0 0 0 1px rgba(0,0,0,.35)} /* a warning's level in its popup */
 .wxpale{opacity:.45} /* the pale ⚡ in the thunderstorm key = the one-model bolts on the map */
-:root[data-theme="dark"] #wxltg,:root[data-theme="dark"] #wxwarnnote{background:var(--glass-strong);color:var(--fg)}
+:root[data-theme="dark"] #wxltg,:root[data-theme="dark"] #wxwarnnote,:root[data-theme="dark"] #wxloadnote,:root[data-theme="dark"] .wxbtnnote{background:var(--glass-strong);color:var(--fg)}
 #wxwindh{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:11px;color:#333}
 #wxwindh[hidden]{display:none}
 .wxhlbl{color:#555}
@@ -109,7 +115,7 @@ WX_CSS = r"""
  #wxframe{font-size:10px;padding:2px 5px}
  #wxlegend{font-size:10px;gap:6px;padding:4px 7px}
  #wxfcbar{font-size:10px;padding:4px 7px}
- #wxltg,#wxwarnnote{font-size:10px;padding:4px 7px}
+ #wxltg,#wxwarnnote,#wxloadnote,.wxbtnnote{font-size:10px;padding:4px 7px}
  #wxpanel{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;max-height:58vh;
   font-size:11px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
   border-radius:14px 14px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.3)}
@@ -170,6 +176,7 @@ WX_HTML = r"""<div id="wx">
   </div>
   <div id="wxltg" hidden></div>
   <div id="wxwarnnote" hidden></div>
+  <div id="wxloadnote" hidden></div>
   <div id="wxbody"></div>
   <div class="wxfoot"><span id="wxfootlbl"></span> <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></div>
  </div>
@@ -203,7 +210,10 @@ var WXT = {
      fcNote:'моделът може да пропуска локални валежи',
      drz:'ръмеж',lgt:'слаб',mod:'умерен',hvy:'силен',str:'буря',hail:'град',snTrace:'следа',snLgt:'слаб',snMod:'умерен',snStr:'силен',snHvy:'обилен',snowRow:'сняг см',
      bGj:'GPS смущения (наши данни от самолетите, последни 12 ч) — дял самолети с влошен GPS на височина; празно = няма прелетели самолети; не значи смущение при земята',gjX:'малко данни',gjG:'чисто',gjY:'2–10% смутени',gjR:'>10% смутени',gjNote:'На самолетна височина',gjLive:'На живо',gjW12:'12ч',gjW24:'24ч',gjHr:'ч',gjStamp:'данни към',
-     rvNote:'нощем слабото ехо може да е шум'},
+     rvNote:'нощем слабото ехо може да е шум',
+     ldLimit:'{n}: Open-Meteo временно ограничи заявките.',ldDay:'{n}: изчерпан дневен лимит на Open-Meteo – нулира се в {t}.',
+     ldDown:'{n}: Open-Meteo временно не отговаря.',ldErr:'{n}: данните временно не се зареждат.',
+     ldN:{cld:'☁ Облаци',rad:'🌧 Дъжд',wind:'🌬 Вятър',snow:'❄️ Сняг',air:'Въздушно пространство',notam:'NOTAM',pln:'✈ Самолети',ogn:'Нисък трафик (OGN)',gj:'🛰 GPS смущения'}},
  en:{now:'Now',hum:'humidity',gust:'gust',rain:'rain %',rmm:'rain mm',cld:'clouds',sunrise:'sunrise',sunset:'sunset',today:'Today',
      night:'night',nightNote:'Dark hours = night (after civil twilight): drone rules require a green flashing light.',
      dew:'dew point',low:'low clouds',vis:'visibility km',cape:'⛈ CAPE',frz:'0°C at (m)',
@@ -228,7 +238,10 @@ var WXT = {
      fcNote:'the model can miss local showers',
      drz:'drizzle',lgt:'light',mod:'moderate',hvy:'heavy',str:'storm',hail:'hail',snTrace:'trace',snLgt:'light',snMod:'moderate',snStr:'heavy',snHvy:'very heavy',snowRow:'snow cm',
      bGj:'GPS interference (our own data from aircraft, last 12 h) — share of aircraft with degraded GPS at altitude; blank = no aircraft flew there; may not reach ground level',gjX:'few data',gjG:'clean',gjY:'2–10% affected',gjR:'>10% affected',gjNote:'At aircraft altitude',gjLive:'Live',gjW12:'12h',gjW24:'24h',gjHr:'h',gjStamp:'data as of',
-     rvNote:'faint night echoes can be noise'}
+     rvNote:'faint night echoes can be noise',
+     ldLimit:'{n}: Open-Meteo is limiting requests for now.',ldDay:'{n}: Open-Meteo daily limit reached – resets at {t}.',
+     ldDown:'{n}: Open-Meteo is temporarily not responding.',ldErr:'{n}: data temporarily unavailable.',
+     ldN:{cld:'☁ Clouds',rad:'🌧 Rain',wind:'🌬 Wind',snow:'❄️ Snow',air:'Airspace',notam:'NOTAM',pln:'✈ Aircraft',ogn:'Low-level traffic (OGN)',gj:'🛰 GPS interference'}}
 };
 // caution / danger thresholds for wind + gusts, m/s (visual aid for small drones)
 var WX_WARN = 8, WX_DANGER = 12;
@@ -242,6 +255,7 @@ var wxEl = document.getElementById('wx'), wxChip = document.getElementById('wxch
     wxPlaceEl = document.getElementById('wxplace');
 function wxLang(){ return (typeof LANG !== 'undefined' && LANG === 'en') ? 'en' : 'bg'; }
 window.WXT = WXT; window.wxLang = wxLang; // the layer scripts (outside this closure) read the warnings' texts through these
+window.wxResetStr = wxResetStr; // ... and the daily-limit reset time for the layers' Open-Meteo note
 function wxCellOf(c){ return (Math.round(c.lat / 0.01) * 0.01).toFixed(2) + ',' + (Math.round(c.lng / 0.01) * 0.01).toFixed(2); } // ~1 km cell key from a center; the place name uses THIS, not the weather-fetch wxCell (which the retry resets to '')
 function wxEsc(s){ return (s + '').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function wxIco(code, day){
@@ -694,7 +708,8 @@ window.wxCloudBuild = function(cb){
   ['msg_fes:clm', 'mtg_fd:ir105_hrfi&styles=mtg_fd_ir105_hrfi_grayscale'].forEach(function(q, i){
     var im = new Image(); im.crossOrigin = 'anonymous';
     im.onload = function(){ if (++done === 2) build(); };
-    im.onerror = function(){ clearTimeout(window._cldRt); window._cldRt = setTimeout(function(){ if (cldOn && cldMode() === 'sat') cldSatShow(); }, 15000); }; // failed tile: retry in 15 s instead of waiting for the 10-min timer
+    im.onerror = function(){ window.wxCldErr = true; if (window.wxLoadSync) window.wxLoadSync(); // a waiting ☁ button says why
+      clearTimeout(window._cldRt); window._cldRt = setTimeout(function(){ if (window.wxCldRetry) window.wxCldRetry(); }, 15000); }; // failed tile: retry in 15 s instead of waiting for the 10-min timer (the clouds' state lives in the layer script)
     im.src = base + q; imgs[i] = im; });
   function build(){
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -846,7 +861,13 @@ function wxGridWanted(){
 // grids still load together at once (owner: the wind must never wait); if Open-Meteo
 // refuses one (600/min), its own retry fetches it again.
 window.WX_MODEL_TTL = 10800000;
-window.wxFcFetch = function(cb){
+// why Open-Meteo refused (owner 23.10: the waiting layers' notes): its rate limits answer with an
+// error JSON (HTTP 429, "... limit exceeded"), the DAILY one naming the day ("Daily ..." /
+// "... tomorrow") - the meteo chip's own test (wxErrMsg); anything else = not responding
+window.wxOmKind = function(st, d){ var rs = ((d && d.reason) || '').toLowerCase();
+  if (st === 429 || rs.indexOf('limit') >= 0) return (rs.indexOf('daily') >= 0 || rs.indexOf('tomorrow') >= 0) ? 'day' : 'limit';
+  return 'down'; };
+window.wxFcFetch = function(cb, key){
   var S = window.wxFcState;
   if (S.data && Date.now() - S.at < window.WX_MODEL_TTL){ cb(); return; } // model refresh: every 3 h (see above)
   if (!S.data){
@@ -858,8 +879,17 @@ window.wxFcFetch = function(cb){
       if (c && c.data && c.data.s && c.data.c && c.data.w && Date.now() - c.at < window.WX_MODEL_TTL){ S.data = c.data; S.at = c.at; cb(); return; }
     }catch(e){} // wxfcdata5: cache holds rain (v) + snow (s) + clouds (c) + thunderstorms (w); only reuse if all present
   }
-  function retry(){ // self-retry with doubling delay (12 s .. 5 min) — the grid is heavy, be polite
-    clearTimeout(S.rt); S.rt = setTimeout(function(){ if (wxGridWanted()) window.wxFcFetch(cb); }, S.rms || 12000);
+  // every grid layer still waiting (rain / snow / clouds, by key) gets its draw when the grid lands -
+  // ONE request at a time; while a retry is pending a newly waiting layer just joins it (no extra load)
+  var waiting = S.cbs && Object.keys(S.cbs).length;
+  (S.cbs = S.cbs || {})[key || 'grid'] = cb;
+  if (S.busy || waiting) return;
+  S.err = ''; wxFcLoad();
+};
+function wxFcLoad(){ var S = window.wxFcState; S.busy = true; clearTimeout(S.rt);
+  function retry(kind){ // self-retry with doubling delay (12 s .. 5 min) — the grid is heavy, be polite
+    S.busy = false; S.err = kind; if (window.wxLoadSync) window.wxLoadSync(); // the waiting layers' note says why
+    S.rt = setTimeout(function(){ if (wxGridWanted()) wxFcLoad(); else S.cbs = {}; }, S.rms || 12000);
     S.rms = Math.min((S.rms || 12000) * 2, 300000); }
   // covers the WHOLE widest zoom-out (17-33.5 E / 35.5-49.5 N) so rain never cuts
   // inside the frame. Coarser step than wind (0.75°/0.7°) because this asks THREE
@@ -869,9 +899,9 @@ window.wxFcFetch = function(cb){
     for (lo = 17.0; lo <= 33.501; lo += 0.75){ lats.push(la.toFixed(2)); lons.push(lo.toFixed(2)); }
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
         '&hourly=precipitation,snowfall,cloud_cover,weather_code&forecast_hours=76&timezone=UTC&models=icon_eu,gfs_seamless,ecmwf_ifs025')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!Array.isArray(d) || !d.length){ retry(); return; } // rate-limited (429): error JSON, not the array
+    .then(function(r){ var st = r.status; return r.json().then(function(d){ return [st, d]; }, function(){ return [st, null]; }); })
+    .then(function(sd){ var d = sd[1];
+      if (!Array.isArray(d) || !d.length){ retry(window.wxOmKind(sd[0], d)); return; } // rate-limited (429): error JSON, not the array
       // one value per hour = the MAX across every returned <prefix>_* field (if any
       // model expects it, the pilot sees it). Rain (precipitation) AND snow (snowfall)
       // arrive in the SAME request, so the snow layer costs no extra API call.
@@ -898,11 +928,13 @@ window.wxFcFetch = function(cb){
         s: d.map(function(x){ return fcMax(x.hourly, 'snowfall'); }),
         c: d.map(function(x){ return fcMax(x.hourly, 'cloud_cover'); }),
         w: d.map(function(x){ return fcCount(x.hourly, 'weather_code', 95); })};
-      S.at = Date.now(); S.rms = 12000;
+      S.at = Date.now(); S.rms = 12000; S.busy = false; S.err = '';
       try{ localStorage.setItem('wxfcdata5', JSON.stringify({at: S.at, data: S.data})); }catch(e){}
-      cb();
-    }).catch(retry);
-};
+      var cbs = S.cbs || {}; S.cbs = {};
+      Object.keys(cbs).forEach(function(k){ try{ cbs[k](); }catch(e){} });
+      if (window.wxLoadSync) window.wxLoadSync();
+    }).catch(function(){ retry('down'); });
+}
 window.wxBaseIdx = function(t){ // index of the hour bucket containing "now" (t[0] is the current hour)
   var now = Date.now(), i, b = 0;
   for (i = 0; i < t.length; i++){ if (Date.parse(t[i] + ':00Z') <= now) b = i; else break; }
@@ -1126,7 +1158,7 @@ window.wxCloudFcDraw = function(){
 // answer (same discipline as the rain grid). Wind is drawn as neutral (white
 // with a faint dark under-stroke) so it reads on both the light map and the
 // dark satellite — no colour coding (owner's choice).
-window.wxWindState = {data: null, at: 0, h: 10, on: false, rt: null};
+window.wxWindState = {data: null, at: 0, h: 10, on: false, rt: null, err: ''}; // err = why the last fetch failed (wxOmKind)
 window.wxWindFetch = function(cb){
   var S = window.wxWindState;
   if (S.data && Date.now() - S.at < window.WX_MODEL_TTL){ cb(); return; }
@@ -1136,7 +1168,8 @@ window.wxWindFetch = function(cb){
         S.data = c.data; S.at = c.at; cb(); return; } // only reuse a cache that matches the current grid shape
     }catch(e){}
   }
-  function retry(){ clearTimeout(S.rt); S.rt = setTimeout(function(){ if (S.on) window.wxWindFetch(cb); }, 12000); }
+  function retry(kind){ S.err = kind; if (window.wxLoadSync) window.wxLoadSync(); // a waiting wind button says why
+    clearTimeout(S.rt); S.rt = setTimeout(function(){ if (S.on) window.wxWindFetch(cb); }, 12000); }
   // covers the WHOLE widest zoom-out (17-33.5 E / 35.5-49.5 N: Bulgaria out to the
   // screen edge on desktop AND phone) so the flow never cuts inside the frame. The
   // step is coarser than before (0.66°x0.7°) so it stays ONE request (~546 points;
@@ -1147,9 +1180,9 @@ window.wxWindFetch = function(cb){
   fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') + '&longitude=' + lons.join(',') +
         '&hourly=wind_speed_10m,wind_direction_10m,wind_speed_120m,wind_direction_120m' +
         '&forecast_hours=76&wind_speed_unit=ms&timezone=UTC')
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      if (!Array.isArray(d) || !d.length){ retry(); return; }
+    .then(function(r){ var st = r.status; return r.json().then(function(d){ return [st, d]; }, function(){ return [st, null]; }); })
+    .then(function(sd){ var d = sd[1];
+      if (!Array.isArray(d) || !d.length){ retry(window.wxOmKind(sd[0], d)); return; }
       function uv(pt, spdKey, dirKey){
         var h = pt.hourly, sp = h[spdKey], dr = h[dirKey], n = sp.length, u = new Array(n), v = new Array(n), i, rad;
         for (i = 0; i < n; i++){ rad = (dr[i] || 0) * Math.PI / 180; // met dir = FROM; vector points opposite
@@ -1159,10 +1192,10 @@ window.wxWindFetch = function(cb){
       S.data = {t: d[0].hourly.time,
         u10: d.map(function(p){ return uv(p, 'wind_speed_10m', 'wind_direction_10m'); }),
         u120: d.map(function(p){ return uv(p, 'wind_speed_120m', 'wind_direction_120m'); })};
-      S.at = Date.now();
+      S.at = Date.now(); S.err = '';
       try{ localStorage.setItem('wxwinddata4', JSON.stringify({at: S.at, data: S.data})); }catch(e){}
       cb();
-    }).catch(retry);
+    }).catch(function(){ retry('down'); });
 };
 window.wxWindIdx = function(){ var S = window.wxWindState; // hour 0 = now, same base as the rain layer
   return Math.min(window.wxBaseIdx(S.data.t) + (window.wxFcState ? window.wxFcState.hour : 0), S.data.t.length - 1);
@@ -1659,9 +1692,11 @@ function cldSatShow(){ // show the satellite image (hour 0); refresh in place, o
       if (map.getLayer(CLDFC)) map.removeLayer(CLDFC);
       if (map.getSource('wxcldfc')) map.removeSource('wxcldfc');
       wxRaster(CLD, 'wxcld', 'cld', 'Clouds &copy; <a href="https://www.eumetsat.int/" target="_blank" rel="noopener">EUMETSAT</a>', 0.9, pos);
+      window.wxCldErr = false; wxBtnIdle('wxcld'); // the satellite picture is on the map
     });
   });
 }
+window.wxCldRetry = function(){ if (cldOn && cldMode() === 'sat') cldSatShow(); }; // the satellite builder's 15-s retry (WX_JS cannot see these names)
 function cldModelShow(){ // draw the model clouds for the selected hour (hour > 0); refresh in place, or take the satellite layer's slot when swapping
   var r = window.wxCloudFcDraw(); if (!r) return; // also registers 'cldfc' for the tile cutter
   whenReady(function(){
@@ -1671,6 +1706,7 @@ function cldModelShow(){ // draw the model clouds for the selected hour (hour > 
     if (map.getLayer(CLD)) map.removeLayer(CLD);
     if (map.getSource('wxcld')) map.removeSource('wxcld');
     wxRaster(CLDFC, 'wxcldfc', 'cldfc', 'Clouds &copy; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (model)', 0.85, pos);
+    wxBtnIdle('wxcld'); // the model clouds are on the map
   });
 }
 // lightning = one GeoJSON symbol layer of ⚡ bolts (owner 15.10): the last 30 min without the rain
@@ -1734,32 +1770,69 @@ function stormShow(){ // the model thunderstorms for the selected hour (ahead): 
 }
 window.wxCloudApply = function(){ // toggle + every slider move: satellite + lightning (0) or model clouds + thunderstorms (ahead)
   if (!cldOn) return;
-  if (cldMode() === 'sat'){ stormRemove(); cldSatShow(); liShow(); }
+  if (cldMode() === 'sat'){ if (!map.getLayer(CLD)) wxBtnBusy('wxcld'); stormRemove(); cldSatShow(); liShow(); } // back at "now" the satellite loads again: the user waits for it
   else { liRemove();
     if (window.wxFcState && window.wxFcState.data){ cldModelShow(); stormShow(); }
-    else { window.wxFcFetch(function(){ if (cldOn && cldMode() === 'model'){ cldModelShow(); stormShow(); } }); } } // grid loads once; rain/snow reuse it
+    else { wxBtnBusy('wxcld'); window.wxFcFetch(function(){ if (cldOn && cldMode() === 'model'){ cldModelShow(); stormShow(); } }, 'cld'); } } // grid loads once; rain/snow reuse it
   if (window.wxLtgNote) window.wxLtgNote();
 };
-// generic "working…" cue: pulse a layer's button/chip from toggle-on until its
-// MapLibre source appears (or ~12 s timeout). Turning the layer off removes the
-// class, which also stops the watcher.
-function wxBtnBusy(btnId, srcIds){
-  var b = document.getElementById(btnId); if (!b) return;
-  b.classList.add('loading');
-  var ids = (typeof srcIds === 'string') ? [srcIds] : srcIds, n = 0;
-  var t = setInterval(function(){
-    if (!b.classList.contains('loading')){ clearInterval(t); return; }
-    var have = false; for (var i = 0; i < ids.length; i++){ if (map.getSource(ids[i])){ have = true; break; } }
-    if (have || ++n > 80){ clearInterval(t); b.classList.remove('loading'); }
-  }, 150);
+// "working…" cue (owner 23.10, one rule for every layer button): the button pulses from toggle-on
+// until the layer's data has really arrived (also when there is nothing to draw) and stops on that
+// data or when the layer is turned off - no time limit. While the source fails and the page retries,
+// it keeps pulsing and a short note says why (wxLoadSync). Only a wait the user asked for pulses
+// (toggle-on, another GPS day, the slider asking for the model); background refreshes never do.
+var wxLoadErr = {air: '', notam: '', pln: '', ogn: '', gj: ''}; // 'err' = the last attempt failed; cleared on data / off
+function wxBusy(btnId){ var b = document.getElementById(btnId); return !!(b && b.classList.contains('loading')); }
+function wxBtnBusy(btnId){ var b = document.getElementById(btnId); if (b) b.classList.add('loading'); wxLoadSync(); }
+function wxBtnIdle(btnId){ var b = document.getElementById(btnId); if (b && b.classList.contains('loading')){ b.classList.remove('loading'); wxLoadSync(); } } // the polls call it on every answer: only a change touches the notes
+// why a weather layer still waits: the model grid / the wind grid say 'limit' | 'day' | 'down'
+// (Open-Meteo, wxOmKind), the satellite / the radar 'err'; '' = no failed attempt
+function wxLoadKind(key){ var S = window.wxFcState || {};
+  if (key === 'wind') return (window.wxWindState && window.wxWindState.err) || '';
+  if (key === 'snow' || S.hour > 0) return S.err || '';
+  return (key === 'cld' ? window.wxCldErr : rvErr) ? 'err' : ''; }
+function wxLoadText(key, kind){ var t = window.WXT[window.wxLang()];
+  var s = kind === 'limit' ? t.ldLimit : kind === 'day' ? t.ldDay.replace('{t}', window.wxResetStr ? window.wxResetStr() : '') : kind === 'down' ? t.ldDown : t.ldErr;
+  return s.replace('{n}', t.ldN[key]); }
+function wxLoadSync(){
+  // the meteo card: one line per weather layer still waiting after a failed attempt
+  var el = document.getElementById('wxloadnote');
+  if (el){ el.textContent = '';
+    [['cld','wxcld'], ['rad','wxrad'], ['wind','wxwind'], ['snow','wxsnow']].forEach(function(m){
+      var k = wxBusy(m[1]) ? wxLoadKind(m[0]) : ''; if (!k) return;
+      if (el.firstChild) el.appendChild(document.createElement('br'));
+      el.appendChild(document.createTextNode(wxLoadText(m[0], k))); });
+    el.hidden = !el.firstChild; }
+  // the drawer: under the airspace chips (both share one source) and under the NOTAM chip
+  ldNote('wxairmsg', (wxBusy('cbAirC') || wxBusy('cbAirS')) && wxLoadErr.air ? wxLoadText('air', 'err') : '');
+  ldNote('wxntmsg', wxBusy('cbNotam') && wxLoadErr.notam ? wxLoadText('notam', 'err') : '');
+  // the map buttons: a small label to the right of the button
+  ldLabel('pln', 'plnbtn'); ldLabel('ogn', 'ognbtn'); ldLabel('gj', 'wxgj');
 }
-function wxBtnIdle(btnId){ var b = document.getElementById(btnId); if (b) b.classList.remove('loading'); }
+window.wxLoadSync = wxLoadSync; // the grid / wind / satellite fetches (WX_JS) report their failures through it
+(window.wxLangRefresh = window.wxLangRefresh || []).push(wxLoadSync); // the notes follow a BG/EN switch
+function ldNote(id, txt){ var e = document.getElementById(id); if (!e) return; e.textContent = txt; e.style.display = txt ? '' : 'none'; }
+var ldLbl = {}, ldRaf = 0;
+function ldLabel(key, btnId){ var l = ldLbl[key], txt = wxBusy(btnId) && wxLoadErr[key] ? wxLoadText(key, 'err') : '';
+  if (!txt){ if (l) l.hidden = true; return; }
+  if (!l){ l = ldLbl[key] = document.createElement('div'); l.className = 'wxbtnnote'; l.setAttribute('data-btn', btnId); document.body.appendChild(l); }
+  l.textContent = txt; l.hidden = false; cancelAnimationFrame(ldRaf); ldPlace(); }
+// keeps the labels beside their buttons while one is shown: the left column moves when the drawer,
+// the meteo card or the search opens; a hidden button (phone: drawer / card open) hides its label
+function ldPlace(){ var any = false;
+  Object.keys(ldLbl).forEach(function(k){ var l = ldLbl[k]; if (l.hidden) return; any = true;
+    var b = document.getElementById(l.getAttribute('data-btn')), r = b ? b.getBoundingClientRect() : null;
+    var vis = (r && r.width) ? '' : 'hidden', x = r ? Math.round(r.right + 6) + 'px' : '', y = r ? Math.round(r.top + r.height / 2) + 'px' : '';
+    if (l.style.visibility !== vis) l.style.visibility = vis;
+    if (l.style.left !== x) l.style.left = x;
+    if (l.style.top !== y) l.style.top = y; });
+  ldRaf = any ? requestAnimationFrame(ldPlace) : 0; }
 
 window.wxSetClouds = function(on){ cldOn = on; clearInterval(cldTimer); clearInterval(liTimer);
-  if (on){ wxBtnBusy('wxcld', ['wxcld','wxcldfc']); window.wxCloudApply();
+  if (on){ wxBtnBusy('wxcld'); window.wxCloudApply();
     cldTimer = setInterval(function(){ if (cldOn && cldMode() === 'sat') cldSatShow(); }, 600000); // refresh the satellite every 10 min while it is the one shown
     liTimer = setInterval(function(){ if (cldOn && cldMode() === 'sat') liShow(); }, 300000); // a new lightning step every 5 min
-  } else { wxBtnIdle('wxcld');
+  } else { window.wxCldErr = false; wxBtnIdle('wxcld');
     if (map.getLayer(CLD)) map.removeLayer(CLD);
     if (map.getSource('wxcld')) map.removeSource('wxcld');
     if (map.getLayer(CLDFC)) map.removeLayer(CLDFC);
@@ -1768,7 +1841,7 @@ window.wxSetClouds = function(on){ cldOn = on; clearInterval(cldTimer); clearInt
   if (window.wxLtgNote) window.wxLtgNote();
   if (window.wxSyncFcBar) window.wxSyncFcBar();
 };
-var rvFrames = [], rvIds = [], rvIdx = 0, rvTick = null, rvRefresh = null, rvOn = false;
+var rvFrames = [], rvIds = [], rvIdx = 0, rvTick = null, rvRefresh = null, rvOn = false, rvErr = false; // rvErr: the frame list failed (the 🌧 note)
 var FCL = 'wxfc-layer', fcTimer = null, rainOn = false, rainBefore; // rainBefore = z-slot for the rain block (radar frames or FCL)
 function rainMode(){ return (window.wxFcState && window.wxFcState.hour > 0) ? 'model' : 'radar'; }
 function rvLabel(){ var el = document.getElementById('wxframe');
@@ -1795,18 +1868,27 @@ function rvBuild(host){
       paint: {'raster-opacity': 0.7}}, pos);
     rvIds.push(id); });
   rvIdx = rvFrames.length - 1; rvShow();
+  if (wxBusy('wxrad')) rvDone();
   if (cldOn && cldMode() === 'sat') liShow(); } // new radar frames: rebuild the lightning windows for them
+// the 🌧 button goes solid once the radar is really on the map: the first radar tiles loaded, or the
+// map settled (a tile that failed counts as settled)
+function rvDone(){
+  var off = function(){ map.off('sourcedata', sd); map.off('idle', ok); }, ok = function(){ off(); if (rvOn) wxBtnIdle('wxrad'); };
+  var sd = function(e){ if (e.tile && e.isSourceLoaded && String(e.sourceId).indexOf('wxrad') === 0) ok(); };
+  map.on('sourcedata', sd); map.on('idle', ok); }
 function rvLoad(){
   fetch('https://api.rainviewer.com/public/weather-maps.json')
     .then(function(r){ return r.json(); })
-    .then(function(d){ if (!rvOn) return;
+    .then(function(d){ if (!rvOn) return; rvErr = false;
       rvFrames = ((d.radar && d.radar.past) || []).slice(-7);
-      if (rvFrames.length) whenReady(function(){ rvBuild(d.host); }); })
-    .catch(function(){ if (rvOn){ clearTimeout(window._rvRt); window._rvRt = setTimeout(function(){ if (rvOn) rvLoad(); }, 15000); } }); } // failed list fetch: retry in 15 s (the 5-min refresh also covers it)
+      if (rvFrames.length) whenReady(function(){ rvBuild(d.host); });
+      else wxBtnIdle('wxrad'); }) // RainViewer lists no frames: nothing more to wait for
+    .catch(function(){ if (rvOn){ rvErr = true; wxLoadSync(); // a waiting 🌧 button says why
+      clearTimeout(window._rvRt); window._rvRt = setTimeout(function(){ if (rvOn) rvLoad(); }, 15000); } }); } // failed list fetch: retry in 15 s (the 5-min refresh also covers it)
 function rvStart(){ if (rvOn) return; rvOn = true; rvLoad();
   rvTick = setInterval(function(){ if (rvIds.length){ rvIdx = (rvIdx + 1) % rvIds.length; rvShow(); } }, 800);
   rvRefresh = setInterval(rvLoad, 300000); }
-function rvStop(){ rvOn = false; clearInterval(rvTick); clearInterval(rvRefresh); rvClear(); rvFrames = []; rvLabel();
+function rvStop(){ rvOn = false; rvErr = false; clearInterval(rvTick); clearInterval(rvRefresh); rvClear(); rvFrames = []; rvLabel();
   if (liSync && cldOn && cldMode() === 'sat') liShow(); } // radar gone: back to one lightning picture (the last 30 min)
 // ---- forecast rain (Open-Meteo model, shared engine in WX_JS) ----
 window.wxFcApply = function(){
@@ -1817,6 +1899,7 @@ window.wxFcApply = function(){
     cldProto();
     wxRaster(FCL, 'wxfc', 'fc', 'Forecast <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>', 0.75, rainBefore || wxBefore());
     window.wxFcLabel();
+    wxBtnIdle('wxrad'); // the model rain is on the map
   });
 };
 function fcStop(){ clearInterval(fcTimer); fcTimer = null; window.wxFcState.on = false;
@@ -1826,19 +1909,20 @@ window.wxRainApply = function(){ // toggle + every slider move: pick radar (0) o
   if (!rainOn) return;
   if (rainMode() === 'radar'){
     if (map.getLayer(FCL) || fcTimer){ rainBefore = map.getLayer(FCL) ? wxAboveOf(FCL) : rainBefore; fcStop(); } // leaving model: keep the slot
+    if (!rvOn) wxBtnBusy('wxrad'); // (back) at the radar: the user waits for its frames
     rvStart(); // no-op if already animating
   } else {
     if (rvOn){ rainBefore = (rvIds.length && map.getLayer(rvIds[rvIds.length - 1])) ? wxAboveOf(rvIds[rvIds.length - 1]) : rainBefore; rvStop(); } // leaving radar: keep the slot
     window.wxFcState.on = true;
     if (!fcTimer){ // entering model: one fetch now + a 30-min refresh
-      fcTimer = setInterval(function(){ if (rainOn && rainMode() === 'model') window.wxFcFetch(function(){ window.wxFcApply(); }); }, window.WX_MODEL_TTL);
-      window.wxFcFetch(function(){ window.wxFcApply(); });
+      fcTimer = setInterval(function(){ if (rainOn && rainMode() === 'model') window.wxFcFetch(function(){ window.wxFcApply(); }, 'rain'); }, window.WX_MODEL_TTL);
+      wxBtnBusy('wxrad'); window.wxFcFetch(function(){ window.wxFcApply(); }, 'rain'); // the user waits for the model rain
     } else { window.wxFcApply(); } // already model, slider moved: just redraw the selected hour
   }
 };
 window.wxSetRain = function(on){ rainOn = on;
   var lg = document.getElementById('wxlegend'); // one rain legend, shown whenever Дъжд is on (radar or model)
-  if (on){ wxBtnBusy('wxrad', ['wxfc','wxrad0']); rainBefore = wxBefore(); if (lg) lg.hidden = false; window.wxRainApply(); }
+  if (on){ wxBtnBusy('wxrad'); rainBefore = wxBefore(); if (lg) lg.hidden = false; window.wxRainApply(); }
   else { wxBtnIdle('wxrad'); if (lg) lg.hidden = true; rvStop(); fcStop(); }
   if (window.wxSyncFcBar) window.wxSyncFcBar(); // the slider bar is shared with wind + snow
 };
@@ -1885,14 +1969,15 @@ window.wxSnowApply = function(){
     cldProto();
     wxRaster(SNL, 'wxsnow', 'snow', 'Forecast <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>', 0.8, wxBefore());
     window.wxFcLabel();
+    wxBtnIdle('wxsnow'); // the snow is on the map
   });
 };
 window.wxSetSnow = function(on){ window.wxSnowOn = on;
   var lg = document.getElementById('wxsnowlegend');
   if (on){
-    wxBtnBusy('wxsnow', 'wxsnow');
+    wxBtnBusy('wxsnow');
     if (lg) lg.hidden = false;
-    var go = function(){ window.wxFcFetch(function(){ window.wxMtnFetch(function(){ window.wxSnowApply(); }); }); };
+    var go = function(){ window.wxFcFetch(function(){ window.wxMtnFetch(function(){ window.wxSnowApply(); }); }, 'snow'); };
     go(); snowTimer = setInterval(go, window.WX_MODEL_TTL); // fresh model data every 3 h (model runs, see wxFcFetch)
   } else {
     clearInterval(snowTimer); wxBtnIdle('wxsnow');
@@ -1935,6 +2020,7 @@ function warnPaint(){
       var q = f.properties; return {type:'Feature', geometry:f.geometry, properties:{nuts:q.nuts, bg:q.bg, en:q.en, lvl:lv[q.nuts]}}; });
     var sig = fs.map(function(f){ return f.properties.nuts + f.properties.lvl; }).join();
     if (sig !== W.sig){ W.sig = sig; src.setData({type:'FeatureCollection', features:fs}); } }
+  if (src && W.data && W.shapes) wxBtnIdle('wxwarn'); // this hour's warnings (or none) are on the map
   warnNote(act, T); }
 function warnNote(act, T){ var el = document.getElementById('wxwarnnote'), W = window.wxWarn, t = window.WXT[window.wxLang()];
   if (!el) return;
@@ -1958,7 +2044,7 @@ function warnShapes(cb){ var W = window.wxWarn; if (W.shapes){ cb(); return; }
 window.wxSetWarn = function(on){ var W = window.wxWarn; W.on = on; clearInterval(W.timer); W.timer = null;
   var dc = document.getElementById('warndisc'); if (dc) dc.hidden = !on; // Meteoalarm's delay disclaimer in the „!“ box
   if (on){
-    wxBtnBusy('wxwarn', 'wxwarn'); warnNote([], 0);
+    wxBtnBusy('wxwarn'); warnNote([], 0);
     warnShapes(function(){ warnFetch(function(){ if (!W.on) return;
       whenReady(function(){ if (!W.on) return;
         var en = actEn();
@@ -1969,6 +2055,7 @@ window.wxSetWarn = function(on){ var W = window.wxWarn; W.on = on; clearInterval
         if (!map.getLayer('warn-line')) map.addLayer({id:'warn-line', type:'line', source:'wxwarn', paint:{'line-color':WARN_COL, 'line-width':1.5}}, bf);
         W.sig = ''; warnPaint(); }); }); });
     W.timer = setInterval(function(){ if (!W.on) return;
+      if (!W.shapes) warnShapes(warnPaint); // the borders file failed: ask for it again (the button keeps pulsing meanwhile)
       if (Date.now() - W.fetchedAt >= 180000) warnFetch(warnPaint); else warnPaint(); }, 60000); // repaint every minute, ask every 3 min
   } else {
     wxBtnIdle('wxwarn');
@@ -2044,7 +2131,6 @@ window.wxGjSyncLabel = function(){
 function gjDraw(gj){
   var x = GJTX[gjL()];
   window.wxGjLoading = false;
-  var _gb = document.getElementById('wxgj'); if (_gb) _gb.classList.remove('loading'); // data in -> stop the pulse
   window.wxGjDays = (gj && gj.days) || window.wxGjDays || [];
   // Auto-default = the newest READY finished day the relay reports. Not persisted,
   // so it advances by itself at the daily rollover; while the new day is still
@@ -2075,6 +2161,7 @@ function gjDraw(gj){
       d.textContent = g ? (x.stamp + ' ' + ('0'+g.getHours()).slice(-2) + ':' + ('0'+g.getMinutes()).slice(-2)) : ''; }
   }
   window.wxGjSyncLabel();
+  wxLoadErr.gj = ''; wxBtnIdle('wxgj'); // data in -> stop the pulse (after an auto-snap to the newest day: that day's data)
 }
 
 // robust "run when the map can take a source/layer": whenReady's single once('idle')
@@ -2089,14 +2176,13 @@ function gjReady(fn){
 }
 function gjFetch(){
   var wasDay = window.wxGjDay;
-  window.wxGjLoading = true;
-  var _gb = document.getElementById('wxgj'); if (_gb) _gb.classList.add('loading'); // pulse the 🛰 button while fetching
+  window.wxGjLoading = true; // (the 🛰 button pulses only for a wait the user asked for: wxSetGj / gjApply, not this 5-min refresh)
   var c = document.getElementById('wxgjcal'); if (c && !c.hidden) gjBuildCal(); // show "loading…" at once
   fetch(gjBuildUrl()).then(function(r){ if (!r.ok) throw new Error('gj ' + r.status); return r.json(); })
     .then(function(gj){ gjReady(function(){ if (window.wxGjOn) gjDraw(gj); }); })
     .catch(function(){
       window.wxGjLoading = false;
-      if (!wasDay){ var _gb2 = document.getElementById('wxgj'); if (_gb2) _gb2.classList.remove('loading'); } // hard failure (not a day-fallback retry) -> stop the pulse
+      if (!wasDay){ wxLoadErr.gj = 'err'; wxLoadSync(); } // hard failure (not a day-fallback retry): a waiting button keeps pulsing + says why; the live view retries every 5 min
       // a day the relay can't give (e.g. the auto default right after midnight,
       // before the new day is computed) must not leave the layer/calendar empty:
       // re-request without a day. No ST write: auto keeps tracking (the live
@@ -2118,6 +2204,7 @@ function gjApply(day, win){
   ST.set('gjDay', window.wxGjDay ? null : ''); ST.set('gjWin', window.wxGjWin); // Live is remembered; a past day is not (null = auto newest day next visit)
   window.wxGjSyncLabel();
   gjBuildCal();
+  if (window.wxGjOn) wxBtnBusy('wxgj'); // the user waits for the view just picked
   gjFetch(); gjResetTimer();
 }
 
@@ -2172,11 +2259,11 @@ window.wxSetGj = function(on){ window.wxGjOn = on;
   if (on){
     if (lg) lg.hidden = false;
     window.wxGjSyncLabel();
-    gjFetch(); gjResetTimer();
+    wxBtnBusy('wxgj'); gjFetch(); gjResetTimer();
   } else {
     clearInterval(gjTimer); gjTimer = null;
     gjCloseCal();
-    var _gb = document.getElementById('wxgj'); if (_gb) _gb.classList.remove('loading');
+    wxLoadErr.gj = ''; wxBtnIdle('wxgj');
     if (lg) lg.hidden = true;
     if (map.getLayer(GJL)) map.removeLayer(GJL);
     if (map.getLayer(GJO)) map.removeLayer(GJO);
@@ -2225,8 +2312,8 @@ function airEnsure(cb){
     if (!map.getSource('wxair')){ var d = airGvaData(); window._airGvaSig = d.sig;
       map.addSource('wxair', {type:'geojson', data:d.fc, generateId:true,
         attribution:'Airspace &copy; <a href="https://www.openaip.net/" target="_blank" rel="noopener">openAIP</a> (CC BY-NC 4.0); BULATSA zone contours: <a href="https://uas.caa.bg/" target="_blank" rel="noopener">CAA uas.caa.bg</a>; zones missing in openAIP: AIP of the Republic of Bulgaria'}); }
-    cb();
-  }).catch(function(){ wxBtnIdle('cbAirC'); wxBtnIdle('cbAirS'); // relay/source down: draw nothing rather than something stale...
+    wxLoadErr.air = ''; cb();
+  }).catch(function(){ wxLoadErr.air = 'err'; wxLoadSync(); // relay/source down: the chips keep pulsing + the drawer says why; draw nothing rather than something stale...
     clearTimeout(window._airRt); window._airRt = setTimeout(function(){ // ...then re-attempt the FETCH (never draws stale); stops once toggled off
       if (window.wxAirCOn) window.wxSetAirC(true); if (window.wxAirSOn) window.wxSetAirS(true); }, 15000); });
 }
@@ -2292,20 +2379,20 @@ window.wxAirLblFilter = function(ctrl){
   var base = ctrl ? AIR_CTRL_F : AIR_SPEC_F, sup = (window._actSup || []).map(function(n){ return String(n).toUpperCase(); });
   return sup.length ? ['all', base, ['!', ['in', ['upcase', ['to-string', ['get','n']]], ['literal', sup]]]] : base; };
 window.wxSetAirC = function(on){ window.wxAirCOn = on;
-  if (on){ wxBtnBusy('cbAirC', 'wxair'); airEnsure(function(){ if (!window.wxAirCOn) return;
+  if (on){ wxBtnBusy('cbAirC'); airEnsure(function(){ if (!window.wxAirCOn) return;
     if (!map.getLayer('air-ctrl')) map.addLayer({id:'air-ctrl', type:'line', source:'wxair',
       filter:window.wxAirLblFilter(true),
       paint:{'line-color':'#2b6cb0','line-width':AIR_LW,'line-opacity':0.9}}, wxZoneAnchor()); // faint: context, not a dominant border
     if (!map.getLayer('air-ctrl-labels')) map.addLayer({id:'air-ctrl-labels', type:'symbol', source:'wxair',
       filter:window.wxAirLblFilter(true), layout:AIR_LBL_LAYOUT,
       paint:{'text-color':'#2b6cb0','text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor());
-    airGvaNeed(); airGvaTick(true); }); }
-  else { wxBtnIdle('cbAirC'); ['air-ctrl','air-ctrl-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
+    airGvaNeed(); airGvaTick(true); wxBtnIdle('cbAirC'); }); } // the airspace is on the map
+  else { if (!window.wxAirSOn) wxLoadErr.air = ''; wxBtnIdle('cbAirC'); ['air-ctrl','air-ctrl-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
     airGvaTick(!!window.wxAirSOn);
     if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
 };
 window.wxSetAirS = function(on){ window.wxAirSOn = on;
-  if (on){ wxBtnBusy('cbAirS', 'wxair'); airEnsure(function(){ if (!window.wxAirSOn) return;
+  if (on){ wxBtnBusy('cbAirS'); airEnsure(function(){ if (!window.wxAirSOn) return;
     if (!map.getLayer('air-spec')) map.addLayer({id:'air-spec', type:'line', source:'wxair',
       filter:window.wxAirLblFilter(false),
       // red for Prohibited(3)/Restricted(1)/Danger(2); magenta for military TRA/TSA(8/9)
@@ -2313,8 +2400,8 @@ window.wxSetAirS = function(on){ window.wxAirSOn = on;
     if (!map.getLayer('air-spec-labels')) map.addLayer({id:'air-spec-labels', type:'symbol', source:'wxair',
       filter:window.wxAirLblFilter(false), layout:AIR_LBL_LAYOUT,
       paint:{'text-color':['case',['in',['get','t'],['literal',[8,9]]],'#d81fbf','#d0202a'],'text-halo-color':'rgba(255,255,255,0.9)','text-halo-width':1.4}}, wxZoneAnchor());
-    airGvaNeed(); airGvaTick(true); }); }
-  else { wxBtnIdle('cbAirS'); ['air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
+    airGvaNeed(); airGvaTick(true); wxBtnIdle('cbAirS'); }); } // the airspace is on the map
+  else { if (!window.wxAirCOn) wxLoadErr.air = ''; wxBtnIdle('cbAirS'); ['air-spec','air-spec-labels'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); }); airDropSourceMaybe();
     airGvaTick(!!window.wxAirCOn);
     if (window.wxPopupPrune) window.wxPopupPrune(); } // its airspace leaves an open popup too
 };
@@ -2447,7 +2534,7 @@ function actFetch(ok){
   }).then(function(d){
     window._actRaw = (d.gj && d.gj.features) || []; window._actDataAt = Date.now() - d.age; window._actFail = false;
     ok();
-  }).catch(function(){ window._actFail = true; wxBtnIdle('cbAct'); actPaint(); }); // whatever is drawn keeps AGEING honestly
+  }).catch(function(){ window._actFail = true; actPaint(); }); // whatever is drawn keeps AGEING honestly; a chip still waiting keeps pulsing (the red banner says why)
 }
 function actEnsure(cb){
   if (map.getSource('wxact')){ cb(); return; }
@@ -2467,7 +2554,7 @@ window.wxSetAct = function(on){ window.wxActOn = on;
   if (on && !window._actTick){ window._actTickN = 0;
     window._actTick = setInterval(function(){ window._actTickN++; if (window._actTickN % 10 === 0) actRefresh(); else actPaint(); }, 60000); }
   if (!on && window._actTick){ clearInterval(window._actTick); window._actTick = null; }
-  if (on){ wxBtnBusy('cbAct', 'wxact'); actEnsure(function(){ if (!window.wxActOn) return;
+  if (on){ wxBtnBusy('cbAct'); actEnsure(function(){ if (!window.wxActOn) return;
     // no beforeId = top of the stack = ABOVE the zones, like the NOTAM layer
     if (!map.getLayer('act-fill')) map.addLayer({id:'act-fill', type:'fill', source:'wxact',
       paint:{'fill-color':ACT_COL, 'fill-opacity':['case',['==',['get','fut'],1],0.06,0.2]}});
@@ -2481,7 +2568,7 @@ window.wxSetAct = function(on){ window.wxActOn = on;
     if (!map.getLayer('act-label')) map.addLayer({id:'act-label', type:'symbol', source:'wxact',
       layout:{'text-field':['get','lbl'], 'text-size':11.5, 'text-font':['Noto Sans Regular'], 'text-max-width':20},
       paint:{'text-color':ACT_COL, 'text-halo-color':'rgba(255,255,255,0.92)', 'text-halo-width':1.6}});
-    window._actSig = ''; actPaint(); }); }
+    window._actSig = ''; actPaint(); wxBtnIdle('cbAct'); }); } // the activated zones are on the map
   else { wxBtnIdle('cbAct'); clearTimeout(window._actEdge);
     ['act-fill','act-band','act-line','act-line-fut','act-label'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
     if (map.getSource('wxact')) map.removeSource('wxact');
@@ -3265,9 +3352,9 @@ function notFetch(ok){
     var fl = firs.length && firs.every(function(f){ return f.properties.l === firs[0].properties.l; }) ? firs[0].properties.l : '';
     var fir = {type:'FeatureCollection', features: firs.length ? [{type:'Feature', properties:{l: fl}, geometry:{type:'MultiLineString', coordinates: wxFirLines()}}] : []};
     window._ntDataAt = Date.now() - d.age; // moment the picture was truly fresh
-    ok(gj, pts, fir);
+    wxLoadErr.notam = ''; ok(gj, pts, fir);
     notFreshPaint();
-  }).catch(function(){ wxBtnIdle('cbNotam'); notFreshPaint(); }); // fetch failed: whatever is drawn keeps AGEING honestly on the stamp/banner
+  }).catch(function(){ wxLoadErr.notam = 'err'; wxLoadSync(); notFreshPaint(); }); // fetch failed: whatever is drawn keeps AGEING honestly on the stamp/banner; a chip still waiting keeps pulsing + the drawer says why
 }
 function notEnsure(cb){
   if (map.getSource('wxnotam')){ cb(); return; }
@@ -3331,7 +3418,7 @@ window.wxSetNotam = function(on){ window.wxNotamOn = on;
       notFreshPaint();
     }, 60000); }
   if (!on && window._ntTick){ clearInterval(window._ntTick); window._ntTick = null; }
-  if (on){ wxBtnBusy('cbNotam', 'wxnotam'); notEnsure(function(){ if (!window.wxNotamOn) return;
+  if (on){ wxBtnBusy('cbNotam'); notEnsure(function(){ if (!window.wxNotamOn) return;
     notPinsReady(); // register the pin + hatch images first
     // no beforeId = top of the stack = ABOVE the zones (owner's choice)
     // fill: 'restricted' (R) gets a diagonal hatch; the rest a lighter (12%) wash. Dashed edge for all.
@@ -3356,8 +3443,9 @@ window.wxSetNotam = function(on){ window.wxNotamOn = on;
     if (!map.getLayer('notam-pin')) map.addLayer({id:'notam-pin', type:'symbol', source:'wxnotam-pts',
       layout:{'icon-image':['match',['get','l'],'P','ntpin-P','D','ntpin-D','M','ntpin-M','R','ntpin-R','O','ntpin-O','G','ntpin-G','ntpin-excl'],
         'icon-anchor':'bottom', 'icon-size':1, 'icon-allow-overlap':true, 'icon-ignore-placement':true},
-      paint:{'icon-opacity':['case',['==',['get','fut'],1],0.5,1]}}); }); }
-  else { wxBtnIdle('cbNotam'); ['notam-fill','notam-hatch','notam-line','notam-line-r','notam-fir-band','notam-fir','notam-pin'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
+      paint:{'icon-opacity':['case',['==',['get','fut'],1],0.5,1]}});
+    wxBtnIdle('cbNotam'); }); } // the NOTAMs are on the map
+  else { wxLoadErr.notam = ''; wxBtnIdle('cbNotam'); ['notam-fill','notam-hatch','notam-line','notam-line-r','notam-fir-band','notam-fir','notam-pin'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
     if (map.getSource('wxnotam-fir')) map.removeSource('wxnotam-fir');
     if (map.getSource('wxnotam')) map.removeSource('wxnotam');
     if (map.getSource('wxnotam-pts')) map.removeSource('wxnotam-pts');
@@ -3405,8 +3493,7 @@ function windSize(){ if (!windCanvas) return; var el = map.getContainer(), dpr =
   windCanvas.style.width = el.clientWidth + 'px'; windCanvas.style.height = el.clientHeight + 'px';
   windCanvas._dpr = dpr; windCanvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); } // crisp + same size on Retina/phone
 window.wxSetWind = function(on){ windOn = on; window.wxWindState.on = on;
-  if (on){ var _wb = document.getElementById('wxwind'); if (_wb) _wb.classList.add('loading'); // honest cue: pulse until the grid lands (the fetch cb below clears it) or a 30 s safety cap
-    clearTimeout(window._windCue); window._windCue = setTimeout(function(){ wxBtnIdle('wxwind'); }, 30000);
+  if (on){ wxBtnBusy('wxwind'); // honest cue: pulse until the grid lands (the fetch cb below clears it) - no time limit (owner 23.10)
     if (!windCanvas){ windCanvas = document.createElement('canvas'); windCanvas.className = 'wxwindcv';
       windCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:5'; // over the GL map; thin/soft so zones read through
       map.getContainer().appendChild(windCanvas); }
@@ -3424,7 +3511,7 @@ window.wxSetWind = function(on){ windOn = on; window.wxWindState.on = on;
     if (windEngine) windEngine.stop();
     windEngine = window.wxWindEngine({canvas: windCanvas, project: windProject, unproject: windUnproject, bounds: windBounds, darkBg: windDark, afterDraw: (typeof windMask !== 'undefined' ? windMask : null)});
     window.wxWindFetch(function(){ if (windOn) wxBtnIdle('wxwind'); }); // grid in -> stop the pulse (engine already running)
-  } else { wxBtnIdle('wxwind');
+  } else { window.wxWindState.err = ''; wxBtnIdle('wxwind');
     if (windEngine){ windEngine.stop(); windEngine = null; }
     if (windResize){ map.off('resize', windResize); window.removeEventListener('resize', windResize); windResize = null; }
     if (windMove){ map.off('movestart', windMove); map.off('zoomstart', windMove); windMove = null; }
@@ -3476,11 +3563,11 @@ function plnLoad(){
     return r.json();
   }).then(function(d){
     if (!plnOn) return;
-    plnFresh = Date.now(); plnData = d;
+    plnFresh = Date.now(); plnData = d; wxLoadErr.pln = '';
     whenReady(function(){
       if (!plnOn) return;
       var src = map.getSource('wxpln');
-      if (src){ var fc = plnFC(d); src.setData(fc); plnFollowPopup(fc); return; }
+      if (src){ var fc = plnFC(d); src.setData(fc); plnFollowPopup(fc); wxBtnIdle('plnbtn'); return; }
       plnAddImages(function(){
         if (!plnOn || map.getSource('wxpln')) return;
         map.addSource('wxpln', {type: 'geojson', data: plnFC(d),
@@ -3498,9 +3585,11 @@ function plnLoad(){
               .setLngLat(f.geometry.coordinates).setHTML(f.properties.info).addTo(map);
           });
         }
+        wxBtnIdle('plnbtn'); // the aircraft are on the map
       });
     });
   }).catch(function(){
+    wxLoadErr.pln = 'err'; wxLoadSync(); // a waiting ✈ button says why (no note once the aircraft were shown)
     // no fresh data: bridge brief hiccups, but after ~90 s wipe the planes —
     // an honest empty sky beats a frozen "live" one
     if (plnOn && plnFresh && Date.now() - plnFresh > 90000){
@@ -3511,8 +3600,8 @@ function plnLoad(){
   });
 }
 window.wxSetPlanes = function(on){ plnOn = on;
-  if (on){ wxBtnBusy('plnbtn', 'wxpln'); plnLoad(); plnTimer = setInterval(plnLoad, 7000); } // solid the moment the planes source appears on the map
-  else { clearInterval(plnTimer); wxBtnIdle('plnbtn');
+  if (on){ wxBtnBusy('plnbtn'); plnLoad(); plnTimer = setInterval(plnLoad, 7000); } // solid once the first aircraft data is on the map
+  else { clearInterval(plnTimer); wxLoadErr.pln = ''; wxBtnIdle('plnbtn');
     if (plnPopup){ plnPopup.remove(); plnPopup = null; plnPopupId = null; } // layer off -> its aircraft popup goes too
     if (map.getLayer('wxpln-layer')) map.removeLayer('wxpln-layer');
     if (map.getSource('wxpln')) map.removeSource('wxpln'); }
@@ -3568,12 +3657,12 @@ function ognLoad(){
     : ognGet(window.wxOgnUrl, 8000).catch(function(){ ognViaRelay = Date.now() + 300000; return ognGet(window.wxOgnRelay, 15000); }))
   .then(function(txt){
     ognBusy = false;
-    if (!ognOn) return; ognFresh = Date.now();
+    if (!ognOn) return; ognFresh = Date.now(); wxLoadErr.ogn = '';
     var list = window.wxOgnParse(txt); ognLast = list;
     whenReady(function(){
       if (!ognOn) return;
       var src = map.getSource('wxogn');
-      if (src){ var fc = ognFC(list); src.setData(fc); ognFollowPopup(fc); return; }
+      if (src){ var fc = ognFC(list); src.setData(fc); ognFollowPopup(fc); wxBtnIdle('ognbtn'); return; }
       ognAddImages(function(){
         if (!ognOn || map.getSource('wxogn')) return;
         map.addSource('wxogn', {type: 'geojson', data: ognFC(list),
@@ -3591,18 +3680,20 @@ function ognLoad(){
               .setLngLat(f.geometry.coordinates).setHTML(f.properties.info).addTo(map);
           });
         }
+        wxBtnIdle('ognbtn'); // the low-level traffic is on the map
       });
     });
   }).catch(function(){
     ognBusy = false;
+    wxLoadErr.ogn = 'err'; wxLoadSync(); // both sources failed: a waiting button says why (no note once the traffic was shown)
     if (ognOn && ognFresh && Date.now() - ognFresh > 90000){ // honest empty sky after ~90 s
       var s = map.getSource('wxogn'); if (s) s.setData({type: 'FeatureCollection', features: []}); ognFresh = 0;
     }
   });
 }
 window.wxSetOgn = function(on){ ognOn = on;
-  if (on){ wxBtnBusy('ognbtn', 'wxogn'); ognLoad(); ognTimer = setInterval(ognLoad, 10000); }
-  else { clearInterval(ognTimer); wxBtnIdle('ognbtn');
+  if (on){ wxBtnBusy('ognbtn'); ognLoad(); ognTimer = setInterval(ognLoad, 10000); } // solid once the first OGN data is on the map
+  else { clearInterval(ognTimer); wxLoadErr.ogn = ''; wxBtnIdle('ognbtn');
     if (ognPopup){ ognPopup.remove(); ognPopup = null; ognPopupId = null; } // layer off -> its popup goes too
     if (map.getLayer('wxogn-layer')) map.removeLayer('wxogn-layer');
     if (map.getSource('wxogn')) map.removeSource('wxogn'); }

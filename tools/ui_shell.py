@@ -45,8 +45,8 @@ SHELL_CSS = r"""
 .pill:hover{background:var(--glass-strong)}
 .pill.icon{padding:0;width:38px;justify-content:center;font-size:17px}
 .pill.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
-/* "working…" cue: a data layer's button pulses while its first fetch is in flight
-   (visible without opening anything, unlike the calendar's inline text) */
+/* "working…" cue: a data layer's button pulses until its data has arrived, with no time limit
+   (owner 23.10; visible without opening anything, unlike the calendar's inline text) */
 @keyframes wxpulse{0%,100%{opacity:1}50%{opacity:.4}}
 .loading{animation:wxpulse 1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.loading{animation:none;opacity:.6}}
@@ -463,6 +463,8 @@ AIRSPACE_SECTION = (
   '<div class="flnote" data-i18n="aeroNote">Летища, писти, хеликоптерни площадки и болници · виждат се при приближаване · OpenStreetMap</div>'
   # freshness stamp of the activated zones, filled by JS while that layer is ON
   '<div class="flnote" id="wxactfresh" style="display:none"></div>'
+  # why the Контролирано / Специални зони chips still pulse (the airspace failed to load), filled by JS
+  '<div class="flnote" id="wxairmsg" style="display:none"></div>'
   '</div>')
 
 
@@ -487,6 +489,8 @@ NOTAM_SECTION = (
   # freshness stamp, filled by JS in the page language while the layer is ON
   # ("данни към HH:MM" / "data as of HH:MM"); hidden when OFF or before data
   '<div class="flnote" id="wxntfresh" style="display:none"></div>'
+  # why the NOTAM chip still pulses (the first load failed), filled by JS
+  '<div class="flnote" id="wxntmsg" style="display:none"></div>'
   '</div>')
 
 
