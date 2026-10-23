@@ -5,8 +5,9 @@ Every watched source is fetched once and its fingerprint compared with tools/rul
 a PDF by its bytes, a page by its main text and the PDF documents it links to (the pages carry
 per-request codes, so a whole-page hash would always differ), lex.bg by its list of amendments.
 A changed fingerprint or a dead link (404 / 410) fails the run, so GitHub e-mails the repository
-owner; the log names what changed. A source that does not answer (network error, 5xx) is only a
-::warning - nothing is known to have changed. The panel's „Сверено с официалните текстове на
+owner; the log names what changed. A source that does not answer (network error, 5xx), or answers
+without the document's own content (a bot check or consent page: no PDF, no <article> / <main>
+text, no amendment list), is only a ::warning - nothing is known to have changed. The panel's „Сверено с официалните текстове на
 <дата>“ never moves by itself: after a real re-check of the changed text, refresh the stored
 fingerprints with  python tools/rules_watch.py --update  and commit tools/rules_sources.json.
 
@@ -80,24 +81,29 @@ def strip_html(s):
 
 
 def main_region(s):
-    """The page's own content: its <article>, else its <main> (both sites' menus, footers and scripts left out)."""
+    """The page's own content: its <article>, else its <main> (both sites' menus, footers and scripts left out); None if it has neither."""
     for tag in ("article", "main"):
         a, b = s.find("<" + tag), s.rfind("</" + tag + ">")
         if a >= 0 and b > a:
             return s[a:b]
-    return s
+    return None
 
 
 def fingerprint(kind, body):
+    """The source's fingerprint, or None when the answer lacks the source's own content - a bot check or consent
+    page served instead (no PDF, no <article> / <main> text, no amendment list): that is not a change."""
     if kind == "pdf":
-        return {"sha256": hashlib.sha256(body).hexdigest(), "size": len(body)}
+        return {"sha256": hashlib.sha256(body).hexdigest(), "size": len(body)} if body.startswith(b"%PDF") else None
     if kind == "lex":  # lex.bg (windows-1251): one HistoryItem per entry, „Обн. ДВ. бр.133 …“ first, then „изм. ДВ. бр.98 …“;
         # its markup writes the class as class=\"HistoryItem\" (escaped quotes); an item ends at the </span> before „,“ / <br / </p
         s = body.decode("cp1251", "replace")
         items = re.findall(r'(?s)class=\\?"HistoryItem\\?"[^>]*>(.*?)</span>(?=\s*(?:,|<br|</p))', s)
-        return {"amendments": [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", x))).strip() for x in items]}
+        hist = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", x))).strip() for x in items]
+        return {"amendments": hist} if hist else None
     region = main_region(body.decode("utf-8", "replace"))
-    text = strip_html(region)
+    text = strip_html(region) if region is not None else ""
+    if not text:
+        return None
     pdfs = sorted(set(html.unescape(h) for h in re.findall(r'(?i)href="([^"]+\.pdf[^"]*)"', region)))
     return {"text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "text_chars": len(text), "pdfs": pdfs}
 
@@ -147,7 +153,13 @@ def main(argv):
             if key in stored:
                 fresh[key] = stored[key]  # keep the last known fingerprint
             continue
-        fp = dict(fingerprint(kind, body), url=url)
+        fp = fingerprint(kind, body)
+        if fp is None:  # a bot check / consent page instead of the document: unknown, not changed
+            unreachable.append("%s - the answer came without the document's own content (a bot check or consent page?)" % label)
+            if key in stored:
+                fresh[key] = stored[key]
+            continue
+        fp["url"] = url
         fresh[key] = fp
         if key not in stored:
             if not update:
