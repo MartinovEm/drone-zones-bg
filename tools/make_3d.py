@@ -977,11 +977,11 @@ map.on('load', function(){
   // the sender's open popup: the same items at the same spot, once their layers have loaded; an item
   // gone from the data is left out, nothing left = no popup (owner 20.10)
   function reopen(P){
-    var t0 = Date.now(), ll = new maplibregl.LngLat(P.ll[0], P.ll[1]), moved = false, over = false;
+    var t0 = Date.now(), ll = new maplibregl.LngLat(P.ll[0], P.ll[1]), looked = false, over = false;
     function tryOpen(){ if (over) return;
       if (curPopup){ over = true; map.off('idle', tryOpen); return; } // the visitor has opened one himself
-      var cv = map.getCanvas(), q = map.project(ll);
-      if (!moved && (q.x < 0 || q.y < 0 || q.x > cv.clientWidth || q.y > cv.clientHeight)){ moved = true; map.jumpTo({center: ll}); return; } // a smaller screen: bring the spot into view
+      var cv = map.getCanvas(), q = map.project(ll), first = !looked; looked = true;
+      if (first && (q.x < 0 || q.y < 0 || q.x > cv.clientWidth || q.y > cv.clientHeight)){ map.jumpTo({center: ll}); return; } // a smaller screen: bring the spot into view - on the FIRST look only (a later pan away is the visitor's own)
       var have = {};
       (window.wxPickAt ? window.wxPickAt(q) : []).forEach(function(p){ var k = stKey(p); if (!have[k]) have[k] = p; });
       if (!P.k.every(function(k){ return have[k]; }) && Date.now() - t0 < 20000) return; // still loading: next idle

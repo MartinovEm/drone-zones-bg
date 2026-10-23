@@ -1770,7 +1770,7 @@ function stormShow(){ // the model thunderstorms for the selected hour (ahead): 
 }
 window.wxCloudApply = function(){ // toggle + every slider move: satellite + lightning (0) or model clouds + thunderstorms (ahead)
   if (!cldOn) return;
-  if (cldMode() === 'sat'){ if (!map.getLayer(CLD)) wxBtnBusy('wxcld'); stormRemove(); cldSatShow(); liShow(); } // back at "now" the satellite loads again: the user waits for it
+  if (cldMode() === 'sat'){ if (!map.getLayer(CLD)){ window.wxCldErr = false; wxBtnBusy('wxcld'); } stormRemove(); cldSatShow(); liShow(); } // back at "now" the satellite loads again: a new wait (an old failure is not this one's note)
   else { liRemove();
     if (window.wxFcState && window.wxFcState.data){ cldModelShow(); stormShow(); }
     else { wxBtnBusy('wxcld'); window.wxFcFetch(function(){ if (cldOn && cldMode() === 'model'){ cldModelShow(); stormShow(); } }, 'cld'); } } // grid loads once; rain/snow reuse it
@@ -2000,7 +2000,12 @@ var WARN_HEX = {2:'#ffda22', 3:'#ff9300', 4:'#ff0000'}; // Meteoalarm Style Guid
 var WARN_COL = ['match', ['get','lvl'], 4, WARN_HEX[4], 3, WARN_HEX[3], WARN_HEX[2]];
 var WARN_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 window.wxWarn = {on:false, data:null, dataAt:0, err:false, fetchedAt:0, shapes:null, shown:[], sig:'', timer:null};
-function warnTime(){ return Date.now() + ((window.wxFcState && window.wxFcState.hour) || 0) * 3600000; }
+// the time the warnings are shown for: "now" at hour 0; ahead = the start of the slider's hour (the label's
+// time, as for the model layers), and a warning counts when it is in force at any moment of that hour (owner 23.10)
+function warnHour(){ return (window.wxFcState && window.wxFcState.hour) || 0; }
+function warnTime(){ var h = warnHour(); return h > 0 ? Math.floor(Date.now() / 3600000) * 3600000 + h * 3600000 : Date.now(); }
+function warnHits(w, T){ var on = Date.parse(w.on), ex = Date.parse(w.ex);
+  return warnHour() > 0 ? (on < T + 3600000 && T < ex) : (on <= T && T < ex); }
 // 00:00 Bulgarian time the day after tomorrow = where Meteoalarm's feed ends
 function warnHorizon(){ var a = actParts(Date.now()), dm = a.d.split('.'), u = Date.UTC(+a.y, +dm[1] - 1, +dm[0] + 2);
   return u - parseInt(actParts(u).hm, 10) * 3600000; } // Sofia's clock at 00:00 UTC = its offset (2 or 3 h)
@@ -2012,7 +2017,7 @@ function warnPaint(){
   var W = window.wxWarn, src = map.getSource('wxwarn'), T = warnTime(), lv = {}, act = [];
   if (W.data && Date.now() - W.dataAt > 600000){ W.data = null; W.err = true; } // never show a copy over 10 min old
   if (W.data && T < warnHorizon()) (W.data.warnings || []).forEach(function(w){
-    if (!(Date.parse(w.on) <= T && T < Date.parse(w.ex))) return;
+    if (!warnHits(w, T)) return;
     act.push(w);
     (w.areas || []).forEach(function(a){ if (!lv[a.c] || w.lvl > lv[a.c]) lv[a.c] = w.lvl; }); });
   W.shown = act;
@@ -2061,7 +2066,7 @@ window.wxSetWarn = function(on){ var W = window.wxWarn; W.on = on; clearInterval
     wxBtnIdle('wxwarn');
     ['warn-line','warn-fill'].forEach(function(id){ if (map.getLayer(id)) map.removeLayer(id); });
     if (map.getSource('wxwarn')) map.removeSource('wxwarn');
-    W.sig = ''; warnNote([], 0);
+    W.sig = ''; W.data = null; W.err = false; W.shown = []; warnNote([], 0); // the next ON waits for a fresh copy („…“), never shows the old one as „no warnings“
     if (window.wxPopupPrune) window.wxPopupPrune(); }
   if (window.wxSyncFcBar) window.wxSyncFcBar(); };
 window.wxWarnPaint = function(){ if (window.wxWarn.on) warnPaint(); };
@@ -3645,7 +3650,8 @@ function ognFollowPopup(fc){ // move the popup with its OGN object as it flies
 var ognViaRelay = 0, ognBusy = false; // until ognViaRelay ask the relay directly; one poll at a time
 function ognGet(u, ms){ // text with a time limit, so a hanging site can't stall the 10 s poll
   var ac = window.AbortController ? new AbortController() : null, t = ac ? setTimeout(function(){ ac.abort(); }, ms) : 0;
-  return fetch(u, ac ? {signal: ac.signal} : {}).then(function(r){ clearTimeout(t); if (!r.ok) throw new Error('ogn ' + r.status); return r.text(); },
+  return fetch(u, ac ? {signal: ac.signal} : {}).then(function(r){ if (!r.ok){ clearTimeout(t); throw new Error('ogn ' + r.status); }
+      return r.text().then(function(x){ clearTimeout(t); return x; }); }, // the limit covers the body too: a reply that stalls midway must not hold ognBusy
     function(e){ clearTimeout(t); throw e; });
 }
 function ognLoad(){
