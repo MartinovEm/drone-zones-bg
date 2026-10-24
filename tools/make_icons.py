@@ -8,9 +8,12 @@ zone colours (red inside, orange, yellow outside); the README title and the page
 This draws the same numbers (a 1024 grid; the sign's box = drone.svg's viewBox, centre 512, 550, half 470):
   icons/icon-192.png, icons/icon-512.png - purpose "any": TRANSPARENT around the sign (a computer's
                                           taskbar / dock shows no white square)
-  icons/icon-maskable-512.png           - purpose "maskable", WHITE: Android crops it to a circle or a
-                                          squircle, so the sign stays inside the central circle of 80 %
+  icons/icon-maskable-512.png           - purpose "maskable", WHITE: Android shows it in a circle (or another
+                                          shape) - the sign reaches 98 % of the circle (owner: bigger; only the
+                                          central 80 % is guaranteed on every shape)
   icons/apple-touch-icon.png (180)      - WHITE: iOS fills transparency with black and rounds the corners
+A changed icon also needs a new `?v=` on its URLs in manifest.webmanifest + make_3d.py (apple-touch-icon):
+Chrome re-reads an installed app's icon only when its URL changes.
 Drawn 4x larger and scaled down (smooth edges). Needs Pillow.
 
 Usage: python tools/make_icons.py [out_dir]   (default: icons/ next to tools/)
@@ -65,8 +68,11 @@ def icon(size, scale, white):
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'icons')
 os.makedirs(out, exist_ok=True)
 for name, size, scale, white in (('icon-192.png', 192, 96 / BOX_HALF, False), ('icon-512.png', 512, 256 / BOX_HALF, False),
-                                 ('icon-maskable-512.png', 512, 0.4 * 512 / REACH, True),
-                                 ('apple-touch-icon.png', 180, 0.45 * 180 / REACH, True)):
+                                 # Android / iPhone: as big as the round launcher shape allows (owner 24.10: „малко е
+                                 # малка“) - the pin's top and the lowest ring almost touch the edge of the circle;
+                                 # a narrower launcher shape than a circle may trim a hair of them
+                                 ('icon-maskable-512.png', 512, 0.49 * 512 / REACH, True),
+                                 ('apple-touch-icon.png', 180, 0.49 * 180 / REACH, True)):
     path = os.path.join(out, name)
     icon(size, scale, white).save(path, optimize=True)
     print('%s: %dx%d %s, %d bytes' % (name, size, size, 'white' if white else 'transparent', os.path.getsize(path)))
