@@ -91,6 +91,9 @@ html = r"""<!DOCTYPE html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Дрон зони в България</title>
 <link rel="icon" href="__FAVICON__">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Дрон зони">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
@@ -204,7 +207,7 @@ var T = {
      secObs:'Препятствия',obsShow:'Препятствия',obsNote:'Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D · виждат се при приближаване · „~“ = типична височина · липсата на линия на картата не значи, че там няма · OpenStreetMap, ЕСО ЕАД',
      kml:'KML за Google Earth',hint:'десен бутон = въртене/наклон',search:'Търсене на локация…',loc:'Къде съм',
      ddate:'синхронизация от __CHANGED__',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',coordOut:'извън картата. Първо се пише географската ширина, после дължината (напр. 42.69, 23.32).',
-     clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',share:'Споделяне на изгледа',shareOk:'Връзката е копирана',shareAsk:'Връзка за споделяне:',myView:'Моят изглед',rules:'Правила',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
+     clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',share:'Споделяне на изгледа',shareOk:'Връзката е копирана',shareAsk:'Връзка за споделяне:',myView:'Моят изглед',rules:'Правила',install:'Като приложение',installIos:'На iPhone и iPad: бутонът „Share“ на браузъра → „Add to Home Screen“.',installMac:'На Mac в Safari: меню „File“ → „Add to Dock“.',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
      aeroShow:'Летища, площадки и болници',aeroNote:'Летища, писти, хеликоптерни площадки и болници · виждат се при приближаване · OpenStreetMap',
@@ -218,7 +221,7 @@ var T = {
      secObs:'Obstacles',obsShow:'Obstacles',obsNote:'Power lines, towers, wind turbines, masts, lifts and the 3D buildings · shown when zoomed in · "~" = a typical height · a line missing on the map does not mean there is none · OpenStreetMap, ESO EAD',
      kml:'KML for Google Earth',hint:'right-drag = rotate/tilt',search:'Search for a place…',loc:'Where am I',
      ddate:'synced from __CHANGED__',src:'Zones source: Bulgarian CAA',here:'You are here',coordOut:'outside the map. Latitude comes first, then longitude (e.g. 42.69, 23.32).',
-     clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',share:'Share this view',shareOk:'Link copied',shareAsk:'Link to share:',myView:'My view',rules:'Rules',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
+     clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',share:'Share this view',shareOk:'Link copied',shareAsk:'Link to share:',myView:'My view',rules:'Rules',install:'Install as app',installIos:'On iPhone and iPad: the browser\'s “Share” button → “Add to Home Screen”.',installMac:'On a Mac in Safari: the “File” menu → “Add to Dock”.',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
      aeroShow:'Airfields, helipads and hospitals',aeroNote:'Airfields, runways, helipads and hospitals · shown when zoomed in · OpenStreetMap',
@@ -942,6 +945,29 @@ map.on('load', function(){
   })();
 })();
 // ---- shared-view link (ROADMAP 8b) --------------------------------------------------
+// «📱 Като приложение» (menu, Tools; owner 24.10): the map can be installed (manifest.webmanifest + icons,
+// NO service worker - nothing is kept offline, the data is always fresh). Chrome / Edge announce when they
+// can install it (beforeinstallprompt): only then the button shows, and a tap opens the browser's own
+// install dialog (their automatic install bar is held back - the button replaces it); once used or
+// installed it goes, and comes back when the browser offers it again. iPhone / iPad (Safari has no such
+// event): the button always shows and a tap shows how (Share → Add to Home Screen); Safari on a Mac the
+// same with its own hint (File → Add to Dock, macOS 14+) - each hint only where it applies (owner). Already
+// open as the app, or another browser: no button. Not a setting, not in the share link.
+(function(){
+  var ib = document.getElementById('instbtn'), inote = document.getElementById('instnote'), dp = null;
+  if (!ib) return;
+  if ((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true) return;
+  var ua = navigator.userAgent, touch = navigator.maxTouchPoints > 1;
+  var ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && touch); // an iPad asks for the Mac page
+  var macSafari = !ios && /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/.test(ua);
+  if (ios || macSafari){ ib.hidden = false;
+    if (inote){ inote.setAttribute('data-i18n', ios ? 'installIos' : 'installMac'); inote.textContent = T[LANG][ios ? 'installIos' : 'installMac']; } }
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); dp = e; ib.hidden = false; });
+  window.addEventListener('appinstalled', function(){ dp = null; ib.hidden = true; if (inote) inote.hidden = true; });
+  ib.onclick = function(){
+    if (dp){ var p = dp; dp = null; ib.hidden = true; p.prompt(); return; } // one use per offer
+    if (inote) inote.hidden = !inote.hidden; };
+})();
 // «Споделяне на изгледа» (menu, Tools) puts the whole view into one link: the camera (the
 // #lat/lng/zoom part + mode, tilt and turn in the record), the base map, every layer switch incl.
 // the weather ones, the forecast hour as an absolute time, the GPS day, the ruler pins, an open

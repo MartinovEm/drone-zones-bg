@@ -64,6 +64,7 @@ SHELL_CSS = r"""
 /* "↩ My view": top of the drawer, only while a shared-view link is open */
 #myview{margin-right:auto;border-color:var(--accent);font-weight:600}
 #myview[hidden]{display:none}
+#instbtn[hidden],#instnote[hidden]{display:none}
 .psec{padding:6px 0}
 .psec:first-of-type{padding-top:0}
 .psec+.psec{border-top:1px solid var(--border)}
@@ -410,7 +411,11 @@ def panel_html(zone_chips, extra_secs, buildings_chip="", foot=""):
       '<button class="pbtn" id="sharebtn">\U0001F517 <span id="sharelbl" data-i18n="share">Споделяне на изгледа</span></button>'
       # the drone rules in short + links to the official texts (ROADMAP A9; the pop-up is in rules_panel.py)
       '<button class="pbtn" id="rulesbtn" type="button">\U0001F4DC <span data-i18n="rules">Правила</span></button>'
-      '</div></div>'
+      # install as an app (owner 24.10; the logic is in make_3d.py): shown only when Chrome / Edge can
+      # install the map, or on iPhone / iPad, where a tap shows the hint below
+      '<button class="pbtn" id="instbtn" type="button" hidden>\U0001F4F1 <span data-i18n="install">Като приложение</span></button>'
+      '</div><div class="flnote" id="instnote" data-i18n="installIos" hidden>'
+      'На iPhone и iPad: бутонът „Share“ на браузъра → „Add to Home Screen“.</div></div>'
       + foot +
       '<div class="pfoot"><a href="https://github.com/MartinovEm/drone-zones-bg" target="_blank" rel="noopener" data-i18n="moreinfo">Повече информация и източници</a></div>'
       '</div>')
