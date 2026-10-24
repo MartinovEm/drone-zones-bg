@@ -83,7 +83,10 @@ try:
 except OSError:
     bgout = '{"type":"FeatureCollection","features":[]}'
 
-FAV = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><g stroke='royalblue' stroke-width='3' fill='none' stroke-linecap='round'><path d='M14 14 34 34M34 14 14 34'/><circle cx='12' cy='12' r='7'/><circle cx='36' cy='12' r='7'/><circle cx='12' cy='36' r='7'/><circle cx='36' cy='36' r='7'/></g><rect x='18' y='18' width='12' height='12' rx='3' fill='royalblue'/></svg>"
+# the favicon = the map's sign, drone.svg in the repo root (owner's pick 24.10: a pin with a drone stuck into
+# three rings in the zone colours); the README title shows the same file, tools/make_icons.py the app icons
+FAV = re.sub(r'\s*<!--.*?-->', '', open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'drone.svg'),
+             encoding='utf-8').read(), flags=re.S).strip()
 favicon = "data:image/svg+xml," + urllib.parse.quote(FAV)
 
 html = r"""<!DOCTYPE html>

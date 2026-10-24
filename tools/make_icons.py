@@ -2,13 +2,15 @@
 """
 Build the app icons named in manifest.webmanifest (owner 24.10: the map installable on a phone).
 
-One-time tool, like make_oblasts.py: rerun only when the drone sign changes. It draws the page's own
-favicon (make_3d.py FAV: a royal-blue drone on a 48-unit grid) on a white, opaque square:
-  icons/icon-192.png, icons/icon-512.png - purpose "any", the drone over ~84 % of the square
-  icons/icon-maskable-512.png           - purpose "maskable": Android crops it to a circle or a
-                                          squircle, so the whole drone stays inside the central
-                                          circle of 80 % (the maskable safe zone)
-  icons/apple-touch-icon.png (180)      - the iPhone home-screen icon (iOS rounds the corners itself)
+One-time tool, like make_oblasts.py: rerun only when the sign changes. The sign (owner's pick, 24.10) is
+drone.svg in the repo root - a royal-blue map pin with a white drone, stuck into three rings in the map's
+zone colours (red inside, orange, yellow outside); the README title and the page's favicon use that file.
+This draws the same numbers (a 1024 grid; the sign's box = drone.svg's viewBox, centre 512, 550, half 470):
+  icons/icon-192.png, icons/icon-512.png - purpose "any": TRANSPARENT around the sign (a computer's
+                                          taskbar / dock shows no white square)
+  icons/icon-maskable-512.png           - purpose "maskable", WHITE: Android crops it to a circle or a
+                                          squircle, so the sign stays inside the central circle of 80 %
+  icons/apple-touch-icon.png (180)      - WHITE: iOS fills transparency with black and rounds the corners
 Drawn 4x larger and scaled down (smooth edges). Needs Pillow.
 
 Usage: python tools/make_icons.py [out_dir]   (default: icons/ next to tools/)
@@ -16,37 +18,55 @@ Usage: python tools/make_icons.py [out_dir]   (default: icons/ next to tools/)
 import math, os, sys
 from PIL import Image, ImageDraw
 
-BLUE = (65, 105, 225)  # royalblue, as the favicon
-SS = 4                 # supersampling
+BLUE, WHITE = (65, 105, 225), (255, 255, 255)           # royalblue (#4169e1)
+RED, ORANGE, YELLOW = (255, 32, 32), (255, 128, 0), (255, 204, 0)   # make_3d.py COL
+SS = 4                                                    # supersampling
+# drone.svg on the 1024 grid: the rings round (512, 640) - Pillow draws a ring's width INWARD from its radius,
+# so these OUTER radii give drone.svg's stroke centres 348 / 263 / 178; the pin's head (512, 300) r 210, tip
+# (512, 640); the white drone 252 wide in the head; the sign's box centre and half-side; its farthest point
+RINGS, RING_W = ((370, YELLOW), (285, ORANGE), (200, RED)), 44
+HEAD, HEAD_R, TIP, DRONE_SPAN = (512, 300), 210, (512, 640), 252
+BOX_C, BOX_HALF, REACH = (512, 550), 470, 460
 
-def drone(size, span):
-    """A size x size icon; span = the share of the side the drone's outer edges cover (centred)."""
-    S = size * SS
-    img = Image.new('RGB', (S, S), (255, 255, 255))
-    d = ImageDraw.Draw(img)
-    k = span * S / 41.0          # the drone spans 41 grid units (3.5 .. 44.5)
-    o = (S - 48 * k) / 2         # centre the 48-unit grid
-    P = lambda u: o + u * k
-    w = 3 * k                    # the arms' stroke (3 units, round caps)
+def drone(d, cx, cy, span, col):
+    """The favicon drone (48-unit grid, 41 units wide) centred at cx, cy, span px wide."""
+    k = span / 41.0
+    P = lambda ux, uy: (cx + (ux - 24) * k, cy + (uy - 24) * k)
+    w = 3 * k                                             # the arms: stroke 3, round caps
     for (x1, y1, x2, y2) in ((14, 14, 34, 34), (34, 14, 14, 34)):
-        d.line([(P(x1), P(y1)), (P(x2), P(y2))], fill=BLUE, width=round(w))
+        d.line([P(x1, y1), P(x2, y2)], fill=col, width=round(w))
         for (x, y) in ((x1, y1), (x2, y2)):
-            d.ellipse([P(x) - w / 2, P(y) - w / 2, P(x) + w / 2, P(y) + w / 2], fill=BLUE)
-    r, sw = 7 * k, 3 * k         # the rotors: r 7, stroke 3 (outer edge at r + 1.5)
-    for (cx, cy) in ((12, 12), (36, 12), (12, 36), (36, 36)):
-        d.ellipse([P(cx) - r - sw / 2, P(cy) - r - sw / 2, P(cx) + r + sw / 2, P(cy) + r + sw / 2],
-                  outline=BLUE, width=round(sw))
-    d.rounded_rectangle([P(18), P(18), P(30), P(30)], radius=3 * k, fill=BLUE)
-    return img.resize((size, size), Image.LANCZOS)
+            px, py = P(x, y)
+            d.ellipse([px - w / 2, py - w / 2, px + w / 2, py + w / 2], fill=col)
+    r, sw = 7 * k, 3 * k                                  # the rotors: r 7, stroke 3
+    for (ux, uy) in ((12, 12), (36, 12), (12, 36), (36, 36)):
+        px, py = P(ux, uy)
+        d.ellipse([px - r - sw / 2, py - r - sw / 2, px + r + sw / 2, py + r + sw / 2], outline=col, width=round(sw))
+    a, b = P(18, 18), P(30, 30)
+    d.rounded_rectangle([a[0], a[1], b[0], b[1]], radius=3 * k, fill=col)
 
-# the farthest point of the drone from the centre: a rotor's centre (16.97 units away) + r 7 + half stroke
-REACH = math.hypot(12, 12) + 7 + 1.5
-MASKABLE_SPAN = 0.8 / 2 / REACH * 41   # the outer edges inside the central 80 % circle
+def icon(size, scale, white):
+    """A size x size icon; scale = icon px per grid unit at the final size."""
+    S = size * SS
+    img = Image.new('RGBA', (S, S), WHITE + (255,) if white else (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    k = scale * SS
+    G = lambda x, y: (S / 2 + (x - BOX_C[0]) * k, S / 2 + (y - BOX_C[1]) * k)   # grid -> pixels
+    cx, cy = G(*TIP)
+    for r, col in RINGS:                                  # the rings round the pin's tip
+        d.ellipse([cx - r * k, cy - r * k, cx + r * k, cy + r * k], outline=col, width=round(RING_W * k))
+    hx, hy = G(*HEAD); hr = HEAD_R * k; tx, ty = G(*TIP)
+    tl = math.sqrt((ty - hy) ** 2 - hr ** 2); a = math.atan2(hr, tl)   # the pin: head + the tangent sides to the tip
+    d.polygon([(hx - hr * math.cos(a), hy + hr * math.sin(a)), (hx + hr * math.cos(a), hy + hr * math.sin(a)), (tx, ty)], fill=BLUE)
+    d.ellipse([hx - hr, hy - hr, hx + hr, hy + hr], fill=BLUE)
+    drone(d, hx, hy, DRONE_SPAN * k, WHITE)
+    return img.resize((size, size), Image.LANCZOS)
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'icons')
 os.makedirs(out, exist_ok=True)
-for name, size, span in (('icon-192.png', 192, 0.84), ('icon-512.png', 512, 0.84),
-                         ('icon-maskable-512.png', 512, MASKABLE_SPAN), ('apple-touch-icon.png', 180, 0.8)):
+for name, size, scale, white in (('icon-192.png', 192, 96 / BOX_HALF, False), ('icon-512.png', 512, 256 / BOX_HALF, False),
+                                 ('icon-maskable-512.png', 512, 0.4 * 512 / REACH, True),
+                                 ('apple-touch-icon.png', 180, 0.45 * 180 / REACH, True)):
     path = os.path.join(out, name)
-    drone(size, span).save(path, optimize=True)
-    print('%s: %dx%d, %d bytes' % (name, size, size, os.path.getsize(path)))
+    icon(size, scale, white).save(path, optimize=True)
+    print('%s: %dx%d %s, %d bytes' % (name, size, size, 'white' if white else 'transparent', os.path.getsize(path)))

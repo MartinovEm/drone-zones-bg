@@ -1,13 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none" role="img" aria-label="дрон">
-  <g stroke="#2b6cb0" stroke-width="3" stroke-linecap="round">
-    <line x1="14" y1="14" x2="34" y2="34"/>
-    <line x1="34" y1="14" x2="14" y2="34"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="42 80 940 940" width="48" height="48" role="img" aria-label="дрон зони">
+  <!-- The map's sign: a pin with a drone, stuck into three rings in the zone colours (red inside, orange,
+       yellow outside). The README title and the page's favicon use this file; tools/make_icons.py draws
+       the app icons from the same numbers (a 1024 grid). -->
+  <g fill="none" stroke-width="44">
+    <circle cx="512" cy="640" r="348" stroke="#ffcc00"/>
+    <circle cx="512" cy="640" r="263" stroke="#ff8000"/>
+    <circle cx="512" cy="640" r="178" stroke="#ff2020"/>
   </g>
-  <g fill="none" stroke="#2b6cb0" stroke-width="2.5">
-    <circle cx="12" cy="12" r="7.5"/>
-    <circle cx="36" cy="12" r="7.5"/>
-    <circle cx="12" cy="36" r="7.5"/>
-    <circle cx="36" cy="36" r="7.5"/>
+  <path d="M346.8 429.7A210 210 0 1 1 677.2 429.7L512 640Z" fill="#4169e1"/>
+  <g transform="translate(512 300) scale(6.146) translate(-24 -24)">
+    <g stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round">
+      <path d="M14 14 34 34M34 14 14 34"/>
+      <circle cx="12" cy="12" r="7"/><circle cx="36" cy="12" r="7"/>
+      <circle cx="12" cy="36" r="7"/><circle cx="36" cy="36" r="7"/>
+    </g>
+    <rect x="18" y="18" width="12" height="12" rx="3" fill="#ffffff"/>
   </g>
-  <rect x="18" y="18" width="12" height="12" rx="3" fill="#2b6cb0"/>
 </svg>
