@@ -904,6 +904,14 @@ map.addControl(new maplibregl.NavigationControl({visualizePitch: true}), 'bottom
 })();
 // keep the GL map crisp on entering/leaving fullscreen (belt-and-braces; MapLibre also tracks resize)
 document.addEventListener('fullscreenchange', function(){ setTimeout(function(){ map.resize(); }, 60); });
+// MapLibre skips the FIRST size its ResizeObserver reports (it takes it for the size it already
+// measured). An installed app's window can grow right after the map was created, and the map then
+// kept the old height with an empty band under it until the next rotation (owner 28.10). So the page
+// re-measures on every window resize and once at load, whenever the canvas and the container differ.
+function wxFitCanvas(){ var c = map.getContainer(), v = map.getCanvas();
+  if (c.clientWidth !== v.clientWidth || c.clientHeight !== v.clientHeight) map.resize(); }
+window.addEventListener('resize', wxFitCanvas);
+map.on('load', wxFitCanvas);
 // The widest zoom-out fits Bulgaria (+ a small margin) on THIS screen, recomputed
 // per viewport / rotation, so the WHOLE country is always visible and the map
 // locks in both directions at max zoom-out (a wide screen shows more side context,
