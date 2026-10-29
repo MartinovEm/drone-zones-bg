@@ -88,11 +88,26 @@ except OSError:
 FAV = re.sub(r'\s*<!--.*?-->', '', open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'drone.svg'),
              encoding='utf-8').read(), flags=re.S).strip()
 favicon = "data:image/svg+xml," + urllib.parse.quote(FAV)
+# the link preview (owner 29.10): what Facebook, Viber, Messenger and the like show for a shared link - the
+# description + preview.jpg (repo root, a 1200x630 screenshot of the map over the whole of Bulgaria; the same
+# picture for every link, shared views too). A redrawn picture needs a new ?v=, or the apps keep their old copy.
+DESC = ("Неофициална карта на зоните за дронове в България по официалните данни на ГД ГВА, с въздушен трафик, "
+        "NOTAM, препятствия и времето. Преди полет е задължителна проверка на официалния източник.")
 
 html = r"""<!DOCTYPE html>
 <html lang="bg"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Дрон зони в България</title>
+<meta name="description" content="__DESC__">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Дрон зони в България">
+<meta property="og:description" content="__DESC__">
+<meta property="og:url" content="https://martinovem.github.io/drone-zones-bg/">
+<meta property="og:image" content="https://martinovem.github.io/drone-zones-bg/preview.jpg?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="bg_BG">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="__FAVICON__">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
@@ -1054,7 +1069,7 @@ try:
         natpub = mv.group(1) if mv else ""
 except OSError:
     pass
-html = (html.replace("__BGOUTLINE__", bgout).replace("__AIPEXTRA__", AIP_EXTRA_GJ).replace("__AIPHAIL__", AIP_ANTIHAIL_JS).replace("__FAVICON__", favicon).replace("__DATESPAN__", datespan).replace("__CHANGED__", changed)
+html = (html.replace("__BGOUTLINE__", bgout).replace("__AIPEXTRA__", AIP_EXTRA_GJ).replace("__AIPHAIL__", AIP_ANTIHAIL_JS).replace("__FAVICON__", favicon).replace("__DESC__", DESC).replace("__DATESPAN__", datespan).replace("__CHANGED__", changed)
         .replace("//__ST_JS__", ST_JS)
         .replace("/*__SHELL_CSS__*/", SHELL_CSS).replace("//__SHELL_JS__", SHELL_JS)
         .replace("<!--__MENUBTN__-->", MENUBTN_HTML)
