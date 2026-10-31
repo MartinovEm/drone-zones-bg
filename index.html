@@ -71,6 +71,11 @@ html,body{height:100%;margin:0}
 .pdot{width:11px;height:11px;border-radius:50%;flex:none}
 .ptype{color:var(--muted);font-size:12px}
 .zback{color:var(--accent);cursor:pointer;font-weight:600;margin-bottom:5px}
+.navm{display:flex;flex-direction:column;gap:6px}
+.navc{border:0;background:none;color:var(--fg);font:600 14px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;padding:2px 18px 2px 0;text-align:left;cursor:pointer;white-space:nowrap}
+.navt{color:var(--muted);font-size:13px}
+.navr{display:flex;gap:6px}
+.maplibregl-popup-content a.navb{flex:1;padding:9px 12px;border-radius:8px;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:600;text-align:center;text-decoration:none;white-space:nowrap}
 @media (max-width:640px){
  #info{font-size:8px;max-width:70vw;max-height:24vh;overflow:auto;padding:4px 7px} /* same size as the map attribution */
  .maplibregl-ctrl-attrib{max-width:38vw;max-height:30vh;overflow:auto;font-size:8px;line-height:1.3}
@@ -653,7 +658,7 @@ var T = {
  bg:{brand:'Дрон зони в България',menu:'Меню',fP:'Забранени',fA:'С разрешение',fC:'Условни',
      secObs:'Препятствия',obsShow:'Препятствия',obsNote:'Проводници, стълбове, ветрогенератори, мачти, лифтове и сградите в 3D · виждат се при приближаване · „~“ = типична височина · липсата на линия на картата не значи, че там няма · OpenStreetMap, ЕСО ЕАД',
      kml:'KML за Google Earth',hint:'десен бутон = въртене/наклон',search:'Търсене на локация…',loc:'Къде съм',
-     ddate:'синхронизация от 2026-10-23',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',coordOut:'извън картата. Първо се пише географската ширина, после дължината (напр. 42.69, 23.32).',
+     ddate:'синхронизация от 2026-10-23',src:'Източник Зони: ГД ГВА',here:'Вие сте тук',navGo:'Навигация до тук',navOk:'Копирано',navAsk:'Координати:',coordOut:'извън картата. Първо се пише географската ширина, после дължината (напр. 42.69, 23.32).',
      clickhint:'Клик върху зона за повече информация',reason:'Причина',cond:'Условия',active:'Активна',contact:'Контакт',height:'Височина',details:'Детайли',authFrom:'Разрешение от',notify:'Уведоми',info:'Информация',zonesHere:'зони тук',backList:'назад',reset:'Нулиране',share:'Споделяне на изгледа',shareOk:'Връзката е копирана',shareAsk:'Връзка за споделяне:',myView:'Моят изглед',rules:'Правила',install:'Като приложение',installIos:'На iPhone и iPad: бутонът „Share“ на браузъра → „Add to Home Screen“.',installMac:'На Mac в Safari: меню „File“ → „Add to Dock“.',installInApp:'Оттук картата не може да се инсталира – отваря се в Chrome или Safari от менюто ⋮ или … горе вдясно.',ruler:'Линийка',secZones:'Зони',secTheme:'Тема',thmAuto:'Авто',secTools:'Инструменти',secLang:'Език',bmMap:'Основна карта',bmHead:'Основа',bmSat:'Сателит',bmDark:'Тъмна',secFL:'Височина на самолетите (FL)',flnote:'активно само при включени ✈ самолети',moreinfo:'Повече информация и източници',
      secAir:'Въздушно пространство',airCtrl:'Контролирано',airSpec:'Специални зони',airLegRPD:'забранени / ограничени / опасни',airMil:'военни',airFL180:'Показва се само до FL180 (18 000 ft)',
      actShow:'Активирани зони',actNote:'Активирани: плътно = активна сега, пунктир = предстои · БУЛАТСА чрез ГД ГВА',
@@ -667,7 +672,7 @@ var T = {
  en:{brand:'Bulgaria Drone Zones',menu:'Menu',fP:'Prohibited',fA:'Authorisation',fC:'Conditional',
      secObs:'Obstacles',obsShow:'Obstacles',obsNote:'Power lines, towers, wind turbines, masts, lifts and the 3D buildings · shown when zoomed in · "~" = a typical height · a line missing on the map does not mean there is none · OpenStreetMap, ESO EAD',
      kml:'KML for Google Earth',hint:'right-drag = rotate/tilt',search:'Search for a place…',loc:'Where am I',
-     ddate:'synced from 2026-10-23',src:'Zones source: Bulgarian CAA',here:'You are here',coordOut:'outside the map. Latitude comes first, then longitude (e.g. 42.69, 23.32).',
+     ddate:'synced from 2026-10-23',src:'Zones source: Bulgarian CAA',here:'You are here',navGo:'Navigate here',navOk:'Copied',navAsk:'Coordinates:',coordOut:'outside the map. Latitude comes first, then longitude (e.g. 42.69, 23.32).',
      clickhint:'Click a zone for more info',reason:'Reason',cond:'Conditions',active:'Active',contact:'Contact',height:'Height',details:'Details',authFrom:'Authorisation from',notify:'Notify',info:'Information',zonesHere:'zones here',backList:'back',reset:'Reset',share:'Share this view',shareOk:'Link copied',shareAsk:'Link to share:',myView:'My view',rules:'Rules',install:'Install as app',installIos:'On iPhone and iPad: the browser\'s “Share” button → “Add to Home Screen”.',installMac:'On a Mac in Safari: the “File” menu → “Add to Dock”.',installInApp:'The map can\'t be installed from here – open it in Chrome or Safari from the ⋮ or … menu at the top right.',ruler:'Measure',secZones:'Zones',secTheme:'Theme',thmAuto:'Auto',secTools:'Tools',secLang:'Language',bmMap:'Base map',bmHead:'Base map',bmSat:'Satellite',bmDark:'Dark',secFL:'Aircraft height (FL)',flnote:'active only when ✈ aircraft are on',moreinfo:'More info & sources',
      secAir:'Airspace',airCtrl:'Controlled',airSpec:'Special-use',airLegRPD:'prohibited / restricted / danger',airMil:'military',airFL180:'Shown up to FL180 only',
      actShow:'Activated zones',actNote:'Activated: solid = active now, dashed = upcoming · BULATSA via the CAA',
@@ -1398,6 +1403,50 @@ map.on('load', function(){
     cc.addEventListener('touchmove', function(e){ if (t){ var c = e.touches[0]; if (Math.abs(c.clientX-sx) > 10 || Math.abs(c.clientY-sy) > 10){ clearTimeout(t); t = null; } } }, {passive:true});
     cc.addEventListener('touchend', function(){ if (t){ clearTimeout(t); t = null; } });
   })();
+})();
+// ---- „Навигация до тук“ (owner 31.10) -----------------------------------------------
+// A right CLICK (computer) or a long-press (phone) on the map, the ruler off: a small box at that spot with
+// its coordinates (a tap copies them) and the navigators - Apple Maps + Waze on an iPhone / iPad / Mac, Google
+// Maps + Waze elsewhere (a page can tell the device, not which apps it has). The official links: Google Maps
+// URLs, Waze Deep Links, Apple's unified Maps URLs (iOS 18.4, macOS 15.4). A right-DRAG still rotates, the ruler
+// and the pins keep their own right-click / long-press. Not a setting, not in the share link.
+(function(){
+  var cv = map.getCanvas(), cc = map.getCanvasContainer(), box = null, keepUntil = 0;
+  var apple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent); // an iPad asking for the Mac page says Macintosh too
+  function close(){ if (box) box.remove(); }
+  function links(la, lo){ var c = la + '%2C' + lo, a = '<a class="navb" target="_blank" rel="noopener" href="';
+    return (apple ? a + 'https://maps.apple.com/directions?destination=' + la + ',' + lo + '">Apple Maps</a>'
+                  : a + 'https://www.google.com/maps/dir/?api=1&destination=' + c + '">Google Maps</a>') +
+      a + 'https://www.waze.com/ul?ll=' + c + '&navigate=yes">Waze</a>'; }
+  function show(x, y){ var r = map.getContainer().getBoundingClientRect(), ll = map.unproject([x - r.left, y - r.top]).wrap(),
+      la = ll.lat.toFixed(5), lo = ll.lng.toFixed(5), c = la + ', ' + lo;
+    close(); if (curPopup) curPopup.remove();
+    var pp = box = new maplibregl.Popup({closeOnClick: false, focusAfterOpen: false, maxWidth: 'none'}).setLngLat(ll).setHTML(
+      '<div class="navm"><button type="button" class="navc">📍 <span>' + c + '</span></button>' +
+      '<div class="navt">🧭 ' + T[LANG].navGo + '</div><div class="navr">' + links(la, lo) + '</div></div>').addTo(map);
+    pp.on('close', function(){ if (box === pp) box = null; });
+    var b = pp.getElement().querySelector('.navc'), s = b.querySelector('span');
+    function ok(){ s.textContent = T[LANG].navOk; clearTimeout(b.t); b.t = setTimeout(function(){ s.textContent = c; }, 2000); }
+    function ask(){ window.prompt(T[LANG].navAsk, c); }
+    b.onclick = function(){ if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(ok, ask); else ask(); }; }
+  // the right button is judged at its release: a Mac fires `contextmenu` when it goes down, Windows when it comes up
+  var rDown = false, rx = 0, ry = 0;
+  document.addEventListener('mousedown', function(e){ rDown = e.button === 2 || e.ctrlKey; rx = e.clientX; ry = e.clientY; }, true);
+  document.addEventListener('mouseup', function(e){ var was = rDown; rDown = false;
+    if (was && !window.wxRulerOn && e.target === cv && Math.abs(e.clientX - rx) <= 6 && Math.abs(e.clientY - ry) <= 6) show(e.clientX, e.clientY); }, true);
+  // manual long-press for touch (iOS Safari has no contextmenu event). `held`: the lift of the finger must not
+  // reach the zone under it or close the box, however long the finger stayed (sGoneAt: see the map's click)
+  var t = null, held = false, sx = 0, sy = 0;
+  function lift(){ clearTimeout(t); t = null; if (held){ held = false; sGoneAt = Date.now(); keepUntil = sGoneAt + 700; } }
+  cc.addEventListener('touchstart', function(e){ clearTimeout(t); t = null;
+    if (window.wxRulerOn || e.touches.length !== 1 || e.target !== cv) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    t = setTimeout(function(){ t = null; held = true; show(sx, sy); }, 500); }, {passive: true});
+  cc.addEventListener('touchmove', function(e){ var c = e.touches[0];
+    if (t && (Math.abs(c.clientX - sx) > 10 || Math.abs(c.clientY - sy) > 10)){ clearTimeout(t); t = null; } }, {passive: true});
+  cc.addEventListener('touchend', lift); cc.addEventListener('touchcancel', lift);
+  document.addEventListener('click', function(e){ if (box && !held && Date.now() > keepUntil && !box.getElement().contains(e.target)) close(); }, true);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
 })();
 // ---- shared-view link (ROADMAP 8b) --------------------------------------------------
 // «📱 Като приложение» (menu, Tools; owner 24.10): the map can be installed (manifest.webmanifest + icons,
