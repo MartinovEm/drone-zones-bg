@@ -113,6 +113,24 @@ jobs:
           echo "newest lightning step $end - $age min old"
           [ "$age" -lt 90 ] || { echo "lightning data is $age min old"; exit 1; }
 
+      - name: EUMETSAT hot spots (MTG fire product, the Fires chip)
+        if: ${{ !cancelled() }}
+        run: |
+          # The Fires chip reads the newest 10-min step from the layer's own small capabilities, then the
+          # detections from the WFS. Only the capabilities are asked here: the WFS refuses now and then
+          # under load (503 after a 10 s wait), which the page retries by itself and which is no outage.
+          # Alarm when the layer is gone or its newest step is 90 min old or more (normally 30-45 min
+          # behind real time). No hot spots at all is a quiet day, not a failure.
+          url="https://view.eumetsat.int/geoserver/mtg_fd/frp/ows?service=WMS&version=1.3.0&request=GetCapabilities"
+          code=$(curl -sS --retry 2 --retry-delay 15 --retry-all-errors -m 45 -o caps.xml -w '%{http_code}' "$url") || code=000
+          echo "HTTP $code"
+          [ "$code" = "200" ] || { echo "EUMETSAT hot spot capabilities did not answer 200"; exit 1; }
+          end=$(grep -o 'name="time"[^>]*default="[^"]*"' caps.xml | sed 's/.*default="\([^"]*\)".*/\1/' | head -1)
+          [ -n "$end" ] || { echo "no time dimension with a default (layer renamed/removed?):"; head -c 400 caps.xml; exit 1; }
+          age=$(( ( $(date -u +%s) - $(date -u -d "$end" +%s) ) / 60 ))
+          echo "newest hot spot step $end - $age min old"
+          [ "$age" -lt 90 ] || { echo "hot spot data is $age min old"; exit 1; }
+
       - name: RainViewer (rain-radar frames)
         if: ${{ !cancelled() }}
         run: |
