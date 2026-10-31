@@ -214,7 +214,8 @@ var WXT = {
      ldLimit:'{n}: Open-Meteo временно ограничи заявките.',ldDay:'{n}: изчерпан дневен лимит на Open-Meteo – нулира се в {t}.',
      ldDown:'{n}: Open-Meteo временно не отговаря.',ldErr:'{n}: данните временно не се зареждат.',
      fireOld:'Пожари: няма нови данни след {t}.',
-     fireFresh:'Данни към {t} · {n} засичания на картата',fireFresh1:'Данни към {t} · 1 засичане на картата',
+     fireFresh:'{n} засичания на картата',fireFresh1:'1 засичане на картата',fireAt:'{s} към {t}',fireNone:'{s} няма нови данни',
+     fireOne:'Пожари: {s} няма нови данни. Показан е само {o}.',
      ldN:{cld:'☁ Облаци',rad:'🌧 Дъжд',wind:'🌬 Вятър',snow:'❄️ Сняг',air:'Въздушно пространство',notam:'NOTAM',pln:'✈ Самолети',ogn:'Нисък трафик (OGN)',gj:'🛰 GPS смущения',fire:'Пожари'}},
  en:{now:'Now',hum:'humidity',gust:'gust',rain:'rain %',rmm:'rain mm',cld:'clouds',sunrise:'sunrise',sunset:'sunset',today:'Today',
      night:'night',nightNote:'Dark hours = night (after civil twilight): drone rules require a green flashing light.',
@@ -244,7 +245,8 @@ var WXT = {
      ldLimit:'{n}: Open-Meteo is limiting requests for now.',ldDay:'{n}: Open-Meteo daily limit reached – resets at {t}.',
      ldDown:'{n}: Open-Meteo is temporarily not responding.',ldErr:'{n}: data temporarily unavailable.',
      fireOld:'Fires: no new data after {t}.',
-     fireFresh:'Data as of {t} · {n} detections on the map',fireFresh1:'Data as of {t} · 1 detection on the map',
+     fireFresh:'{n} detections on the map',fireFresh1:'1 detection on the map',fireAt:'{s} as of {t}',fireNone:'{s} has no new data',
+     fireOne:'Fires: {s} has no new data. Only {o} is shown.',
      ldN:{cld:'☁ Clouds',rad:'🌧 Rain',wind:'🌬 Wind',snow:'❄️ Snow',air:'Airspace',notam:'NOTAM',pln:'✈ Aircraft',ogn:'Low-level traffic (OGN)',gj:'🛰 GPS interference',fire:'Fires'}}
 };
 // caution / danger thresholds for wind + gusts, m/s (visual aid for small drones)
@@ -2813,8 +2815,13 @@ map.on('mouseleave', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = 
 var FIRE = 'wxfire-layer', FR_H = 24, FR_STALE = 90, FR_TICK = 600000;
 var FR_CAPS = 'https://view.eumetsat.int/geoserver/mtg_fd/frp/ows?service=WMS&version=1.3.0&request=GetCapabilities';
 var FR_WFS = 'https://view.eumetsat.int/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=mtg_fd:frp&outputFormat=application/json&srsName=EPSG:4326&propertyName=geom,FRP,Confidence,time&CQL_FILTER=';
-var FR_ATTR = 'Hot spots &copy; <a href="https://lsa-saf.eumetsat.int/en/data/products/fire-products/mtfrp/" target="_blank" rel="noopener">EUMETSAT LSA SAF</a> [MTFRPPIXEL, LSA-509]';
-var FR = {pts: [], last: 0, timer: null, retry: null, busy: false, gen: 0, miss: 0};
+// The second source, always with the first (owner 01.11; a lone source keeps working): GWIS (EC JRC, CC BY 4.0), VIIRS +
+// MODIS through NASA FIRMS, 3-6 passes a day, hours behind, smaller fires, no power or confidence. CORS *, answers only
+// in GML, `pos` = lat lon, `acq_at` = UTC (compared with FIRMS' own rows 31.10). It ignores TIME and sends the whole
+// archive, and its today layer is the UTC calendar day, so the 24 h are a server-side filter on the week layer.
+var FR_ALT ='https://maps.effis.emergency.copernicus.eu/gwis?service=WFS&version=2.0.0&request=GetFeature&typeNames=ms:all.hs.week.points&srsName=urn:ogc:def:crs:EPSG::4326&count=20000&filter=';
+var FR_ATTR = 'Hot spots &copy; <a href="https://lsa-saf.eumetsat.int/en/data/products/fire-products/mtfrp/" target="_blank" rel="noopener">EUMETSAT LSA SAF</a> [MTFRPPIXEL, LSA-509]; <a href="https://gwis.jrc.ec.europa.eu/" target="_blank" rel="noopener">GWIS</a> / NASA FIRMS';
+var FR = {pts: [], last: 0, timer: null, retry: null, busy: false, gen: 0, miss: 0, alt: [], altAt: 0, altBusy: false, altMiss: 0, shown: []};
 function frEn(){ return (window.LANG || 'bg') === 'en'; }
 function frIso(t){ return new Date(t).toISOString().slice(0, 19) + 'Z'; }
 function frIcon(){ // an orange flame with a yellow heart and a dark outline, drawn once at pixel ratio 2
@@ -2828,13 +2835,21 @@ function frIcon(){ // an orange flame with a yellow heart and a dark outline, dr
   x.bezierCurveTo(-2, 8.8, -3.8, 7.8, -3.8, 5.6); x.bezierCurveTo(-3.8, 3.5, -1, 2.2, 0.3, -0.5); x.closePath(); x.fillStyle = '#ffd400'; x.fill();
   map.addImage('fire-flame', x.getImageData(0, 0, w, h), {pixelRatio: R});
 }
+function frNew(){ // the same fire seen by both (owner 01.11): a GWIS detection within 3 km of an EUMETSAT one is not drawn
+  var g = {}, C = 0.05; // 3 km is under one 0.05° cell over the whole data box
+  FR.pts.forEach(function(p){ var k = Math.floor(p.c[0] / C) + '|' + Math.floor(p.c[1] / C); (g[k] = g[k] || []).push(p.c); });
+  return FR.alt.filter(function(p){ var x = Math.floor(p.c[0] / C), y = Math.floor(p.c[1] / C), cs = Math.cos(p.c[1] * Math.PI / 180), i, j, q, m, dx, dy;
+    for (i = -1; i <= 1; i++) for (j = -1; j <= 1; j++){ m = g[(x + i) + '|' + (y + j)] || [];
+      for (q = 0; q < m.length; q++){ dx = (m[q][0] - p.c[0]) * cs * 111.2; dy = (m[q][1] - p.c[1]) * 111.2; if (dx * dx + dy * dy <= 9) return false; } }
+    return true; }); }
 function frPaint(){ // the ages follow the clock; a detection past the 24 h leaves the map
   var now = Date.now(), lim = now - FR_H * 3600000;
-  FR.pts = FR.pts.filter(function(p){ return p.t >= lim; });
+  FR.pts = FR.pts.filter(function(p){ return p.t >= lim; }); FR.alt = FR.alt.filter(function(p){ return p.t >= lim; });
+  FR.shown = FR.pts.concat(frNew());
   whenReady(function(){ if (!window.wxFireOn) return;
     frIcon();
-    var fc = {type: 'FeatureCollection', features: FR.pts.map(function(p){
-      return {type: 'Feature', geometry: {type: 'Point', coordinates: p.c}, properties: {t: p.t, f: p.f, n: p.n, a: (now - p.t) / 3600000}}; })};
+    var fc = {type: 'FeatureCollection', features: FR.shown.map(function(p){
+      return {type: 'Feature', geometry: {type: 'Point', coordinates: p.c}, properties: {t: p.t, f: p.f, n: p.n, s: p.s, a: (now - p.t) / 3600000}}; })};
     if (map.getSource('wxfire')) map.getSource('wxfire').setData(fc);
     else map.addSource('wxfire', {type: 'geojson', data: fc, attribution: FR_ATTR});
     if (!map.getLayer(FIRE)) map.addLayer({id: FIRE, type: 'symbol', source: 'wxfire',
@@ -2844,23 +2859,48 @@ function frPaint(){ // the ages follow the clock; a detection past the 24 h leav
   }); }
 function frWhen(t){ var d = new Date(t), p = function(n){ return (n < 10 ? '0' : '') + n; };
   return (d.toDateString() === new Date().toDateString() ? '' : p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' ') + actHm(t); }
-// old data must never read as live: a red note on the map once the newest step held is over 90 min old
-function frStale(){ var bn = document.getElementById('wxfirestale'), old = window.wxFireOn && FR.last && Date.now() - FR.last > FR_STALE * 60000;
-  if (old && !bn){ bn = document.createElement('div'); bn.id = 'wxfirestale';
+// old data must never read as live: a red note on the map once a source holds nothing under 90 min old, or never answered in two tries
+function frEumOld(){ return FR.last ? Date.now() - FR.last > FR_STALE * 60000 : FR.miss > 1; }
+function frAltOld(){ return FR.altAt ? Date.now() - FR.altAt > FR_STALE * 60000 : FR.altMiss > 1; }
+function frStale(){ var bn = document.getElementById('wxfirestale'), W = window.WXT[window.wxLang()], m = window.wxFireOn && frEumOld(), a = window.wxFireOn && frAltOld(), txt = '';
+  if (m && a){ if (FR.last || FR.altAt) txt = W.fireOld.replace('{t}', frWhen(FR.last || FR.altAt)); }
+  else if (m) txt = W.fireOne.replace('{s}', 'EUMETSAT').replace('{o}', 'GWIS');
+  else if (a) txt = W.fireOne.replace('{s}', 'GWIS').replace('{o}', 'EUMETSAT');
+  if (txt && !bn){ bn = document.createElement('div'); bn.id = 'wxfirestale';
     bn.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:122px;z-index:7;' +
       'background:#b71c1c;color:#fff;font:12px/1.4 sans-serif;padding:6px 12px;border-radius:8px;' +
       'box-shadow:0 1px 6px rgba(0,0,0,.35);pointer-events:none;max-width:86vw;text-align:center';
     map.getContainer().appendChild(bn); }
-  if (bn){ bn.style.display = old ? '' : 'none'; if (old) bn.textContent = window.WXT[window.wxLang()].fireOld.replace('{t}', frWhen(FR.last)); } }
-// an empty map must not look broken: the menu says how fresh the data is and how many hot spots the map of THIS screen can reach
+  if (bn){ bn.style.display = txt ? '' : 'none'; if (txt) bn.textContent = txt; } }
+// an empty map must not look broken: the menu says how fresh each source is and how many hot spots the map of THIS screen can reach
 function frFresh(){ var el = document.getElementById('wxfirefresh'); if (!el) return;
-  if (!window.wxFireOn || !FR.last){ el.style.display = 'none'; return; }
-  var b = map.getMaxBounds(), n = FR.pts.filter(function(p){ return !b || b.contains(p.c); }).length, W = window.WXT[window.wxLang()];
-  el.textContent = (n === 1 ? W.fireFresh1 : W.fireFresh).replace('{t}', frWhen(FR.last)).replace('{n}', n); el.style.display = ''; }
+  if (!window.wxFireOn || !(FR.last || FR.altAt)){ el.style.display = 'none'; return; }
+  var b = map.getMaxBounds(), n = FR.shown.filter(function(p){ return !b || b.contains(p.c); }).length, W = window.WXT[window.wxLang()], s = [];
+  function part(name, at, old){ s.push((at && !old ? W.fireAt.replace('{t}', frWhen(at)) : W.fireNone).replace('{s}', name)); }
+  if (FR.last || FR.miss) part('EUMETSAT', FR.last, frEumOld());
+  if (FR.altAt || FR.altMiss) part('GWIS', FR.altAt, FR.altMiss > 0);
+  s.push(n === 1 ? W.fireFresh1 : W.fireFresh.replace('{n}', n));
+  el.textContent = s.join(' · '); el.style.display = ''; }
 var frReach = function(){ setTimeout(frFresh, 400); }; // wxFitRegion sets the reach on load and after every resize
 map.on('load', frReach); window.addEventListener('resize', frReach);
 (window.wxLangRefresh = window.wxLangRefresh || []).push(frStale, frFresh);
-function frPoll(){ if (FR.busy || !window.wxFireOn) return; FR.busy = true; var g = FR.gen;
+function frAlt(g){ if (FR.altBusy || Date.now() - FR.altAt < FR_TICK - 30000) return; FR.altBusy = true; // once per refresh, not with each retry of EUMETSAT
+  var from =frIso(Date.now() - FR_H * 3600000).replace('T', ' ').replace('Z', '');
+  fetch(FR_ALT + encodeURIComponent('<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:gml="http://www.opengis.net/gml/3.2"><fes:And>' +
+    '<fes:BBOX><fes:ValueReference>msGeometry</fes:ValueReference><gml:Envelope srsName="urn:ogc:def:crs:EPSG::4326"><gml:lowerCorner>35.5 14.5</gml:lowerCorner><gml:upperCorner>49.5 37</gml:upperCorner></gml:Envelope></fes:BBOX>' +
+    '<fes:PropertyIsGreaterThanOrEqualTo><fes:ValueReference>acq_at</fes:ValueReference><fes:Literal>' + from + '</fes:Literal></fes:PropertyIsGreaterThanOrEqualTo></fes:And></fes:Filter>'))
+  .then(function(r){ if (!r.ok) throw 0; return r.text(); }).then(function(x){ if (g !== FR.gen) return;
+    var e = new DOMParser().parseFromString(x, 'text/xml').documentElement, out = [];
+    if (!e || e.localName !== 'FeatureCollection') throw 0;
+    Array.prototype.forEach.call(e.getElementsByTagNameNS('*', 'member'), function(m){
+      var p = m.getElementsByTagNameNS('*', 'pos')[0], w = m.getElementsByTagNameNS('*', 'acq_at')[0]; if (!p || !w) return;
+      var c = p.textContent.trim().split(' '), t = Date.parse(w.textContent.trim().replace(' ', 'T') + 'Z');
+      if (c.length === 2 && t > 0) out.push({c: [+c[1], +c[0]], t: t, s: 'g'}); });
+    FR.alt = out; FR.altAt = Date.now(); FR.altMiss = 0; FR.altBusy = false;
+    if (FR.last || FR.miss){ wxLoadErr.fire = ''; wxBtnIdle('cbFire'); } // the button waits for EUMETSAT's first answer
+    frPaint(); frStale(); frFresh();
+  }).catch(function(){ if (g !== FR.gen) return; FR.altBusy = false; FR.altMiss++; frStale(); frFresh(); }); }
+function frPoll(){ if (FR.busy || !window.wxFireOn) return; FR.busy = true; var g = FR.gen; frAlt(g);
   fetch(FR_CAPS + '&_=' + Math.floor(Date.now() / FR_TICK)).then(function(r){ if (!r.ok) throw 0; return r.text(); }).then(function(x){
     var m = x.match(/<Dimension[^>]*name="time"[^>]*default="([^"]+)"/), end = m ? Date.parse(m[1]) : NaN;
     if (!(end > 0)) throw 0;
@@ -2873,12 +2913,13 @@ function frPoll(){ if (FR.busy || !window.wxFireOn) return; FR.busy = true; var 
       FR.last = end; });
   }).then(function(){ if (g !== FR.gen) return; FR.busy = false; FR.miss = 0;
     wxLoadErr.fire = ''; frPaint(); wxBtnIdle('cbFire'); frStale(); frFresh();
-  }).catch(function(){ if (g !== FR.gen) return; FR.busy = false;
-    wxLoadErr.fire = 'err'; wxLoadSync(); if (FR.last) frPaint(); frStale(); frFresh();
-    if (wxBusy('cbFire')){ clearTimeout(FR.retry); FR.retry = setTimeout(frPoll, FR.miss++ ? 60000 : 15000); } }); } // still waiting: the button pulses and says why; EUMETView refuses now and then (503), so the next try in 15 s, then every minute
-window.wxSetFire = function(on){ window.wxFireOn = on; FR.gen++; FR.busy = false; FR.miss = 0; clearInterval(FR.timer); clearTimeout(FR.retry);
+  }).catch(function(){ if (g !== FR.gen) return; FR.busy = false; FR.miss++;
+    if (FR.altAt){ wxLoadErr.fire = ''; wxBtnIdle('cbFire'); } else { wxLoadErr.fire = 'err'; wxLoadSync(); }
+    if (FR.last || FR.altAt) frPaint(); frStale(); frFresh();
+    if (!FR.last){ clearTimeout(FR.retry); FR.retry = setTimeout(frPoll, FR.miss > 1 ? 60000 : 15000); } }); } // nothing from EUMETSAT yet: the button pulses and says why unless GWIS answered; EUMETView refuses now and then (503), so the next try in 15 s, then every minute
+window.wxSetFire = function(on){ window.wxFireOn = on; FR.gen++; FR.busy = false; FR.miss = 0; FR.altBusy = false; FR.altMiss = 0; clearInterval(FR.timer); clearTimeout(FR.retry);
   if (on){ wxBtnBusy('cbFire'); frPoll(); FR.timer = setInterval(frPoll, FR_TICK); }
-  else { wxLoadErr.fire = ''; wxBtnIdle('cbFire'); FR.pts = []; FR.last = 0; frStale(); frFresh();
+  else { wxLoadErr.fire = ''; wxBtnIdle('cbFire'); FR.pts = []; FR.last = 0; FR.alt = []; FR.altAt = 0; FR.shown = []; frStale(); frFresh();
     if (map.getLayer(FIRE)) map.removeLayer(FIRE);
     if (map.getSource('wxfire')) map.removeSource('wxfire');
     if (window.wxPopupPrune) window.wxPopupPrune(); }
@@ -2888,17 +2929,19 @@ function frAgo(t){ var m = Math.max(0, Math.round((Date.now() - t) / 60000)), h 
 function frNum(v){ return v == null ? '—' : Math.round(v); }
 window.wxFireColor = function(){ return '#e64a19'; };
 window.wxFireName = function(){ return frEn() ? '🔥 Hot spot (fire)' : '🔥 Гореща точка (пожар)'; };
-window.wxFireSub = function(p){ return actHm(p.t) + (frEn() ? '' : ' ч.') + ' · ' + frNum(p.f) + ' MW'; };
+window.wxFireSub = function(p){ return actHm(p.t) + (frEn() ? '' : ' ч.') + ' · ' + (p.s ? 'GWIS' : frNum(p.f) + ' MW'); };
 window.wxFireDetail = function(p){ var en = frEn(), hm = actHm(p.t), a = frAgo(p.t);
   return '<b>' + esc(window.wxFireName()) + '</b>' +
     '<br>' + (en ? 'Detected at ' + hm + ' (' + a + ' ago)' : 'Засечена в ' + hm + ' ч. (преди ' + a + ')') +
-    '<br>' + (en ? 'Power: ' : 'Мощност: ') + frNum(p.f) + ' MW' +
-    '<br>' + (en ? 'Confidence: ' : 'Увереност: ') + frNum(p.n) + ' %' +
-    '<br>' + (en ? 'Accuracy 1–3 km' : 'Точност 1–3 км') +
+    (p.s ? '' : // GWIS gives neither power nor confidence
+      '<br>' + (en ? 'Power: ' : 'Мощност: ') + frNum(p.f) + ' MW' +
+      '<br>' + (en ? 'Confidence: ' : 'Увереност: ') + frNum(p.n) + ' %' +
+      '<br>' + (en ? 'Accuracy 1–3 km' : 'Точност 1–3 км')) +
     // the owner's wording (29.10)
     '<br>' + (en ? 'Low-flying aeroplanes and helicopters may be operating near fires!' : 'Около пожари е възможно да има ниско летящи самолети и хеликоптери!') +
-    '<br><small>' + (en ? 'Source: ' : 'Източник: ') + '<a href="https://lsa-saf.eumetsat.int/en/data/products/fire-products/mtfrp/" target="_blank" rel="noopener">EUMETSAT LSA SAF (MTG)</a>' +
-      (en ? ', every 10 min' : ', на всеки 10 мин') + '</small>'; };
+    '<br><small>' + (en ? 'Source: ' : 'Източник: ') + (p.s
+      ? '<a href="https://gwis.jrc.ec.europa.eu/" target="_blank" rel="noopener">GWIS</a>' + (en ? ', NASA FIRMS, 3–6 passes a day' : ', NASA FIRMS, 3–6 прелитания на ден')
+      : '<a href="https://lsa-saf.eumetsat.int/en/data/products/fire-products/mtfrp/" target="_blank" rel="noopener">EUMETSAT LSA SAF (MTG)</a>' + (en ? ', every 10 min' : ', на всеки 10 мин')) + '</small>'; };
 map.on('mouseenter', FIRE, function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', FIRE, function(){ map.getCanvas().style.cursor = ''; });
 // ---- obstacles (owner 17.10): power lines and their towers / poles, ESO's lines that OSM lacks, wind
