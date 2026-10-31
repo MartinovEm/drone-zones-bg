@@ -213,7 +213,9 @@ var WXT = {
      rvNote:'нощем слабото ехо може да е шум',
      ldLimit:'{n}: Open-Meteo временно ограничи заявките.',ldDay:'{n}: изчерпан дневен лимит на Open-Meteo – нулира се в {t}.',
      ldDown:'{n}: Open-Meteo временно не отговаря.',ldErr:'{n}: данните временно не се зареждат.',
-     ldN:{cld:'☁ Облаци',rad:'🌧 Дъжд',wind:'🌬 Вятър',snow:'❄️ Сняг',air:'Въздушно пространство',notam:'NOTAM',pln:'✈ Самолети',ogn:'Нисък трафик (OGN)',gj:'🛰 GPS смущения'}},
+     fireOld:'Пожари: няма нови данни след {t}.',
+     fireFresh:'Данни към {t} · {n} засичания на картата',fireFresh1:'Данни към {t} · 1 засичане на картата',
+     ldN:{cld:'☁ Облаци',rad:'🌧 Дъжд',wind:'🌬 Вятър',snow:'❄️ Сняг',air:'Въздушно пространство',notam:'NOTAM',pln:'✈ Самолети',ogn:'Нисък трафик (OGN)',gj:'🛰 GPS смущения',fire:'Пожари'}},
  en:{now:'Now',hum:'humidity',gust:'gust',rain:'rain %',rmm:'rain mm',cld:'clouds',sunrise:'sunrise',sunset:'sunset',today:'Today',
      night:'night',nightNote:'Dark hours = night (after civil twilight): drone rules require a green flashing light.',
      dew:'dew point',low:'low clouds',vis:'visibility km',cape:'⛈ CAPE',frz:'0°C at (m)',
@@ -241,7 +243,9 @@ var WXT = {
      rvNote:'faint night echoes can be noise',
      ldLimit:'{n}: Open-Meteo is limiting requests for now.',ldDay:'{n}: Open-Meteo daily limit reached – resets at {t}.',
      ldDown:'{n}: Open-Meteo is temporarily not responding.',ldErr:'{n}: data temporarily unavailable.',
-     ldN:{cld:'☁ Clouds',rad:'🌧 Rain',wind:'🌬 Wind',snow:'❄️ Snow',air:'Airspace',notam:'NOTAM',pln:'✈ Aircraft',ogn:'Low-level traffic (OGN)',gj:'🛰 GPS interference'}}
+     fireOld:'Fires: no new data after {t}.',
+     fireFresh:'Data as of {t} · {n} detections on the map',fireFresh1:'Data as of {t} · 1 detection on the map',
+     ldN:{cld:'☁ Clouds',rad:'🌧 Rain',wind:'🌬 Wind',snow:'❄️ Snow',air:'Airspace',notam:'NOTAM',pln:'✈ Aircraft',ogn:'Low-level traffic (OGN)',gj:'🛰 GPS interference',fire:'Fires'}}
 };
 // caution / danger thresholds for wind + gusts, m/s (visual aid for small drones)
 var WX_WARN = 8, WX_DANGER = 12;
@@ -616,7 +620,7 @@ document.getElementById('wxgj').onclick = function(e){ e.stopPropagation();
   var on = this.classList.toggle('on'); ST.set('gj', on);
   if (window.wxSetGj) window.wxSetGj(on); };
 // airspace + NOTAM toggles are CHIPS in the drawer (not on-map buttons)
-['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbAero:aero:wxSetAero', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat', 'cbZzt:zzt:wxSetZzt', 'cbObs:obs:wxSetObs'].forEach(function(s){
+['cbAirC:airc:wxSetAirC', 'cbAirS:airs:wxSetAirS', 'cbAct:act:wxSetAct', 'cbAero:aero:wxSetAero', 'cbNotam:notam:wxSetNotam', 'cbNat:nat:wxSetNat', 'cbZzt:zzt:wxSetZzt', 'cbFire:fire:wxSetFire', 'cbObs:obs:wxSetObs'].forEach(function(s){
   var a = s.split(':'), el = document.getElementById(a[0]); if (!el) return;
   el.onclick = function(e){ e.stopPropagation(); var on = el.classList.toggle('on');
     try{ ST.set(a[1], on); }catch(_){} if (window[a[2]]) window[a[2]](on); };
@@ -1560,7 +1564,7 @@ WX_RESTORE_JS = r"""
   [['cld','wxcld','wxSetClouds'], ['rad','wxrad','wxSetRain'],
    ['snow','wxsnow','wxSetSnow'], ['warn','wxwarn','wxSetWarn'], ['gj','wxgj','wxSetGj'],
    ['airc','cbAirC','wxSetAirC'], ['airs','cbAirS','wxSetAirS'], ['act','cbAct','wxSetAct'], ['aero','cbAero','wxSetAero'], ['notam','cbNotam','wxSetNotam'],
-   ['nat','cbNat','wxSetNat'], ['zzt','cbZzt','wxSetZzt'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
+   ['nat','cbNat','wxSetNat'], ['zzt','cbZzt','wxSetZzt'], ['fire','cbFire','wxSetFire'], ['pln','plnbtn','wxSetPlanes'], ['wind','wxwind','wxSetWind'],
    ['ogn','ognbtn','wxSetOgn']].forEach(function(s){
     if (!ST.get(s[0], false)) return;
     var fn = window[s[2]]; if (typeof fn !== 'function') return; // layer not present on this page yet
@@ -1781,7 +1785,7 @@ window.wxCloudApply = function(){ // toggle + every slider move: satellite + lig
 // data or when the layer is turned off - no time limit. While the source fails and the page retries,
 // it keeps pulsing and a short note says why (wxLoadSync). Only a wait the user asked for pulses
 // (toggle-on, another GPS day, the slider asking for the model); background refreshes never do.
-var wxLoadErr = {air: '', notam: '', pln: '', ogn: '', gj: ''}; // 'err' = the last attempt failed; cleared on data / off
+var wxLoadErr = {air: '', notam: '', pln: '', ogn: '', gj: '', fire: ''}; // 'err' = the last attempt failed; cleared on data / off
 function wxBusy(btnId){ var b = document.getElementById(btnId); return !!(b && b.classList.contains('loading')); }
 function wxBtnBusy(btnId){ var b = document.getElementById(btnId); if (b) b.classList.add('loading'); wxLoadSync(); }
 function wxBtnIdle(btnId){ var b = document.getElementById(btnId); if (b && b.classList.contains('loading')){ b.classList.remove('loading'); wxLoadSync(); } } // the polls call it on every answer: only a change touches the notes
@@ -1806,6 +1810,7 @@ function wxLoadSync(){
   // the drawer: under the airspace chips (both share one source) and under the NOTAM chip
   ldNote('wxairmsg', (wxBusy('cbAirC') || wxBusy('cbAirS')) && wxLoadErr.air ? wxLoadText('air', 'err') : '');
   ldNote('wxntmsg', wxBusy('cbNotam') && wxLoadErr.notam ? wxLoadText('notam', 'err') : '');
+  ldNote('wxfiremsg', wxBusy('cbFire') && wxLoadErr.fire ? wxLoadText('fire', 'err') : '');
   // the map buttons: a small label to the right of the button
   ldLabel('pln', 'plnbtn'); ldLabel('ogn', 'ognbtn'); ldLabel('gj', 'wxgj');
 }
@@ -2799,6 +2804,103 @@ window.wxZztSelect = function(id){
   window.wxSelRedraw(); };
 map.on('mouseenter', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = 'pointer'; });
 map.on('mouseleave', 'wxnat-t-fill', function(){ map.getCanvas().style.cursor = ''; });
+// ---- hot spots (owner 31.10): the MTG fire product of EUMETSAT LSA SAF (MTFRPPIXEL, CC BY 4.0, a
+// DEMONSTRATION product), WFS layer mtg_fd:frp on view.eumetsat.int (CORS *, 10-min steps, 30-45 min
+// behind), read straight from the browser. ALL detections of the last 24 h over the whole data box,
+// no filter of ours (owner); older = fainter, the newest on top; just above the zones, below the
+// aircraft (liSlot), independent of the slider. The layer's small capabilities give the newest step,
+// then only the steps not yet held are asked for. NOTE: the CQL bbox is LATITUDE first.
+var FIRE = 'wxfire-layer', FR_H = 24, FR_STALE = 90, FR_TICK = 600000;
+var FR_CAPS = 'https://view.eumetsat.int/geoserver/mtg_fd/frp/ows?service=WMS&version=1.3.0&request=GetCapabilities';
+var FR_WFS = 'https://view.eumetsat.int/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=mtg_fd:frp&outputFormat=application/json&srsName=EPSG:4326&propertyName=geom,FRP,Confidence,time&CQL_FILTER=';
+var FR_ATTR = 'Hot spots &copy; <a href="https://lsa-saf.eumetsat.int/en/data/products/fire-products/mtfrp/" target="_blank" rel="noopener">EUMETSAT LSA SAF</a> [MTFRPPIXEL, LSA-509]';
+var FR = {pts: [], last: 0, timer: null, retry: null, busy: false, gen: 0, miss: 0};
+function frEn(){ return (window.LANG || 'bg') === 'en'; }
+function frIso(t){ return new Date(t).toISOString().slice(0, 19) + 'Z'; }
+function frIcon(){ // an orange flame with a yellow heart and a dark outline, drawn once at pixel ratio 2
+  if (map.hasImage('fire-flame')) return;
+  var R = 2, w = 22 * R, h = 26 * R, c = document.createElement('canvas'); c.width = w; c.height = h;
+  var x = c.getContext('2d'); x.translate(w / 2, h / 2); x.scale(R * 1.1, R * 1.1);
+  x.beginPath(); x.moveTo(0.5, -10); x.bezierCurveTo(1.5, -5.5, 7.5, -3, 7.5, 3); x.bezierCurveTo(7.5, 7.5, 4, 10, 0, 10);
+  x.bezierCurveTo(-4, 10, -7.5, 7.5, -7.5, 3); x.bezierCurveTo(-7.5, 0, -5.5, -2, -4.5, -5); x.bezierCurveTo(-3.8, -3, -3, -2, -1.8, -1.5); x.bezierCurveTo(-2.6, -5, -1.2, -8, 0.5, -10); x.closePath();
+  x.lineJoin = 'round'; x.lineWidth = 2; x.strokeStyle = '#141414'; x.stroke(); x.fillStyle = '#f4511e'; x.fill();
+  x.beginPath(); x.moveTo(0.3, -0.5); x.bezierCurveTo(1, 2, 3.8, 3.2, 3.8, 5.6); x.bezierCurveTo(3.8, 7.8, 2, 8.8, 0, 8.8);
+  x.bezierCurveTo(-2, 8.8, -3.8, 7.8, -3.8, 5.6); x.bezierCurveTo(-3.8, 3.5, -1, 2.2, 0.3, -0.5); x.closePath(); x.fillStyle = '#ffd400'; x.fill();
+  map.addImage('fire-flame', x.getImageData(0, 0, w, h), {pixelRatio: R});
+}
+function frPaint(){ // the ages follow the clock; a detection past the 24 h leaves the map
+  var now = Date.now(), lim = now - FR_H * 3600000;
+  FR.pts = FR.pts.filter(function(p){ return p.t >= lim; });
+  whenReady(function(){ if (!window.wxFireOn) return;
+    frIcon();
+    var fc = {type: 'FeatureCollection', features: FR.pts.map(function(p){
+      return {type: 'Feature', geometry: {type: 'Point', coordinates: p.c}, properties: {t: p.t, f: p.f, n: p.n, a: (now - p.t) / 3600000}}; })};
+    if (map.getSource('wxfire')) map.getSource('wxfire').setData(fc);
+    else map.addSource('wxfire', {type: 'geojson', data: fc, attribution: FR_ATTR});
+    if (!map.getLayer(FIRE)) map.addLayer({id: FIRE, type: 'symbol', source: 'wxfire',
+      layout: {'icon-image': 'fire-flame', 'icon-size': 0.8, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        'symbol-sort-key': ['-', ['get', 'a']]}, // all of them, the newest on top
+      paint: {'icon-opacity': ['interpolate', ['linear'], ['get', 'a'], 0, 1, FR_H, 0.4]}}, liSlot());
+  }); }
+function frWhen(t){ var d = new Date(t), p = function(n){ return (n < 10 ? '0' : '') + n; };
+  return (d.toDateString() === new Date().toDateString() ? '' : p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' ') + actHm(t); }
+// old data must never read as live: a red note on the map once the newest step held is over 90 min old
+function frStale(){ var bn = document.getElementById('wxfirestale'), old = window.wxFireOn && FR.last && Date.now() - FR.last > FR_STALE * 60000;
+  if (old && !bn){ bn = document.createElement('div'); bn.id = 'wxfirestale';
+    bn.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);bottom:122px;z-index:7;' +
+      'background:#b71c1c;color:#fff;font:12px/1.4 sans-serif;padding:6px 12px;border-radius:8px;' +
+      'box-shadow:0 1px 6px rgba(0,0,0,.35);pointer-events:none;max-width:86vw;text-align:center';
+    map.getContainer().appendChild(bn); }
+  if (bn){ bn.style.display = old ? '' : 'none'; if (old) bn.textContent = window.WXT[window.wxLang()].fireOld.replace('{t}', frWhen(FR.last)); } }
+// an empty map must not look broken: the menu says how fresh the data is and how many hot spots the map of THIS screen can reach
+function frFresh(){ var el = document.getElementById('wxfirefresh'); if (!el) return;
+  if (!window.wxFireOn || !FR.last){ el.style.display = 'none'; return; }
+  var b = map.getMaxBounds(), n = FR.pts.filter(function(p){ return !b || b.contains(p.c); }).length, W = window.WXT[window.wxLang()];
+  el.textContent = (n === 1 ? W.fireFresh1 : W.fireFresh).replace('{t}', frWhen(FR.last)).replace('{n}', n); el.style.display = ''; }
+var frReach = function(){ setTimeout(frFresh, 400); }; // wxFitRegion sets the reach on load and after every resize
+map.on('load', frReach); window.addEventListener('resize', frReach);
+(window.wxLangRefresh = window.wxLangRefresh || []).push(frStale, frFresh);
+function frPoll(){ if (FR.busy || !window.wxFireOn) return; FR.busy = true; var g = FR.gen;
+  fetch(FR_CAPS + '&_=' + Math.floor(Date.now() / FR_TICK)).then(function(r){ if (!r.ok) throw 0; return r.text(); }).then(function(x){
+    var m = x.match(/<Dimension[^>]*name="time"[^>]*default="([^"]+)"/), end = m ? Date.parse(m[1]) : NaN;
+    if (!(end > 0)) throw 0;
+    if (end === FR.last) return; // no new step: only the ages move
+    var cql = 'bbox(geom,35.5,14.5,49.5,37) AND time DURING ' + frIso(Math.max(FR.last, Date.now() - FR_H * 3600000)) + '/' + frIso(Date.now());
+    return fetch(FR_WFS + encodeURIComponent(cql)).then(function(r){ if (!r.ok) throw 0; return r.json(); }).then(function(gj){
+      if (g !== FR.gen) return;
+      (gj.features || []).forEach(function(f){ var p = f.properties, t = Date.parse(p.time);
+        if (t > FR.last && t <= end && f.geometry) FR.pts.push({c: f.geometry.coordinates, f: p.FRP, n: p.Confidence, t: t}); });
+      FR.last = end; });
+  }).then(function(){ if (g !== FR.gen) return; FR.busy = false; FR.miss = 0;
+    wxLoadErr.fire = ''; frPaint(); wxBtnIdle('cbFire'); frStale(); frFresh();
+  }).catch(function(){ if (g !== FR.gen) return; FR.busy = false;
+    wxLoadErr.fire = 'err'; wxLoadSync(); if (FR.last) frPaint(); frStale(); frFresh();
+    if (wxBusy('cbFire')){ clearTimeout(FR.retry); FR.retry = setTimeout(frPoll, FR.miss++ ? 60000 : 15000); } }); } // still waiting: the button pulses and says why; EUMETView refuses now and then (503), so the next try in 15 s, then every minute
+window.wxSetFire = function(on){ window.wxFireOn = on; FR.gen++; FR.busy = false; FR.miss = 0; clearInterval(FR.timer); clearTimeout(FR.retry);
+  if (on){ wxBtnBusy('cbFire'); frPoll(); FR.timer = setInterval(frPoll, FR_TICK); }
+  else { wxLoadErr.fire = ''; wxBtnIdle('cbFire'); FR.pts = []; FR.last = 0; frStale(); frFresh();
+    if (map.getLayer(FIRE)) map.removeLayer(FIRE);
+    if (map.getSource('wxfire')) map.removeSource('wxfire');
+    if (window.wxPopupPrune) window.wxPopupPrune(); }
+};
+function frAgo(t){ var m = Math.max(0, Math.round((Date.now() - t) / 60000)), h = Math.floor(m / 60), en = frEn();
+  return (h ? h + (en ? ' h ' : ' ч ') : '') + (m % 60) + (en ? ' min' : ' мин'); }
+function frNum(v){ return v == null ? '—' : Math.round(v); }
+window.wxFireColor = function(){ return '#e64a19'; };
+window.wxFireName = function(){ return frEn() ? '🔥 Hot spot (fire)' : '🔥 Гореща точка (пожар)'; };
+window.wxFireSub = function(p){ return actHm(p.t) + (frEn() ? '' : ' ч.') + ' · ' + frNum(p.f) + ' MW'; };
+window.wxFireDetail = function(p){ var en = frEn(), hm = actHm(p.t), a = frAgo(p.t);
+  return '<b>' + esc(window.wxFireName()) + '</b>' +
+    '<br>' + (en ? 'Detected at ' + hm + ' (' + a + ' ago)' : 'Засечена в ' + hm + ' ч. (преди ' + a + ')') +
+    '<br>' + (en ? 'Power: ' : 'Мощност: ') + frNum(p.f) + ' MW' +
+    '<br>' + (en ? 'Confidence: ' : 'Увереност: ') + frNum(p.n) + ' %' +
+    '<br>' + (en ? 'Accuracy 1–3 km' : 'Точност 1–3 км') +
+    // the owner's wording (29.10)
+    '<br>' + (en ? 'Low-flying aeroplanes and helicopters may be operating near fires!' : 'Около пожари е възможно да има ниско летящи самолети и хеликоптери!') +
+    '<br><small>' + (en ? 'Source: ' : 'Източник: ') + '<a href="https://lsa-saf.eumetsat.int/en/data/products/fire-products/mtfrp/" target="_blank" rel="noopener">EUMETSAT LSA SAF (MTG)</a>' +
+      (en ? ', every 10 min' : ', на всеки 10 мин') + '</small>'; };
+map.on('mouseenter', FIRE, function(){ map.getCanvas().style.cursor = 'pointer'; });
+map.on('mouseleave', FIRE, function(){ map.getCanvas().style.cursor = ''; });
 // ---- obstacles (owner 17.10): power lines and their towers / poles, ESO's lines that OSM lacks, wind
 // turbines, masts, towers, chimneys and other tall objects, lifts, rail / tram / trolleybus wires - from
 // obstacles/ (built daily by tools/make_obstacles.py from OpenStreetMap + ESO, ODbL). ONE button together
@@ -2863,8 +2965,8 @@ function obsLabel(){ var H = ['abs', ['get', 'h']];
 function obsIcon(){ var normal = ['match', ['get', 'k'], 'turbine', 'obs-wind', 'obs-spike'];
   return window.wxMode === '3d' ? ['step', ['zoom'], normal, OBS_Z_3D, ['case', ['!=', ['get', 'h'], 0], '', normal]] : normal; }
 function obsDotOp(){ return window.wxMode === '3d' ? ['step', ['zoom'], 1, OBS_Z_3D, ['case', ['!=', ['get', 'h'], 0], 0, 1]] : 1; }
-function obsSlot(){ var ls = wxStyleLayers(), i; // just above the zones, below the lightning / thunderstorm bolts (liSlot)
-  for (i = 0; i < ls.length; i++){ if (ls[i].id === 'wxli-layer' || ls[i].id === 'wxstorm-layer') return ls[i].id; }
+function obsSlot(){ var ls = wxStyleLayers(), i; // just above the zones, below the lightning / thunderstorm bolts and the flames (liSlot)
+  for (i = 0; i < ls.length; i++){ if (ls[i].id === 'wxli-layer' || ls[i].id === 'wxstorm-layer' || ls[i].id === 'wxfire-layer') return ls[i].id; }
   for (i = 0; i < ls.length; i++){ if (ls[i].id === 'o-CONDITIONAL'){ // above the zones AND the airfields (aero-*), which stay just above the zones
     for (i++; i < ls.length && ls[i].id.indexOf('aero-') === 0; i++){}
     return i < ls.length ? ls[i].id : undefined; } }
@@ -3202,8 +3304,8 @@ var AERO_KIND = {
   en: {international: 'International airport', 'public': 'Public airport', regional: 'Regional airport', military: 'Military airfield',
        'private': 'Private airfield', other: 'Airfield', heliport: 'Heliport', helipad: 'Helipad', runway: 'Runway', hospital: 'Hospital'}};
 function aeroEn(){ return (window.LANG || 'bg') === 'en'; }
-function aeroBefore(){ var ls = wxStyleLayers(), i; // the lowest obstacle / lightning layer, else just above the zones
-  for (i = 0; i < ls.length; i++){ var id = ls[i].id; if (id.indexOf('obs-') === 0 || id === 'wxli-layer' || id === 'wxstorm-layer') return id; }
+function aeroBefore(){ var ls = wxStyleLayers(), i; // the lowest obstacle / lightning / flame layer, else just above the zones
+  for (i = 0; i < ls.length; i++){ var id = ls[i].id; if (id.indexOf('obs-') === 0 || id === 'wxli-layer' || id === 'wxstorm-layer' || id === 'wxfire-layer') return id; }
   return map.getLayer('o-CONDITIONAL') ? wxAboveOf('o-CONDITIONAL') : undefined; }
 function aeroIcons(){ var pr = 2;
   function make(id, w, h, draw){ if (map.hasImage(id)) return;

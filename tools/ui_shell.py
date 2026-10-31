@@ -507,12 +507,17 @@ NATURE_SECTION = (
   '<span class="chip" id="cbNat"><span class="dot" style="background:#2e7d32"></span><span data-i18n="natShow">Натура 2000</span></span>'
   # protected territories (owner 16.10): red outline = an explicit drone/flight ban in an official document
   '<span class="chip" id="cbZzt"><span class="dot" style="background:#2e7d32;box-shadow:inset 0 0 0 2px #d32f2f"></span><span data-i18n="zztShow">Защитени територии</span></span>'
+  # hot spots (owner 31.10): satellite detections, not confirmed fires
+  '<span class="chip" id="cbFire"><span class="dot" style="background:#e64a19"></span><span data-i18n="fireShow">Пожари</span></span>'
   '</div>'
   '<div class="flnote" data-i18n="natNote">Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ</div>'
   '<div class="flnote" data-i18n="zztNote">Защитени територии: червен контур = изрична забрана за дронове или полети; пунктир = само в част от територията или от годината; зелено = не е открита изрична забрана · ИАОС / МОСВ</div>'
+  '<div class="flnote" data-i18n="fireNote">Пожари: сателитни засичания за последните 24 ч, по-бледите са по-стари. Показват и постоянни горещи места извън България. Закъснение 30–45 мин. Малки пожари и пожари под облаци не се виждат · демонстрационен продукт · EUMETSAT LSA SAF</div>'
+  '<div class="flnote" id="wxfirefresh" style="display:none"></div>'
   # a load failure is told here (filled by JS)
   '<div class="flnote" id="wxnatmsg" style="display:none"></div>'
   '<div class="flnote" id="wxzztmsg" style="display:none"></div>'
+  '<div class="flnote" id="wxfiremsg" style="display:none"></div>'
   '</div>')
 
 

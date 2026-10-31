@@ -237,6 +237,7 @@ var T = {
      secNotam:'NOTAM (временни)',ntShow:'NOTAM',ntP:'забранена',ntD:'опасна',ntR:'ограничена (щрих)',ntM:'военна/сегрегирана',ntW:'предупреждение',ntO:'препятствие',ntG:'GNSS смущения',ntUpc:'приглушените са предстоящи (все още неактивни)',ntSrc:'Международна серия (FAA)',
      secNat:'Природа',natShow:'Натура 2000',natNote:'Натура 2000 сама по себе си не забранява полети с дрон · граници: ЕАОС (опростени), имена: МОСВ',
      zztShow:'Защитени територии',zztNote:'Защитени територии: червен контур = изрична забрана за дронове или полети; пунктир = само в част от територията или от годината; зелено = не е открита изрична забрана · ИАОС / МОСВ',
+     fireShow:'Пожари',fireNote:'Пожари: сателитни засичания за последните 24 ч, по-бледите са по-стари. Показват и постоянни горещи места извън България. Закъснение 30–45 мин. Малки пожари и пожари под облаци не се виждат · демонстрационен продукт · EUMETSAT LSA SAF',
      disc:'Неофициална визуализация. Преди полет е задължителна проверка на официалния източник и <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, активни зони).',
      warnDisc:'Метеопредупреждения (НИМХ, Meteoalarm): възможни са закъснения спрямо <a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">meteoalarm.org</a>. Най-новите предупреждения на националните метеорологични служби са на meteoalarm.org.',
      tP:'ЗАБРАНЕНА',tA:'НЕОБХОДИМО РАЗРЕШЕНИЕ',tC:'УСЛОВНА'},
@@ -251,6 +252,7 @@ var T = {
      secNotam:'NOTAM (temporary)',ntShow:'NOTAM',ntP:'prohibited',ntD:'danger',ntR:'restricted (hatch)',ntM:'military/segregated',ntW:'warning',ntO:'obstacle',ntG:'GNSS interference',ntUpc:'muted = upcoming (not yet active)',ntSrc:'International series (FAA)',
      secNat:'Nature',natShow:'Natura 2000',natNote:'Natura 2000 by itself does not ban drone flights · boundaries: EEA (simplified), names: MOEW',
      zztShow:'Protected areas',zztNote:'Protected areas: red outline = an explicit drone or flight ban; dashed = only in part of the area or of the year; green = no explicit ban found · ИАОС / MOEW',
+     fireShow:'Fires',fireNote:'Fires: satellite detections of the last 24 h, the fainter the older. They also show permanent hot places outside Bulgaria. 30–45 min delay. Small fires and fires under clouds are not seen · demonstration product · EUMETSAT LSA SAF',
      disc:'Unofficial visualization. Before flying, check the official source and <a href="https://b-flip.bulatsa.com" target="_blank" rel="noopener">B-FLIP</a> (NOTAM, active zones).',
      warnDisc:'Weather warnings (NIMH, Meteoalarm): Time delays between this website and the <a href="https://meteoalarm.org/en/live/" target="_blank" rel="noopener">www.meteoalarm.org</a> website are possible. For the most up-to-date awareness information as published by the participating National Meteorological and Hydrological Services, please refer to www.meteoalarm.org.',
      tP:'PROHIBITED',tA:'AUTHORISATION REQUIRED',tC:'CONDITIONAL'}
@@ -299,10 +301,10 @@ function popupHTML(p){ var t = T[LANG];
 // --- overlapping-zone chooser ---
 var curPopup = null, curList = [], curRender = null, curPick = null; // curPick = the list item whose detail is open (null = list view)
 // signature of a feature list (zones by index, NOTAMs by id) - to tell "same set" apart
-function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._wr ? ('w' + p.nuts) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
+function listSig(list){ return list.map(function(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + p._xid) : p._fire ? ('h' + p._fk) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._wr ? ('w' + p.nuts) : p._air ? ('a' + p._aid) : ('z' + p.fi); }).sort().join('|'); }
 // a key that survives a reload (zone ID, NOTAM number, zone name + start, site code...) - names a
 // popup item inside a shared-view link (ROADMAP 8b); the feature indexes above do not
-function stKey(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + (p.n || '') + '|' + (p.s || '')) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._wr ? ('w' + p.nuts) : p._air ? ('a' + (p.n || p._aid)) : ('z' + p.id); }
+function stKey(p){ return p._nt ? ('n' + p.id) : p._act ? ('x' + (p.n || '') + '|' + (p.s || '')) : p._fire ? ('h' + p._fk) : p._aero ? ('e' + p._ak) : p._obs ? ('o' + p._oid) : p._zzt ? ('t' + p.i) : p._nat ? ('u' + p.c) : p._wr ? ('w' + p.nuts) : p._air ? ('a' + (p.n || p._aid)) : ('z' + p.id); }
 // thicken the outline of the ONE item a popup shows (airspace, activated zone, protected territory or Natura 2000 site); none = null
 function selShown(p){
   if (window.wxAirSelect) window.wxAirSelect(p && p._air ? p._aid : null);
@@ -320,6 +322,8 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(window.wxNotamName(p)) + '</b> <span class="ptype">NOTAM · ' + esc(window.wxNotamSub(p)) + '</span>'; }
     else if (p._act){ dot = window.wxActColor(p);
       inner = '<b>' + esc(window.wxActName(p)) + '</b> <span class="ptype">' + esc(window.wxActSub(p)) + '</span>'; }
+    else if (p._fire){ dot = window.wxFireColor(p);
+      inner = '<b>' + esc(window.wxFireName(p)) + '</b> <span class="ptype">' + esc(window.wxFireSub(p)) + '</span>'; }
     else if (p._aero){ dot = window.wxAeroColor(p); var es = window.wxAeroSub(p);
       inner = '<b>' + esc(window.wxAeroName(p)) + '</b>' + (es ? ' <span class="ptype">' + esc(es) + '</span>' : ''); }
     else if (p._obs){ dot = window.wxObsColor(p);
@@ -336,7 +340,7 @@ function listHTML(list){ var h = '<div class="zlh">' + list.length + ' ' + T[LAN
       inner = '<b>' + esc(p.n) + '</b> <span class="ptype">' + esc(p.lim) + ' · ' + ztype(p.r) + '</span>'; }
     h += '<div class="zpick" data-i="' + i + '"><span class="pdot" style="background:' + dot + '"></span><span>' + inner + '</span></div>'; });
   return h; }
-function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._aero ? window.wxAeroDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._wr ? window.wxWarnDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
+function detailHTML(p, withBack){ return (withBack ? '<div class="zback">‹ ' + T[LANG].backList + ' (' + curList.length + ')</div>' : '') + (p._nt ? window.wxNotamDetail(p) : p._act ? window.wxActDetail(p) : p._fire ? window.wxFireDetail(p) : p._aero ? window.wxAeroDetail(p) : p._obs ? window.wxObsDetail(p) : p._zzt ? window.wxZztDetail(p) : p._nat ? window.wxNatDetail(p) : p._wr ? window.wxWarnDetail(p) : p._air ? window.wxAirDetail(p) : popupHTML(p)); }
 function wirePopup(){ var el = curPopup && curPopup.getElement && curPopup.getElement(); if (!el || el._zwired) return;
   // ONE delegated handler on the popup root (a STATIC ancestor, survives setHTML) instead of
   // re-wiring onclick on each row / the "back" button after every content swap - the re-wiring
@@ -365,6 +369,7 @@ function openZones(list, lngLat){ if (!list.length) return; curList = list; curP
 function featShown(p){
   if (p._nt) return !!map.getLayer('notam-pin');
   if (p._act) return !!map.getLayer('act-fill');
+  if (p._fire) return !!map.getLayer('wxfire-layer');
   if (p._aero) return !!map.getLayer('aero-label');
   if (p._obs) return !!map.getLayer('obs-line');
   if (p._zzt) return !!map.getLayer('wxnat-t-fill');
@@ -800,6 +805,10 @@ map.on('load', function(){
     if (xl.length){ var xs = {};
       map.queryRenderedFeatures(box, {layers: xl}).forEach(function(f){ var xid = f.id;
         if (xid != null && !xs[xid]){ xs[xid] = 1; var p = {}; for (var k in f.properties) p[k] = f.properties[k]; p._act = true; p._xid = xid; list.push(p); } }); }
+    // hot spots (when that layer is on): the flames under the click are ONE item, the newest; a closer zoom tells them apart
+    if (map.getLayer('wxfire-layer')){ var fb = [[pt.x - 8, pt.y - 8], [pt.x + 8, pt.y + 8]], fq = null;
+      map.queryRenderedFeatures(fb, {layers: ['wxfire-layer']}).forEach(function(f){ if (!fq || f.properties.t > fq.t) fq = f.properties; });
+      if (fq){ var fp = {}; for (var fk in fq) fp[fk] = fq[fk]; fp._fire = true; fp._fk = fq.t + '|' + fq.f + '|' + fq.n; list.push(fp); } }
     // airfields, helipads, hospitals (when that layer is on): their signs and the runways; one item per kind + name + ref
     var el2 = ['aero-label','aero-heli','aero-hosp','aero-rwy','aero-rwy-area'].filter(function(id){ return map.getLayer(id); });
     if (el2.length){ var es = {}, eb = [[pt.x - 6, pt.y - 6], [pt.x + 6, pt.y + 6]];
