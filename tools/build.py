@@ -53,6 +53,7 @@ def _adapt(nf):
                            "contactName": p.get("contact_name") or "",
                            "email": p.get("contact_email") or "",
                            "phone": p.get("contact_phone") or ""}],
+        "applicant": (p.get("applicant") or "").strip(),   # who asked the CAA for the zone, verbatim (owner 08.11); not an ED-269 field
         "geometry": [{"uomDimensions": "M",
                       "lowerLimit": p.get("vertical_min_agl") or 0,
                       "lowerVerticalReference": "AGL",
@@ -78,13 +79,17 @@ def fetch():
     # neither churns the file nor bumps the shown date on a no-op fetch; advance it only on a
     # real change. This is the page's freshness / staleness signal.
     from datetime import datetime, timezone
-    new_sig = json.dumps(out, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    def sig(fs, drop=None):
+        return json.dumps([{k: v for k, v in f.items() if k != drop} for f in fs], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    new_sig = sig(out)
     changed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if os.path.exists(dst):
         try:
             prev = json.load(open(dst, encoding="utf-8"))
-            prev_sig = json.dumps(prev.get("features", []), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-            if prev_sig == new_sig and prev.get("changed"):
+            old = prev.get("features", [])
+            # a file from before "applicant" was carried (08.11.2026) is compared without it: adding the field is no change of the zones
+            same = sig(old) == new_sig or (old and all("applicant" not in f for f in old) and sig(old) == sig(out, "applicant"))
+            if same and prev.get("changed"):
                 changed = prev["changed"]
         except Exception:
             pass
