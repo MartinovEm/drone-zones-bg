@@ -72,18 +72,19 @@ KX, KY = 111320.0 * math.cos(LAT0), 110540.0   # metres per degree around Bulgar
 # ---- small helpers -------------------------------------------------------------------------
 
 def http(url, path):
-    """Download url to path; two retries."""
-    for attempt in range(3):
+    """Download url to path; four retries a minute apart, so a network blip of a few minutes on the
+    runner does not fail the run (owner 15.11, after a one-off „Network is unreachable“ to Geofabrik)."""
+    for attempt in range(5):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=HDRS), timeout=600) as r, \
                     open(path, "wb") as f:
                 shutil.copyfileobj(r, f, 1 << 20)
             return
         except Exception as e:
-            if attempt == 2:
+            if attempt == 4:
                 raise SystemExit("download failed (%s): %s" % (url, e))
-            print("  retry (%s): %s" % (url, e))
-            time.sleep(20)
+            print("  retry (%s): %s" % (url, e), flush=True)
+            time.sleep(60)
 
 
 def num(s):
