@@ -5,9 +5,12 @@ Every watched source is fetched once and its fingerprint compared with tools/rul
 a PDF by its bytes, a page by its main text and the PDF documents it links to (the pages carry
 per-request codes, so a whole-page hash would always differ), lex.bg by its list of amendments.
 A changed fingerprint or a dead link (404 / 410) fails the run, so GitHub e-mails the repository
-owner; the log names what changed. A source that does not answer (network error, 5xx), or answers
-without the document's own content (a bot check or consent page: no PDF, no <article> / <main>
-text, no amendment list), is only a ::warning - nothing is known to have changed. The panel's „Сверено с официалните текстове на
+owner; the log names what changed. A source that does not answer (network error, 5xx), refuses
+(e.g. lex.bg's HTTP 403 to GitHub's runner on 16.11) or answers without the document's own content
+(a bot check or consent page: no PDF, no <article> / <main> text, no amendment list) is asked again
+a minute later, 5 times in all; if it still has no proper answer it fails the run too, as NOT
+CHECKED - nothing is known to have changed, but the owner wants to know that a text went
+unchecked (16.11.2026); the next Monday tries again. The panel's „Сверено с официалните текстове на
 <дата>“ never moves by itself: after a real re-check of the changed text, refresh the stored
 fingerprints with  python tools/rules_watch.py --update  and commit tools/rules_sources.json.
 
@@ -55,22 +58,18 @@ SOURCES = [
 HEADERS = {"User-Agent": "bgr-drone-zones rules watch (https://martinovem.github.io/drone-zones-bg/)", "Accept-Language": "bg,en;q=0.8"}
 
 
+TRIES = 5  # a source without a proper answer is asked again a minute later, 5 times in all (owner 16.11)
+
+
 def fetch(url):
-    """(status, body, headers); status 0 = no answer. Retried twice, 15 s apart, like the sources watchdog."""
-    last = (0, b"", {"error": "no attempt"})
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS), timeout=60) as r:
-                return r.status, r.read(), dict(r.headers)
-        except urllib.error.HTTPError as e:
-            last = (e.code, e.read() or b"", dict(e.headers or {}))
-            if e.code < 500:
-                return last  # a 4xx is an answer, not a hiccup
-        except Exception as e:  # network error / timeout
-            last = (0, b"", {"error": repr(e)[:200]})
-        if attempt < 2:
-            time.sleep(15)
-    return last
+    """(status, body, headers); status 0 = no answer. One try: main() asks again a minute later."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS), timeout=60) as r:
+            return r.status, r.read(), dict(r.headers)
+    except urllib.error.HTTPError as e:
+        return e.code, e.read() or b"", dict(e.headers or {})
+    except Exception as e:  # network error / timeout
+        return 0, b"", {"error": repr(e)[:200]}
 
 
 def strip_html(s):
@@ -144,7 +143,13 @@ def main(argv):
     stored = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
     fresh, changed, dead, unreachable, changed_src = {}, [], [], [], set()
     for key, kind, url, label in SOURCES:
-        status, body, hdr = load_source(key, url, fixtures)
+        for attempt in range(TRIES):  # a refusal, no answer or a bot page: ask again a minute later; a dead link is final
+            status, body, hdr = load_source(key, url, fixtures)
+            if fixtures or status in (404, 410) or (status == 200 and body and fingerprint(kind, body) is not None) or attempt == TRIES - 1:
+                break
+            why = "an answer without the document's own content" if status == 200 else ("HTTP %s" % status) if status else hdr.get("error", "no answer")
+            print("  %s - %s, asking again in a minute" % (label, why), flush=True)
+            time.sleep(60)
         if status in (404, 410):
             dead.append("%s - HTTP %s (the link is gone): %s" % (label, status, url))
             continue
@@ -170,7 +175,7 @@ def main(argv):
             changed.append("%s - %s: %s" % (label, d, url))
             changed_src.add(key)
     for u in unreachable:
-        print("::warning title=Rules source not reachable::" + u)
+        print("::error title=Rules source not checked::" + u)
     if update:
         json.dump(fresh, open(path, "w", encoding="utf-8", newline="\n"), ensure_ascii=False, indent=1, sort_keys=True)
         print("stored %d fingerprints in %s (%d sources did not answer: kept their old ones)" % (len(fresh), path, len(unreachable)))
@@ -179,12 +184,15 @@ def main(argv):
         print("CHANGED: " + c)
     for d in dead:
         print("DEAD LINK: " + d)
+    for u in unreachable:
+        print("NOT CHECKED: " + u)
     ok = len(SOURCES) - len(changed_src) - len(dead) - len(unreachable)
-    print("%d of %d sources unchanged, %d changed, %d dead links, %d not reachable" % (ok, len(SOURCES), len(changed_src), len(dead), len(unreachable)))
+    print("%d of %d sources unchanged, %d changed, %d dead links, %d not checked" % (ok, len(SOURCES), len(changed_src), len(dead), len(unreachable)))
     if changed or dead:
         print("Re-check the changed text(s); update tools/rules_panel.py (its texts need the owner's „да“) and its date only after that; then run --update and commit tools/rules_sources.json.")
-        return 1
-    return 0
+    if unreachable:
+        print("NOT CHECKED means the site refused or did not answer: nothing is known to have changed; next Monday's run tries again.")
+    return 1 if (changed or dead or unreachable) else 0
 
 
 if __name__ == "__main__":
