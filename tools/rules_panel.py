@@ -10,7 +10,7 @@ the shell script. Both languages are in the page; html[lang] (set by applyLang) 
 import re
 from html import escape
 
-RULES_DATE = "21.10.2026"
+RULES_DATE = "16.11.2026"
 
 _E947 = "https://eur-lex.europa.eu/legal-content/%s/TXT/?uri=CELEX:02019R0947-20250501"
 _E945 = "https://eur-lex.europa.eu/legal-content/%s/TXT/?uri=CELEX:02019R0945-20250624"

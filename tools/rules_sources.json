@@ -19,8 +19,8 @@
  },
  "caa633": {
   "pdfs": [],
-  "text_chars": 213,
-  "text_sha256": "cedd341b4ef8557c47c675c7d0380860d3a45b1b3593e9fc6d8c699e93183cc1",
+  "text_chars": 238,
+  "text_sha256": "8f041ad0a10f3c568e1d03731741ac8736d1efad6c7df100245fc4ec689594f2",
   "url": "https://www.caa.bg/bg/category/633"
  },
  "caan6": {
@@ -38,6 +38,8 @@
  },
  "crc2480": {
   "pdfs": [
+   "/files/URChS/ObstObsazhdane/Pravila svobodno 2026/Publikuvane sled DV/Prilojenie 2.4. transport and traffic telematics 2026.pdf",
+   "/files/URChS/ObstObsazhdane/Pravila svobodno 2026/Publikuvane sled DV/Prilojenie 2.5. radiodetermination applications 2026.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_10_RFID.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_11_active_medical_implants.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_12_UWB_applications.pdf",
@@ -45,12 +47,10 @@
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_1_non_specific_short_range_devices.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_2_tracking_tracing_and_data_aquisition.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_3_wideband_data_transmission_systems.pdf",
-   "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_4_transport_and_traffic_telematics.pdf",
-   "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_5_radiodetermination_applications.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_6_alarms.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_7_model_control.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_8_inductive_applications.pdf",
-   "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_9_microphone_ALD_FM_PMSE.pdf"
+   "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_2_9_microphone_ALD_FM.pdf"
   ],
   "text_chars": 1290,
   "text_sha256": "9cae6d7d9a64cb69cf4b4c86bcb3d59acb99bbba4b4c4442aa418384924dce6a",
@@ -62,8 +62,8 @@
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_4_SAP_SAB_ENG_OB.pdf",
    "/files/URChS/RChS/Pravila_svobodno_polzvane/Prilojenie_5_MCA_and_MCV.pdf"
   ],
-  "text_chars": 34217,
-  "text_sha256": "810eca1d410f0dfa591aa16bc24efe0a6e55fef536828577bca5192dc96468a2",
+  "text_chars": 35099,
+  "text_sha256": "0d2eaeacdbc64650204ea79fb4f27e5298b1be0c772c3493ee847411b8ba99d6",
   "url": "https://crc.bg/bg/statii/2587/pravila-za-svobodno-izpolzvane-na-radiochestotniq-spektar"
  },
  "crcham": {
