@@ -30,20 +30,21 @@ jobs:
       - name: Aircraft relay (Deno; ADS-B + MLAT)
         run: |
           set -e
+          # The answer goes to a FILE: when curl retries (e.g. the relay's 502 „upstream unavailable“ on a
+          # cold start, then a 200 a minute later), the file holds only the last answer. Captured on stdout,
+          # both answers stuck together and a good 200 failed as broken JSON (run #282, 27.11.2026).
           url="https://full-narwhal-4777.martinovem.deno.net/"
           hdr=$(mktemp)
-          body=$(curl -sS --retry 4 --retry-delay 60 --retry-all-errors -m 30 -D "$hdr" -H "Origin: https://martinovem.github.io" "$url" -w '\n%{http_code}')
-          code=$(printf '%s' "$body" | tail -n 1)
-          json=$(printf '%s' "$body" | sed '$d')
+          code=$(curl -sS --retry 4 --retry-delay 60 --retry-all-errors -m 30 -D "$hdr" -o body.json -w '%{http_code}' -H "Origin: https://martinovem.github.io" "$url") || code=000
           echo "HTTP $code"
           if [ "$code" != "200" ]; then
             echo "relay did not answer 200; body and X-Relay-Err follow:"
-            grep -i 'x-relay-err' "$hdr" || true
-            printf '%s' "$json" | head -c 400
+            grep -i 'x-relay-err' "$hdr" | tail -n 1 || true
+            head -c 400 body.json 2>/dev/null || true
             exit 1
           fi
-          count=$(printf '%s' "$json" | python3 -c 'import sys, json; print(len(json.load(sys.stdin).get("ac", [])))')
-          age=$(grep -i '^x-data-age-ms:' "$hdr" | tr -dc '0-9' || echo 0)
+          count=$(python3 -c 'import json; print(len(json.load(open("body.json")).get("ac", [])))')
+          age=$(grep -i '^x-data-age-ms:' "$hdr" | tail -n 1 | tr -dc '0-9' || echo 0)
           echo "aircraft in the box: $count; data age: ${age:-?} ms"
           if [ "$count" -lt 1 ]; then
             echo "relay answered but the sky is empty — likely an upstream problem"
